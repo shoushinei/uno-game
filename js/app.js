@@ -385,3 +385,56 @@ window.leaveGame = function () {
 document.getElementById("ri").addEventListener("input", function () {
   this.value = this.value.toUpperCase();
 });
+// ----------------------------------------
+// ゲーム退出（無人になったら部屋を自動削除）
+// ----------------------------------------
+window.leaveGame = async function () {
+  const rid = state.roomId;
+  const myId = state.myId;
+
+  // 1. まずはリアルタイム同期を止める
+  stopListening();
+
+  // 2. ルームIDと自分のIDがある場合、Firebase上のデータを整理する
+  if (rid && myId) {
+    try {
+      // データベースから最新の部屋情報を取得
+      const room = await fbGet("rooms/" + rid);
+      
+      if (room && room.players) {
+        // 自分を除いた「残りのプレイヤー」のリストを作る
+        const remainingPlayers = room.players.filter((p) => p.id !== myId);
+
+        if (remainingPlayers.length === 0) {
+          // 💡誰もいなくなった場合は、部屋のデータを丸ごと消去（nullをセット）
+          await fbSet("rooms/" + rid, null);
+          dbg("無人になったためルームを削除しました: " + rid);
+        } else {
+          // 💡まだ他の人が残っている場合
+          const updates = { players: remainingPlayers };
+          
+          // もし退出する自分が「ホスト」だった場合、残った最初のプレイヤーにホストを譲る
+          if (room.host === myId) {
+            updates.host = remainingPlayers[0].id;
+            // ゲーム画面のログにホスト交代を通知
+            const logs = [...(room.log || []), `${remainingPlayers[0].name} が新しいホストになりました`];
+            updates.log = logs.slice(-8);
+          }
+          
+          // Firebaseのデータを更新
+          await fbUpdate("rooms/" + rid, updates);
+          dbg("ルームから退出しました: " + rid);
+        }
+      }
+    } catch (e) {
+      dbg("退出処理でエラーが発生しました: " + e.message, true);
+    }
+  }
+
+  // 3. アプリ内のローカル状態をリセットしてホーム画面に戻る
+  state.roomId = "";
+  state.myId   = "";
+  state.myName = "";
+  state.isHost = false;
+  show("home");
+};
