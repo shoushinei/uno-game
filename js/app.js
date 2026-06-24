@@ -9,24 +9,64 @@ import {
   renderLobby, renderGame, renderResult, flashReactionBtn,
 } from "./ui.js";
 
-// ----------------------------------------
-// Firebase 接続テスト & 初期化
-// ----------------------------------------
-async function init() {
-  setStatus("Firebase 接続テスト中...");
-  dbg("初期化開始");
-  const ok = await testConnection();
-  if (ok) {
-    setStatus("Firebase 接続完了 ✓", "ok");
-    dbg("接続成功");
-  } else {
-    setStatus("接続エラー — Firebase のルールを確認してください", "err");
-    dbg("接続失敗", true);
-  }
-}
+// Firebase Config から Auth 機能をインポート
+import { auth, googleProvider } from "./firebase-config.js";
+import { signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // ----------------------------------------
-// リアルタイムリスナー
+// Google ログインポップアップ呼び出し
+// ----------------------------------------
+window.loginWithGoogle = async function () {
+  try {
+    setStatus("Google ログイン画面を起動中...");
+    await signInWithPopup(auth, googleProvider);
+  } catch (e) {
+    setHomeMsg("ログイン失敗: " + e.message);
+    setStatus("ログインエラー", "err");
+    dbg("Googleログイン失敗: " + e.message, true);
+  }
+};
+
+// ----------------------------------------
+// ログイン状態の常時監視（起動・初期化処理）
+// ----------------------------------------
+onAuthStateChanged(auth, async (user) => {
+  const loginArea = document.getElementById("login-area");
+  const gameMenuArea = document.getElementById("game-menu-area");
+  const niInput = document.getElementById("ni");
+
+  if (user) {
+    // ログインに成功している場合
+    dbg("Google ログイン成功: " + user.displayName);
+    if (loginArea) loginArea.style.display = "none";
+    if (gameMenuArea) gameMenuArea.style.display = "block";
+    
+    // Googleの表示名を名前欄に自動セット
+    if (niInput) {
+      niInput.value = user.displayName ? user.displayName.slice(0, 12) : "ゲスト";
+    }
+
+    // ログイン完了後に初めて通信テストを行う（ルールがauth!=nullでもエラーにならない）
+    setStatus("Firebase 接続テスト中...");
+    const ok = await testConnection();
+    if (ok) {
+      setStatus(`ログイン中: ${user.displayName} ✓`, "ok");
+      dbg("Firebase 接続成功");
+    } else {
+      setStatus("接続エラー — データベースへのアクセス権限がありません", "err");
+      dbg("Firebase 接続失敗", true);
+    }
+  } else {
+    // ログインしていない場合（初期状態）
+    if (loginArea) loginArea.style.display = "block";
+    if (gameMenuArea) gameMenuArea.style.display = "none";
+    setStatus("Googleアカウントでログインしてください");
+    dbg("未ログイン状態");
+  }
+});
+
+// ----------------------------------------
+// リアルタイムリスナー（ゲーム部屋用）
 // ----------------------------------------
 function startListening() {
   if (state.unsubscribeRoom) state.unsubscribeRoom();
@@ -215,7 +255,6 @@ async function doPlayCard(idx, chosenColor) {
     const updates = { game: newG, log: logs.slice(-8) };
 
     if (isFinished) {
-      // 最後の一人を rankings に追加
       if (newG.order.length === 1) {
         const lastId   = newG.order[0];
         const lastName = room.players.find((p) => p.id === lastId)?.name || "?";
@@ -297,14 +336,12 @@ window.sendReaction = async function (emoji) {
   state.reactionCooldown  = true;
   state.lastSentReaction  = emoji;
 
-  // ボタンのビジュアルフィードバック
   flashReactionBtn(emoji);
 
   try {
     await fbSet(`rooms/${state.roomId}/reactions/${state.myId}`, { emoji, ts: Date.now() });
   } catch (e) { dbg("sendReaction error: " + e.message, true); }
 
-  // 2秒間クールダウン
   setTimeout(() => { state.reactionCooldown = false; }, 2000);
 };
 
@@ -345,8 +382,3 @@ window.leaveGame = function () {
 document.getElementById("ri").addEventListener("input", function () {
   this.value = this.value.toUpperCase();
 });
-
-// ----------------------------------------
-// 起動
-// ----------------------------------------
-init();
