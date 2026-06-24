@@ -1,0 +1,64 @@
+/* ============================================================
+   lobby.css — ホーム画面 & ロビー画面
+   ============================================================ */
+
+/* ---- ホーム: カードファン ---- */
+.card-fan { display: flex; margin-top: 8px; margin-bottom: 12px; }
+.cd {
+  width: 44px; height: 66px;
+  border-radius: 8px;
+  border: 2px solid white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; font-weight: 700; color: white;
+  box-shadow: 2px 3px 8px rgba(0,0,0,.2);
+}
+.cd.r { background: #e74c3c; transform: rotate(-18deg) translateX(8px); }
+.cd.b { background: #2980b9; transform: rotate(-6deg); }
+.cd.g { background: #27ae60; transform: rotate(6deg) translateX(-4px); }
+.cd.y { background: #f39c12; transform: rotate(18deg) translateX(-10px); }
+
+/* ---- ホーム: タイトル ---- */
+.home-title {
+  font-size: 52px; font-weight: 800; letter-spacing: -3px;
+  color: #e74c3c;
+  margin-bottom: 2px;
+}
+.home-sub { color: var(--color-text-secondary); font-size: 13px; margin-bottom: 20px; }
+
+/* ---- ロビー: ルームID ---- */
+.room-id {
+  font-size: 34px; font-weight: 700; letter-spacing: 8px;
+  color: #e74c3c; margin: 8px 0 4px;
+  text-align: center;
+}
+.room-hint { font-size: 11px; color: var(--color-text-tertiary); text-align: center; }
+
+/* ---- ロビー: プレイヤーリスト ---- */
+.sec {
+  font-size: 12px; font-weight: 500;
+  color: var(--color-text-secondary);
+  width: 100%; max-width: 320px;
+  margin-bottom: 6px;
+}
+.plist {
+  width: 100%; max-width: 320px;
+  display: flex; flex-direction: column;
+  gap: 6px; margin-bottom: 12px;
+}
+.pi {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md, 8px);
+  font-size: 13px;
+  transition: border-color 0.2s;
+}
+.av {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: white;
+  flex-shrink: 0;
+}
+.pi-name { flex: 1; font-weight: 500; }
+.pi-tags { display: flex; gap: 4px; align-items: center; }

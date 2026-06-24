@@ -1,0 +1,131 @@
+/* ============================================================
+   base.css — リセット・共通スタイル・変数
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  color: var(--color-text-primary);
+  background: transparent;
+  line-height: 1.5;
+}
+
+/* ---- 画面切り替え ---- */
+.screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+  min-height: 500px;
+  animation: fadeIn 0.2s ease;
+}
+.screen.active { display: flex; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- 共通ボタン ---- */
+.btn {
+  width: 100%;
+  max-width: 320px;
+  padding: 11px 16px;
+  border-radius: var(--border-radius-md, 8px);
+  border: 0.5px solid var(--color-border-secondary);
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.btn:hover  { background: var(--color-background-tertiary); }
+.btn:active { transform: scale(0.98); }
+.btn.red    { background: #e74c3c; border-color: #e74c3c; color: white; font-weight: 600; }
+.btn.red:hover  { background: #c0392b; }
+.btn.red:disabled,
+.btn:disabled   { opacity: 0.45; cursor: not-allowed; transform: none; }
+.btn.sm {
+  width: auto;
+  padding: 6px 12px;
+  font-size: 12px;
+  margin: 0;
+}
+
+/* ---- 共通 input ---- */
+input {
+  width: 100%;
+  max-width: 320px;
+  padding: 10px 14px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md, 8px);
+  font-size: 15px;
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+  outline: none;
+  transition: box-shadow 0.15s;
+}
+input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
+
+/* ---- メッセージ ---- */
+.msg          { font-size: 12px; color: var(--color-text-secondary); text-align: center; min-height: 18px; margin-top: 4px; }
+.msg.err      { color: #e74c3c; font-weight: 500; }
+.msg.ok       { color: #27ae60; font-weight: 500; }
+.msg.warn     { color: #f39c12; font-weight: 500; }
+
+/* ---- OR 区切り ---- */
+.or {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+  margin: 2px 0 8px;
+}
+.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--color-border-tertiary); }
+
+/* ---- タグ ---- */
+.tag           { font-size: 11px; padding: 2px 7px; border-radius: 20px; white-space: nowrap; }
+.tag.you       { background: var(--color-background-info);    color: var(--color-text-info); }
+.tag.host      { background: var(--color-background-warning); color: var(--color-text-warning); }
+.tag.ready     { background: #27ae60; color: white; }
+.tag.not-ready { background: #95a5a6; color: white; }
+
+/* ---- ボックス ---- */
+.box {
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg, 12px);
+  padding: 14px 18px;
+  width: 100%;
+  max-width: 320px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+/* ---- デバッグログ ---- */
+.dbg {
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md, 8px);
+  padding: 8px 12px;
+  width: 100%;
+  max-width: 320px;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-secondary);
+  max-height: 72px;
+  overflow-y: auto;
+  margin-top: 8px;
+}

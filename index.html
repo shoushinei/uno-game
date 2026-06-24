@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNO オンライン</title>
+
+  <!-- スタイルシート -->
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/lobby.css">
+  <link rel="stylesheet" href="css/game.css">
+  <link rel="stylesheet" href="css/result.css">
+</head>
+<body>
+
+<!-- =====================================================
+     ホーム画面
+     ===================================================== -->
+<div id="s-home" class="screen active">
+  <div class="card-fan">
+    <div class="cd r">7</div>
+    <div class="cd b">+2</div>
+    <div class="cd g">⊘</div>
+    <div class="cd y">W</div>
+  </div>
+  <h1 class="home-title">UNO</h1>
+  <p class="home-sub">リアルタイムマルチプレイヤー</p>
+
+  <input id="ni" placeholder="あなたの名前（12文字以内）" maxlength="12">
+  <button class="btn red" id="create-btn" onclick="createRoom()">新しいルームを作る</button>
+
+  <div class="or">または</div>
+
+  <input id="ri" placeholder="ルームID（4文字）を入力" maxlength="4" style="text-transform:uppercase">
+  <button class="btn" id="join-btn" onclick="joinRoom()">ルームに参加する</button>
+
+  <p class="msg err" id="hm"></p>
+  <p class="msg" id="fb-status">Firebase 接続中...</p>
+  <div class="dbg" id="dbg-log"></div>
+</div>
+
+
+<!-- =====================================================
+     ロビー画面
+     ===================================================== -->
+<div id="s-lobby" class="screen">
+  <h2 style="font-size:20px;font-weight:600;margin-bottom:4px">ロビー</h2>
+  <p class="home-sub">友達を招待してゲームを始めよう</p>
+
+  <div class="box">
+    <p style="font-size:11px;color:var(--color-text-secondary)">ルームID（友達に共有しよう）</p>
+    <div class="room-id" id="lrid">----</div>
+    <p class="room-hint">友達は同じIDを入力して参加できます</p>
+  </div>
+
+  <p class="sec">参加中のプレイヤー</p>
+  <div class="plist" id="lpl"></div>
+
+  <!-- ホストのみ表示 -->
+  <button class="btn red" id="sbtn" onclick="startGame()" style="display:none">ゲーム開始</button>
+  <!-- ゲスト用 準備完了ボタン -->
+  <button class="btn" id="rbtn" onclick="toggleReady()" style="display:none">準備完了！</button>
+
+  <p class="msg" id="lm"></p>
+</div>
+
+
+<!-- =====================================================
+     ゲーム画面
+     ===================================================== -->
+<div id="s-game" class="screen" style="padding:12px 10px">
+  <div class="ga">
+
+    <!-- ヘッダー: ターン表示 / 方向 / 退出 -->
+    <div class="gh">
+      <div id="tbnr" class="tb wait">読み込み中...</div>
+      <div class="dir-indicator">方向 <span id="diric">↻</span></div>
+      <button class="btn sm" onclick="leaveGame()">退出</button>
+    </div>
+
+    <!-- 他プレイヤーパネル -->
+    <div class="ops" id="opl"></div>
+
+    <!-- 山札 & 場のカード -->
+    <div class="pile">
+      <div class="dp" onclick="drawCard()" title="カードを引く">
+        <div class="dpi">UNO</div>
+      </div>
+      <div id="topc" class="tc r">
+        <span class="sym"  id="tsym"></span>
+        <span id="tval">0</span>
+        <span class="sym br" id="tsym2"></span>
+      </div>
+    </div>
+
+    <!-- 警告メッセージ -->
+    <div class="gmsg" id="gm"></div>
+
+    <!-- ゲームログ -->
+    <div class="glog" id="glog"></div>
+
+    <!-- 手札 -->
+    <div class="hand">
+      <p class="hl">あなたの手札（<span id="hcnt">0</span>枚）</p>
+      <div class="hc" id="hcs"></div>
+    </div>
+
+    <!-- リアクションボタン -->
+    <div class="react-row">
+      <button class="react-btn" data-emoji="😭" onclick="sendReaction('😭')" title="泣き">😭</button>
+      <button class="react-btn" data-emoji="💢" onclick="sendReaction('💢')" title="怒り">💢</button>
+      <button class="react-btn" data-emoji="😂" onclick="sendReaction('😂')" title="笑い">😂</button>
+      <button class="react-btn" data-emoji="👏" onclick="sendReaction('👏')" title="拍手">👏</button>
+      <button class="react-btn" data-emoji="❤️" onclick="sendReaction('❤️')" title="ハート">❤️</button>
+      <button class="react-btn" data-emoji="🔥" onclick="sendReaction('🔥')" title="熱い">🔥</button>
+    </div>
+
+    <!-- アクションボタン -->
+    <div class="ar">
+      <button class="btn red" id="unobtn" onclick="sayUno()" style="display:none;font-size:16px;padding:12px 0">
+        📢 UNO! を宣言する
+      </button>
+      <button class="btn" id="draw-btn" onclick="drawCard()">カードを引く</button>
+    </div>
+
+    <!-- ワイルドカード: 色選択 -->
+    <div class="cpick" id="cpick">
+      <p>色を選んでください</p>
+      <div class="cbtns">
+        <div class="cbtn cr" onclick="pickColor('red')">🔴</div>
+        <div class="cbtn cb" onclick="pickColor('blue')">🔵</div>
+        <div class="cbtn cg" onclick="pickColor('green')">🟢</div>
+        <div class="cbtn cy" onclick="pickColor('yellow')">🟡</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- =====================================================
+     リザルト画面
+     ===================================================== -->
+<div id="s-result" class="screen">
+  <div class="res">
+    <div class="res-icon" id="ric">🏆</div>
+    <h2 style="font-size:24px;font-weight:700" id="rtit">最終結果</h2>
+
+    <div class="box" style="text-align:left;max-width:280px;display:flex;flex-direction:column;gap:4px" id="rlist"></div>
+
+    <button class="btn red" id="res-back-btn" onclick="backToLobby()" style="max-width:280px;display:none">
+      もう一度遊ぶ（ロビーへ）
+    </button>
+    <button class="btn" onclick="leaveGame()" style="max-width:280px">ホームに戻る</button>
+  </div>
+</div>
+
+
+<!-- =====================================================
+     JavaScript（ES Modules）
+     ===================================================== -->
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>
