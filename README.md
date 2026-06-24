@@ -60,13 +60,3 @@ npx serve .
 ```
 
 ブラウザで `http://localhost:8080` を開いてください。
-
-## .gitignore への追加推奨
-
-Firebase の APIキーは `firebase-config.js` に含まれています。  
-公開リポジトリにプッシュする場合は、環境変数や `.env` に切り出すことを検討してください。
-
-```gitignore
-# Firebase設定（任意）
-js/firebase-config.js
-```
