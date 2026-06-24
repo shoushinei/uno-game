@@ -14,18 +14,21 @@ import { auth, googleProvider } from "./firebase-config.js";
 import { signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // ----------------------------------------
-// Google ログインポップアップ呼び出し
+// 結びつけ：ボタンがクリックされた時の処理を直接登録
 // ----------------------------------------
-window.loginWithGoogle = async function () {
-  try {
-    setStatus("Google ログイン画面を起動中...");
-    await signInWithPopup(auth, googleProvider);
-  } catch (e) {
-    setHomeMsg("ログイン失敗: " + e.message);
-    setStatus("ログインエラー", "err");
-    dbg("Googleログイン失敗: " + e.message, true);
-  }
-};
+const loginButton = document.getElementById("login-btn");
+if (loginButton) {
+  loginButton.addEventListener("click", async () => {
+    try {
+      setStatus("Google ログイン画面を起動中...");
+      await signInWithPopup(auth, googleProvider);
+    } catch (e) {
+      setHomeMsg("ログイン失敗: " + e.message);
+      setStatus("ログインエラー", "err");
+      dbg("Googleログイン失敗: " + e.message, true);
+    }
+  });
+}
 
 // ----------------------------------------
 // ログイン状態の常時監視（起動・初期化処理）
