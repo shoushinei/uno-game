@@ -1,11 +1,11 @@
 // ========================================
-// UI 描画・操作関数
+// UI 描画・操作関数（大富豪×UNO 融合版）
 // ========================================
 import { state } from "./state.js";
-import { AVATAR_COLORS, cardColorClass, canPlay } from "./game-logic.js";
+import { AVATAR_COLORS, unoCardColorClass, trumpCanPlay, unoCanPlay } from "./game-logic.js";
 
 // ----------------------------------------
-// 画面切り替え
+// 画面切り替え（元のまま流用）
 // ----------------------------------------
 export function show(id) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
@@ -13,7 +13,7 @@ export function show(id) {
 }
 
 // ----------------------------------------
-// メッセージ表示
+// メッセージ表示（元のまま流用）
 // ----------------------------------------
 export function setHomeMsg(text) {
   document.getElementById("hm").textContent = text;
@@ -34,10 +34,6 @@ export function dbg(msg, isErr = false) {
   el.innerHTML += `<div style="color:${isErr ? "#e74c3c" : "inherit"}">[${t}] ${msg}</div>`;
   el.scrollTop = el.scrollHeight;
 }
-
-// ----------------------------------------
-// ボタンのローディング状態
-// ----------------------------------------
 export function setLoading(btnId, loading, text) {
   const b = document.getElementById(btnId);
   if (!b) return;
@@ -46,7 +42,7 @@ export function setLoading(btnId, loading, text) {
 }
 
 // ----------------------------------------
-// ロビー画面の描画
+// ロビー画面の描画（最小人数を3人に変更のみ）
 // ----------------------------------------
 export function renderLobby(room) {
   const players = room.players || [];
@@ -64,7 +60,6 @@ export function renderLobby(room) {
       ? '<span class="tag ready">✓ Ready</span>'
       : '<span class="tag not-ready">準備中</span>';
     if (!p.ready) allReady = false;
-
     el.innerHTML = `
       <div class="av" style="background:${AVATAR_COLORS[i % 5]}">${p.name[0].toUpperCase()}</div>
       <span class="pi-name">${p.name}</span>
@@ -79,9 +74,9 @@ export function renderLobby(room) {
   if (state.myId === room.host) {
     sb.style.display = "block";
     rb.style.display = "none";
-    if (players.length < 2) {
+    if (players.length < 3) {
       sb.disabled = true;
-      setLobbyMsg(`あと ${2 - players.length} 人必要です`);
+      setLobbyMsg(`あと ${3 - players.length} 人必要です（最低3人）`);
     } else if (!allReady) {
       sb.disabled = true;
       setLobbyMsg("全員が準備完了するのを待っています...");
@@ -106,134 +101,222 @@ export function renderLobby(room) {
 }
 
 // ----------------------------------------
-// ゲーム画面の描画
+// ゲーム画面の描画（融合ゲーム専用）
 // ----------------------------------------
 export function renderGame(room) {
-  const g       = room.game;
+  const g        = room.game;
   if (!g) return;
-  const players  = room.players || [];
+  const players   = room.players || [];
   const reactions = room.reactions || {};
-  const top      = g.discard[g.discard.length - 1];
-  const curId    = g.order[g.ci];
-  const isMyTurn = curId === state.myId;
-  const myHand   = (g.hands && g.hands[state.myId]) || [];
-  const myRankIdx = (g.rankings || []).findIndex((r) => r.id === state.myId);
+  const curId     = g.order[g.ci];
+  const isMyTurn  = curId === state.myId;
+  const phase     = g.phase || "trump";
+  const myRankIdx = (g.rankings || []).findIndex(r => r.id === state.myId);
+  const iFinished = myRankIdx !== -1;
 
-  // ターンバナー
-  document.getElementById("diric").textContent = g.dir === 1 ? "↻" : "↺";
+  const myTrump     = (g.trumpHands && g.trumpHands[state.myId]) || [];
+  const myUno       = (g.unoHands   && g.unoHands[state.myId])   || [];
+  const myTrumpDone = myTrump.length === 0;
+  const myUnoDone   = myUno.length === 0;
+
+  // ---- ターンバナー ----
   const tb = document.getElementById("tbnr");
-  if (myRankIdx !== -1) {
-    tb.textContent = `${myRankIdx + 1}位でゴール確定（観戦中）`;
+  if (iFinished) {
+    tb.textContent = `🏁 上がり確定（${myRankIdx + 1}位・観戦中）`;
     tb.className = "tb finished";
   } else if (isMyTurn) {
-    tb.textContent = "あなたのターン！";
+    tb.textContent = phase === "trump"
+      ? "あなたのターン【①トランプフェイズ】"
+      : "あなたのターン【②UNOフェイズ】";
     tb.className = "tb myturn";
   } else {
-    const cp = players.find((p) => p.id === curId);
-    tb.textContent = (cp ? cp.name : "?") + "のターン";
+    const cp = players.find(p => p.id === curId);
+    tb.textContent = `${cp ? cp.name : "?"}のターン【${phase === "trump" ? "①トランプ" : "②UNO"}】`;
     tb.className = "tb wait";
   }
 
-  // 場のカード
-  const tc = document.getElementById("topc");
-  tc.className = "tc " + (top.t === "w" || top.t === "w4" ? "w" : g.cc[0]);
-  document.getElementById("tval").textContent  = top.v;
-  document.getElementById("tsym").textContent  = top.v;
-  document.getElementById("tsym2").textContent = top.v;
+  // ---- フェイズインジケーター ----
+  const pi = document.getElementById("phase-indicator");
+  if (pi) {
+    pi.innerHTML = `
+      <span class="${phase === "trump" ? "phase-active" : "phase-idle"}">① 🃏 トランプ</span>
+      <span class="phase-arrow">→</span>
+      <span class="${phase === "uno" ? "phase-active" : "phase-idle"}">② 🎴 UNO</span>
+    `;
+  }
 
-  // 他プレイヤー表示
+  // ---- 他プレイヤー ----
   const opl = document.getElementById("opl");
   opl.innerHTML = "";
-  players.filter((p) => p.id !== state.myId).forEach((p) => {
-    const isPlaying = g.order.includes(p.id);
-    let cntText;
-    if (isPlaying) {
-      const cnt = (g.hands && g.hands[p.id]) ? g.hands[p.id].length : 0;
-      cntText = `${cnt}枚`;
-    } else {
-      const rIdx = (g.rankings || []).findIndex((r) => r.id === p.id);
-      cntText = rIdx !== -1 ? `🎉 ${rIdx + 1}位` : "上がり";
-    }
-    const active = isPlaying && p.id === curId;
+  players.filter(p => p.id !== state.myId).forEach(p => {
+    const tc    = (g.trumpHands && g.trumpHands[p.id]) ? g.trumpHands[p.id].length : 0;
+    const uc    = (g.unoHands   && g.unoHands[p.id])   ? g.unoHands[p.id].length   : 0;
+    const active  = p.id === curId && g.order.includes(p.id);
+    const rIdx    = (g.rankings || []).findIndex(r => r.id === p.id);
+    const react   = reactions[p.id];
+    const reactHtml = (react && Date.now() - react.ts < 4000)
+      ? `<div class="react-badge">${react.emoji}</div>` : "";
     const el = document.createElement("div");
     el.className = "op" + (active ? " cur" : "");
-    el.dataset.playerId = p.id;
-
-    // リアクションバッジ
-    const react = reactions[p.id];
-    const reactHtml = (react && Date.now() - react.ts < 4000)
-      ? `<div class="react-badge">${react.emoji}</div>`
-      : "";
-
     el.innerHTML = `
       ${reactHtml}
       <div class="on">${p.name}</div>
-      <div class="oc">${cntText}</div>
+      ${rIdx !== -1
+        ? `<div class="oc finish-badge">🏁${rIdx+1}位</div>`
+        : `<div class="oc"><div class="trump-cnt">🃏${tc}枚</div><div class="uno-cnt">🎴${uc}枚</div></div>`
+      }
     `;
     opl.appendChild(el);
   });
 
-  // 自分の手札
-  document.getElementById("hcnt").textContent = myHand.length;
-  const hcs = document.getElementById("hcs");
-  hcs.innerHTML = "";
-  myHand.forEach((card, idx) => {
-    const ok = myRankIdx === -1 && isMyTurn &&
-      canPlay(card, top, g.cc, g.penaltyCards, g.pendingSkip);
-    const el = document.createElement("div");
-    el.className = "hcd " + cardColorClass(card) + (ok ? "" : " off");
-    el.innerHTML = `<span class="hs">${card.v}</span>${card.v}<span class="hs br">${card.v}</span>`;
-    if (ok) el.onclick = () => window._selectCard(idx);
-    hcs.appendChild(el);
-  });
-
-  // UNOボタン
-  const showUno = myRankIdx === -1 && myHand.length <= 2 && !(g.unoSaid && g.unoSaid[state.myId]);
-  document.getElementById("unobtn").style.display = showUno ? "block" : "none";
-
-  // 警告メッセージ
-  const gm = document.getElementById("gm");
-  if (g.penaltyCards > 0) {
-    gm.textContent = `⚠️ ドロー累積中！ペナルティ ${g.penaltyCards} 枚！`;
-    gm.classList.add("show");
-  } else if (g.pendingSkip) {
-    gm.textContent = "⚠️ スキップ発動中！スキップカードで返せます！";
-    gm.classList.add("show");
-  } else {
-    gm.textContent = "";
-    gm.classList.remove("show");
-  }
-
-  // カードを引くボタン
-  const drawBtn = document.getElementById("draw-btn");
-  if (myRankIdx !== -1) {
-    drawBtn.style.display = "none";
-  } else {
-    drawBtn.style.display = "block";
-    if (isMyTurn && g.penaltyCards > 0) {
-      drawBtn.textContent = `ペナルティを引く (${g.penaltyCards}枚)`;
-      drawBtn.classList.add("penalty");
-    } else if (isMyTurn && g.pendingSkip) {
-      drawBtn.textContent = "スキップを受け入れる（パス）";
-      drawBtn.classList.remove("penalty");
+  // ---- トランプの場 ----
+  const tfEl = document.getElementById("trump-field");
+  if (tfEl) {
+    if (g.trumpField) {
+      const c = g.trumpField;
+      const isRed = c.s === "♥" || c.s === "♦";
+      tfEl.innerHTML = `<div class="trump-card${isRed ? " red" : ""}">
+        <span class="ts">${c.s}</span><span class="tv">${c.v}</span>
+      </div>`;
     } else {
-      drawBtn.textContent = "カードを引く";
-      drawBtn.classList.remove("penalty");
+      tfEl.innerHTML = `<div class="trump-empty">場は空<br><small>何でも出せる</small></div>`;
     }
   }
 
-  // ゲームログ
+  // ---- 親バッジ ----
+  const parentBadge = document.getElementById("parent-badge");
+  if (parentBadge) {
+    if (g.hasParent) {
+      const pName = players.find(p => p.id === g.hasParent)?.name || "?";
+      const isMeParent = g.hasParent === state.myId;
+      parentBadge.textContent = `👑 親: ${pName}${isMeParent ? "（あなた）" : ""}`;
+      parentBadge.style.display = "inline-block";
+    } else {
+      parentBadge.style.display = "none";
+    }
+  }
+
+  // ---- UNOの場 ----
+  const topUno = g.unoDiscardPile && g.unoDiscardPile.length > 0
+    ? g.unoDiscardPile[g.unoDiscardPile.length - 1] : null;
+  if (topUno) {
+    const ufEl = document.getElementById("uno-field");
+    if (ufEl) {
+      ufEl.className = "uno-field-card tc " + unoCardColorClass(topUno);
+      document.getElementById("uf-val").textContent  = topUno.v;
+      document.getElementById("uf-sym").textContent  = topUno.v;
+      document.getElementById("uf-sym2").textContent = topUno.v;
+    }
+  }
+
+  // ---- 現在色バッジ ----
+  const ccEl = document.getElementById("current-color");
+  if (ccEl) {
+    const colorMap = { red:"🔴 赤", blue:"🔵 青", green:"🟢 緑", yellow:"🟡 黄" };
+    ccEl.textContent = "現在の色: " + (colorMap[g.unoCurrentColor] || g.unoCurrentColor);
+    ccEl.className   = "current-color-badge cc-" + g.unoCurrentColor;
+  }
+
+  // ---- 累積ドロー警告 ----
+  const penEl = document.getElementById("penalty-warn");
+  if (penEl) {
+    if (g.unoPenaltyAccum > 0) {
+      penEl.textContent = `⚠️ +${g.unoPenaltyAccum} 累積中！同種で返すかまとめて引く`;
+      penEl.style.display = "block";
+    } else {
+      penEl.style.display = "none";
+    }
+  }
+
+  // ---- 自分のトランプ手札 ----
+  renderTrumpHand(myTrump, isMyTurn && phase === "trump", g, iFinished, myTrumpDone);
+
+  // ---- 自分のUNO手札 ----
+  renderUnoHand(myUno, isMyTurn && phase === "uno", g, topUno, iFinished, myUnoDone);
+
+  // ---- アクションボタン表示制御 ----
+  // トランプフェイズ
+  const tpassBtn    = document.getElementById("trump-pass-btn");
+  const tskipBtn    = document.getElementById("trump-skip-btn");
+  if (tpassBtn) tpassBtn.style.display = (isMyTurn && phase === "trump" && !iFinished && !myTrumpDone) ? "inline-block" : "none";
+  if (tskipBtn) tskipBtn.style.display = (isMyTurn && phase === "trump" && !iFinished && myTrumpDone)  ? "inline-block" : "none";
+
+  // UNOフェイズ
+  const udrawBtn = document.getElementById("uno-draw-btn");
+  if (udrawBtn) {
+    udrawBtn.style.display = (isMyTurn && phase === "uno" && !iFinished) ? "inline-block" : "none";
+    if (g.unoPenaltyAccum > 0) {
+      udrawBtn.textContent = `ペナルティ ${g.unoPenaltyAccum} 枚引く`;
+      udrawBtn.classList.add("penalty");
+    } else {
+      udrawBtn.textContent = "UNOを1枚引く";
+      udrawBtn.classList.remove("penalty");
+    }
+  }
+
+  // UNO宣言ボタン
+  const unoBtn = document.getElementById("uno-btn");
+  if (unoBtn) {
+    const showUno = !iFinished && !myUnoDone && isMyTurn && phase === "uno"
+      && myUno.length <= 2 && !(g.unoSaid && g.unoSaid[state.myId]);
+    unoBtn.style.display = showUno ? "inline-block" : "none";
+  }
+
+  // 親カラー変更ボタン
+  const parentColorBtn = document.getElementById("parent-color-btn");
+  if (parentColorBtn) {
+    parentColorBtn.style.display = (isMyTurn && phase === "uno" && g.hasParent === state.myId) ? "block" : "none";
+  }
+
+  // カラーピッカーを閉じる
+  document.getElementById("cpick")?.classList.remove("show");
+
+  // ---- ログ ----
   const logEl = document.getElementById("glog");
   const logs  = room.log || [];
-  logEl.innerHTML = logs.slice(-6).map((l) => `<div class="log-entry">${l}</div>`).join("");
+  logEl.innerHTML = logs.slice(-6).map(l => `<div class="log-entry">${l}</div>`).join("");
   logEl.scrollTop = logEl.scrollHeight;
+}
 
-  // カラーピッカー閉じる
-  document.getElementById("cpick").classList.remove("show");
+function renderTrumpHand(hand, canAct, g, iFinished, myTrumpDone) {
+  const el    = document.getElementById("my-trump-hand"); if (!el) return;
+  const cntEl = document.getElementById("trump-cnt");     if (cntEl) cntEl.textContent = hand.length;
+
+  if (iFinished) { el.innerHTML = `<div class="hand-done">🏁 上がり（観戦中）</div>`; return; }
+  if (myTrumpDone) { el.innerHTML = `<div class="hand-done">✅ トランプ出し切り！UNOフェイズのみ</div>`; return; }
+
+  el.innerHTML = "";
+  hand.forEach(card => {
+    const ok    = canAct && trumpCanPlay(card, g.trumpField);
+    const isRed = card.s === "♥" || card.s === "♦";
+    const div   = document.createElement("div");
+    div.className = `trump-hand-card${isRed ? " red" : ""}${ok ? "" : " off"}`;
+    div.innerHTML = `<span class="ts">${card.s}</span><span class="tv">${card.v}</span>`;
+    if (ok) div.onclick = () => window.selectTrumpCard(card.id);
+    el.appendChild(div);
+  });
+}
+
+function renderUnoHand(hand, canAct, g, topUno, iFinished, myUnoDone) {
+  const el    = document.getElementById("my-uno-hand"); if (!el) return;
+  const cntEl = document.getElementById("uno-cnt-my"); if (cntEl) cntEl.textContent = hand.length;
+
+  if (iFinished)  { el.innerHTML = `<div class="hand-done">🏁 上がり（観戦中）</div>`; return; }
+  if (myUnoDone)  { el.innerHTML = `<div class="hand-done">✅ UNO出し切り！トランプフェイズのみ</div>`; return; }
+
+  el.innerHTML = "";
+  hand.forEach((card, idx) => {
+    const ok  = canAct && topUno && unoCanPlay(card, topUno, g.unoCurrentColor, g.unoPenaltyAccum);
+    const div = document.createElement("div");
+    div.className = `hcd ${unoCardColorClass(card)}${ok ? "" : " off"}`;
+    div.innerHTML = `<span class="hs">${card.v}</span>${card.v}<span class="hs br">${card.v}</span>`;
+    if (ok) div.onclick = () => window.selectUnoCard(idx);
+    el.appendChild(div);
+  });
 }
 
 // ----------------------------------------
-// リザルト画面の描画
+// リザルト画面の描画（元のまま流用）
 // ----------------------------------------
 export function renderResult(room) {
   const g        = room.game;
@@ -243,14 +326,15 @@ export function renderResult(room) {
 
   rankings.forEach((r, idx) => {
     const medal = ["🥇","🥈","🥉"][idx] || `${idx + 1}位`;
-    const isMe  = r.id === state.myId ? '<span class="tag you" style="margin:0">あなた</span>' : "";
+    const isMe  = r.id === state.myId
+      ? '<span class="tag you" style="margin:0">あなた</span>' : "";
     const el    = document.createElement("div");
     el.className = "rank-row" + (r.id === state.myId ? " rank-me" : "");
     el.innerHTML = `<span class="rank-medal">${medal}</span><span class="rank-name">${r.name}</span>${isMe}`;
     rlist.appendChild(el);
   });
 
-  const myRankIdx = rankings.findIndex((r) => r.id === state.myId);
+  const myRankIdx = rankings.findIndex(r => r.id === state.myId);
   const ric  = document.getElementById("ric");
   const rtit = document.getElementById("rtit");
   if (myRankIdx === 0)       { ric.textContent = "👑"; rtit.textContent = "あなたが1位！"; }
@@ -270,24 +354,18 @@ export function renderResult(room) {
 }
 
 // ----------------------------------------
-// リアクションボタンのフィードバック
+// リアクションフィードバック（元のまま流用）
 // ----------------------------------------
 export function flashReactionBtn(emoji) {
-  // 押したボタンを一時的にハイライト
-  const btns = document.querySelectorAll(".react-btn");
-  btns.forEach((b) => {
+  document.querySelectorAll(".react-btn").forEach(b => {
     if (b.dataset.emoji === emoji) {
       b.classList.add("reacted");
-      // 自分のリアクション表示（画面中央にポップアップ）
       showSelfReaction(emoji);
       setTimeout(() => b.classList.remove("reacted"), 1500);
     }
   });
 }
 
-// ----------------------------------------
-// 自分のリアクションを画面中央にポップ表示
-// ----------------------------------------
 export function showSelfReaction(emoji) {
   let popup = document.getElementById("self-react-popup");
   if (!popup) {
@@ -297,7 +375,6 @@ export function showSelfReaction(emoji) {
   }
   popup.textContent = emoji;
   popup.classList.remove("pop-anim");
-  // reflow をトリガーしてアニメーションをリセット
   void popup.offsetWidth;
   popup.classList.add("pop-anim");
 }

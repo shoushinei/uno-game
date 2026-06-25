@@ -3,9 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UNO オンライン</title>
-
-  <!-- スタイルシート -->
+  <title>大富豪 × UNO</title>
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/lobby.css">
   <link rel="stylesheet" href="css/game.css">
@@ -19,27 +17,26 @@
 <div id="s-home" class="screen active">
   <div class="card-fan">
     <div class="cd r">7</div>
-    <div class="cd b">+2</div>
-    <div class="cd g">⊘</div>
-    <div class="cd y">W</div>
+    <div class="cd b" style="background:#1a1a2e;color:#e74c3c;border-color:#c0392b">♠K</div>
+    <div class="cd g">+2</div>
+    <div class="cd y">🃏</div>
   </div>
-  <h1 class="home-title">UNO</h1>
-  <p class="home-sub">リアルタイムマルチプレイヤー</p>
+  <h1 class="home-title">大富豪 × UNO</h1>
+  <p class="home-sub">トランプとUNOを同時に使う融合カードゲーム（3〜8人）</p>
 
-  <!-- Googleログイン用ボタン（非ログイン時に表示） -->
-  <div id="login-area" style="width:100%; max-width:320px; margin-bottom:12px; text-align:center;">
-    <button class="btn" id="login-btn" style="background:#fff; color:#757575; border:1px solid #ddd; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; margin: 0 auto 8px;">
-      <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="Google logo" style="width:18px;">
+  <div id="login-area" style="width:100%;max-width:320px;margin-bottom:12px;text-align:center;">
+    <button class="btn" id="login-btn"
+      style="background:#fff;color:#757575;border:1px solid #ddd;font-weight:600;
+             display:flex;align-items:center;justify-content:center;gap:8px;margin:0 auto 8px;">
+      <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px;">
       Googleアカウントでログイン
     </button>
   </div>
 
-  <div id="game-menu-area" style="display:none; width:100%; max-width:320px;">
+  <div id="game-menu-area" style="display:none;width:100%;max-width:320px;">
     <input id="ni" placeholder="あなたの名前を入力" maxlength="12">
     <button class="btn red" id="create-btn" onclick="createRoom()">新しいルームを作る</button>
-
     <div class="or">または</div>
-
     <input id="ri" placeholder="ルームID（4文字）を入力" maxlength="4" style="text-transform:uppercase">
     <button class="btn" id="join-btn" onclick="joinRoom()">ルームに参加する</button>
   </div>
@@ -55,7 +52,7 @@
      ===================================================== -->
 <div id="s-lobby" class="screen">
   <h2 style="font-size:20px;font-weight:600;margin-bottom:4px">ロビー</h2>
-  <p class="home-sub">友達を招待してゲームを始めよう</p>
+  <p class="home-sub">3〜8人でゲームを始めよう</p>
 
   <div class="box">
     <p style="font-size:11px;color:var(--color-text-secondary)">ルームID（友達に共有しよう）</p>
@@ -63,14 +60,19 @@
     <p class="room-hint">友達は同じIDを入力して参加できます</p>
   </div>
 
+  <!-- ルール概要 -->
+  <div class="box" style="text-align:left;font-size:11px;color:var(--color-text-secondary);line-height:1.7;max-width:320px">
+    <b style="font-size:12px;color:var(--color-text-primary)">📖 ゲームの流れ</b><br>
+    毎ターン ① <b>トランプ</b> を出すかパス → ② <b>UNO</b> を出すか引く<br>
+    トランプとUNOを<b>両方</b>出し切ったら上がり！<br>
+    <b>8切り / ジョーカー</b>で親になると次のUNOフェイズで色を変更できる！
+  </div>
+
   <p class="sec">参加中のプレイヤー</p>
   <div class="plist" id="lpl"></div>
 
-  <!-- ホストのみ表示 -->
   <button class="btn red" id="sbtn" onclick="startGame()" style="display:none">ゲーム開始</button>
-  <!-- ゲスト用 準備完了ボタン -->
   <button class="btn" id="rbtn" onclick="toggleReady()" style="display:none">準備完了！</button>
-
   <p class="msg" id="lm"></p>
 </div>
 
@@ -78,62 +80,119 @@
 <!-- =====================================================
      ゲーム画面
      ===================================================== -->
-<div id="s-game" class="screen" style="padding:12px 10px">
+<div id="s-game" class="screen" style="padding:10px 8px">
   <div class="ga">
 
-    <!-- ヘッダー: ターン表示 / 方向 / 退出 -->
+    <!-- ヘッダー -->
     <div class="gh">
       <div id="tbnr" class="tb wait">読み込み中...</div>
-      <div class="dir-indicator">方向 <span id="diric">↻</span></div>
       <button class="btn sm" onclick="leaveGame()">退出</button>
     </div>
 
-    <!-- 他プレイヤーパネル -->
-    <div class="ops" id="opl"></div>
-
-    <!-- 山札 & 場のカード -->
-    <div class="pile">
-      <div class="dp" onclick="drawCard()" title="カードを引く">
-        <div class="dpi">UNO</div>
-      </div>
-      <div id="topc" class="tc r">
-        <span class="sym"  id="tsym"></span>
-        <span id="tval">0</span>
-        <span class="sym br" id="tsym2"></span>
-      </div>
+    <!-- フェイズインジケーター -->
+    <div id="phase-indicator" class="phase-indicator">
+      <span class="phase-idle">① 🃏 トランプ</span>
+      <span class="phase-arrow">→</span>
+      <span class="phase-idle">② 🎴 UNO</span>
     </div>
 
-    <!-- 警告メッセージ -->
-    <div class="gmsg" id="gm"></div>
+    <!-- 他プレイヤー -->
+    <div class="ops" id="opl"></div>
+
+    <!-- フィールド（トランプ + UNO 横並び） -->
+    <div class="field-row">
+
+      <!-- トランプの場 -->
+      <div class="field-box">
+        <p class="field-label">🃏 トランプの場</p>
+        <div id="parent-badge" class="parent-badge" style="display:none">👑 親</div>
+        <div id="trump-field" class="trump-field">
+          <div class="trump-empty">場は空<br><small>何でも出せる</small></div>
+        </div>
+        <p style="font-size:10px;color:var(--color-text-tertiary);margin-top:4px;text-align:center">
+          3＜4＜…＜A＜2＜🃏
+        </p>
+      </div>
+
+      <!-- UNOの場 -->
+      <div class="field-box">
+        <p class="field-label">🎴 UNOの場</p>
+        <div id="current-color" class="current-color-badge">現在の色</div>
+        <div id="uno-field" class="uno-field-card tc r">
+          <span class="sym" id="uf-sym"></span>
+          <span id="uf-val">?</span>
+          <span class="sym br" id="uf-sym2"></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 累積ペナルティ警告 -->
+    <div id="penalty-warn" class="gmsg" style="display:none"></div>
 
     <!-- ゲームログ -->
     <div class="glog" id="glog"></div>
 
-    <!-- 手札 -->
-    <div class="hand">
-      <p class="hl">あなたの手札（<span id="hcnt">0</span>枚）</p>
-      <div class="hc" id="hcs"></div>
+    <!-- 自分の手札エリア -->
+    <div class="my-hands-area">
+
+      <!-- ①トランプ手札 -->
+      <div class="hand-section">
+        <div class="hand-section-title">
+          ① 🃏 あなたのトランプ手札（<span id="trump-cnt">0</span>枚）
+        </div>
+        <div class="trump-hand" id="my-trump-hand">
+          <div class="hand-done" style="color:var(--color-text-tertiary)">読み込み中...</div>
+        </div>
+        <div class="phase-btns">
+          <!-- トランプ0枚の場合のスキップボタン -->
+          <button class="btn sm red" id="trump-skip-btn" onclick="trumpSkip()" style="display:none">
+            トランプ0枚 → UNOへ進む ▶
+          </button>
+          <!-- 通常のパスボタン -->
+          <button class="btn sm" id="trump-pass-btn" onclick="trumpPass()" style="display:none">
+            パス（トランプを出さない）
+          </button>
+        </div>
+      </div>
+
+      <!-- ②UNO手札 -->
+      <div class="hand-section" style="margin-top:10px">
+        <div class="hand-section-title">
+          ② 🎴 あなたのUNO手札（<span id="uno-cnt-my">0</span>枚）
+        </div>
+        <div class="hc" id="my-uno-hand">
+          <div class="hand-done" style="color:var(--color-text-tertiary)">読み込み中...</div>
+        </div>
+        <div class="phase-btns">
+          <button class="btn red" id="uno-btn" onclick="sayUno()" style="display:none">
+            📢 UNO!
+          </button>
+          <button class="btn sm" id="uno-draw-btn" onclick="unoDraw()" style="display:none">
+            UNOを1枚引く
+          </button>
+        </div>
+      </div>
+
     </div>
 
-    <!-- リアクションボタン -->
-    <div class="react-row">
-      <button class="react-btn" data-emoji="😭" onclick="sendReaction('😭')" title="泣き">😭</button>
-      <button class="react-btn" data-emoji="💢" onclick="sendReaction('💢')" title="怒り">💢</button>
-      <button class="react-btn" data-emoji="😂" onclick="sendReaction('😂')" title="笑い">😂</button>
-      <button class="react-btn" data-emoji="👏" onclick="sendReaction('👏')" title="拍手">👏</button>
-      <button class="react-btn" data-emoji="❤️" onclick="sendReaction('❤️')" title="ハート">❤️</button>
-      <button class="react-btn" data-emoji="🔥" onclick="sendReaction('🔥')" title="熱い">🔥</button>
+    <!-- 親の権限ボタン -->
+    <button class="btn warn" id="parent-color-btn" onclick="showParentColorPick()"
+      style="display:none;max-width:560px;margin-top:8px">
+      👑 親の権限：UNOの色を強制変更する
+    </button>
+    <!-- 親の色選択ピッカー -->
+    <div class="cpick" id="parent-cpick">
+      <p>UNOの色を選んでください（親の権限）</p>
+      <div class="cbtns">
+        <div class="cbtn cr" onclick="pickParentColor('red')">🔴</div>
+        <div class="cbtn cb" onclick="pickParentColor('blue')">🔵</div>
+        <div class="cbtn cg" onclick="pickParentColor('green')">🟢</div>
+        <div class="cbtn cy" onclick="pickParentColor('yellow')">🟡</div>
+      </div>
     </div>
 
-    <!-- アクションボタン -->
-    <div class="ar">
-      <button class="btn red" id="unobtn" onclick="sayUno()" style="display:none;font-size:16px;padding:12px 0">
-        📢 UNO! を宣言する
-      </button>
-      <button class="btn" id="draw-btn" onclick="drawCard()">カードを引く</button>
-    </div>
-
-    <!-- ワイルドカード: 色選択 -->
+    <!-- ワイルドカード色選択ピッカー -->
     <div class="cpick" id="cpick">
       <p>色を選んでください</p>
       <div class="cbtns">
@@ -142,6 +201,16 @@
         <div class="cbtn cg" onclick="pickColor('green')">🟢</div>
         <div class="cbtn cy" onclick="pickColor('yellow')">🟡</div>
       </div>
+    </div>
+
+    <!-- リアクション -->
+    <div class="react-row">
+      <button class="react-btn" data-emoji="😭" onclick="sendReaction('😭')">😭</button>
+      <button class="react-btn" data-emoji="💢" onclick="sendReaction('💢')">💢</button>
+      <button class="react-btn" data-emoji="😂" onclick="sendReaction('😂')">😂</button>
+      <button class="react-btn" data-emoji="👏" onclick="sendReaction('👏')">👏</button>
+      <button class="react-btn" data-emoji="❤️" onclick="sendReaction('❤️')">❤️</button>
+      <button class="react-btn" data-emoji="🔥" onclick="sendReaction('🔥')">🔥</button>
     </div>
 
   </div>
@@ -155,21 +224,17 @@
   <div class="res">
     <div class="res-icon" id="ric">🏆</div>
     <h2 style="font-size:24px;font-weight:700" id="rtit">最終結果</h2>
-
-    <div class="box" style="text-align:left;max-width:280px;display:flex;flex-direction:column;gap:4px" id="rlist"></div>
-
-    <button class="btn red" id="res-back-btn" onclick="backToLobby()" style="max-width:280px;display:none">
+    <div class="box"
+      style="text-align:left;max-width:300px;display:flex;flex-direction:column;gap:4px"
+      id="rlist"></div>
+    <button class="btn red" id="res-back-btn" onclick="backToLobby()"
+      style="max-width:280px;display:none">
       もう一度遊ぶ（ロビーへ）
     </button>
     <button class="btn" onclick="leaveGame()" style="max-width:280px">ホームに戻る</button>
   </div>
 </div>
 
-
-<!-- =====================================================
-     JavaScript（ES Modules）
-     ===================================================== -->
 <script type="module" src="js/app.js"></script>
-
 </body>
 </html>
