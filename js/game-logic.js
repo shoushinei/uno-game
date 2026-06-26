@@ -87,8 +87,8 @@ export function initFusionGame(players) {
   }
   players.forEach(p => { trumpHands[p.id] = sortTrumpHand(trumpHands[p.id]); });
 
-  // UNOを均等配布（残りは山札）
-  const unoPerPlayer = Math.floor(unoDeck.length / players.length);
+  //UNOを1人7枚ずつ分配（残りはすべて山札へ）
+  const unoPerPlayer = 7;
   players.forEach((p,i) => {
     unoHands[p.id] = unoDeck.slice(i*unoPerPlayer, (i+1)*unoPerPlayer);
   });
