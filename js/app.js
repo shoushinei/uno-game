@@ -17,6 +17,10 @@ import {
   applyUnoPlay, applyUnoDraw,
 } from "./game-logic.js";
 
+//  選択されたカードの情報を一時保存する変数を追加
+let selectedTrumpIds = []; 
+let selectedUnoIdx = null;
+
 // ========================================
 // Google ログイン（元のまま流用）
 // ========================================
@@ -199,18 +203,19 @@ window.startGame = async function () {
 // ========================================
 // トランプを出す
 // ========================================
-window.selectTrumpCard = async function (cardId) {
-  try {
-    const room = await fbGet("rooms/" + state.roomId); if (!room) return;
-    const g    = room.game;
-    if (!g || g.order[g.ci] !== state.myId || g.phase !== "trump") return;
-    const pname  = room.players.find(p => p.id === state.myId)?.name || state.myName;
-    const result = applyTrumpPlay(g, state.myId, cardId, pname);
-    if (!result) { dbg("出せないカードです", true); return; }
-    const { g: newG, logMsg } = result;
-    const logs = [...(room.log || []), logMsg];
-    await fbUpdate("rooms/" + state.roomId, { game: newG, log: logs.slice(-8), trumpPassCount: 0 });
-  } catch (e) { dbg("selectTrumpCard error: " + e.message, true); }
+window.selectTrumpCard = function (cardId) {
+  // すでに選択されている場合は解除、未選択の場合は配列に追加
+  if (selectedTrumpIds.includes(cardId)) {
+    selectedTrumpIds = selectedTrumpIds.filter(id => id !== cardId);
+  } else {
+    selectedTrumpIds.push(cardId);
+  }
+
+  // 1枚以上選択されていたら「決定ボタン」を表示、0枚なら非表示にする
+  const playBtn = document.getElementById("trump-play-btn");
+  if (playBtn) {
+    playBtn.style.display = selectedTrumpIds.length > 0 ? "inline-block" : "none";
+  }
 };
 
 // ========================================
@@ -262,20 +267,15 @@ window.trumpSkip = async function () {
 // ========================================
 let pendingUnoIdx = null;
 
-window.selectUnoCard = async function (idx) {
-  try {
-    const room = await fbGet("rooms/" + state.roomId); if (!room) return;
-    const g    = room.game;
-    if (!g || g.order[g.ci] !== state.myId || g.phase !== "uno") return;
-    const myHand = (g.unoHands && g.unoHands[state.myId]) || [];
-    const card   = myHand[idx]; if (!card) return;
-    if (card.t === "w" || card.t === "w4") {
-      pendingUnoIdx = idx;
-      document.getElementById("cpick")?.classList.add("show");
-      return;
-    }
-    await doUnoPlay(idx, null);
-  } catch (e) { dbg("selectUnoCard error: " + e.message, true); }
+window.selectUnoCard = function (idx) {
+  // 同じカードをタップしたら解除、別のカードなら上書き選択
+  selectedUnoIdx = (selectedUnoIdx === idx) ? null : idx;
+
+  // カードが選択されていたら「決定ボタン」を表示、選択解除されたら非表示にする
+  const playBtn = document.getElementById("uno-play-btn");
+  if (playBtn) {
+    playBtn.style.display = selectedUnoIdx !== null ? "inline-block" : "none";
+  }
 };
 
 // ========================================
@@ -315,6 +315,61 @@ async function doUnoPlay(idx, chosenColor) {
     });
   } catch (e) { dbg("doUnoPlay error: " + e.message, true); }
 }
+// ========================================
+// 決定ボタンが押された時の確定送信処理
+// ========================================
+window.submitTrumpPlay = async function () {
+  if (selectedTrumpIds.length === 0) return;
+  try {
+    const room = await fbGet("rooms/" + state.roomId); if (!room) return;
+    const g    = room.game;
+    if (!g || g.order[g.ci] !== state.myId || g.phase !== "trump") return;
+    
+    // 現在は1枚出し仕様のため、選択されたトランプの最初の1枚を確定データとして送信
+    const cardId = selectedTrumpIds[0];
+    const pname  = room.players.find(p => p.id === state.myId)?.name || state.myName;
+    const result = applyTrumpPlay(g, state.myId, cardId, pname);
+    if (!result) { dbg("出せないカードです", true); return; }
+    
+    const { g: newG, logMsg } = result;
+    const logs = [...(room.log || []), logMsg];
+    await fbUpdate("rooms/" + state.roomId, { game: newG, log: logs.slice(-8), trumpPassCount: 0 });
+
+    // 送信が成功したら選択をリセットして決定ボタンを隠す
+    selectedTrumpIds = [];
+    document.getElementById("trump-play-btn").style.display = "none";
+  } catch (e) { dbg("submitTrumpPlay error: " + e.message, true); }
+};
+
+window.submitUnoPlay = async function () {
+  if (selectedUnoIdx === null) return;
+  try {
+    const room = await fbGet("rooms/" + state.roomId); if (!room) return;
+    const g    = room.game;
+    if (!g || g.order[g.ci] !== state.myId || g.phase !== "uno") return;
+    
+    const myHand = (g.unoHands && g.unoHands[state.myId]) || [];
+    const card   = myHand[selectedUnoIdx]; if (!card) return;
+    
+    // ワイルドカードの場合は、ここで初めて色選択ピッカーを表示する（ピッカー側で最終確定する）
+    if (card.t === "w" || card.t === "w4") {
+      pendingUnoIdx = selectedUnoIdx;
+      document.getElementById("cpick")?.classList.add("show");
+      
+      // 次のために選択をリセットしてボタンを隠す
+      selectedUnoIdx = null;
+      document.getElementById("uno-play-btn").style.display = "none";
+      return;
+    }
+    
+    // 通常の数字・記号カードはそのまま確定送信
+    await doUnoPlay(selectedUnoIdx, null);
+    
+    // 選択をリセットしてボタンを隠す
+    selectedUnoIdx = null;
+    document.getElementById("uno-play-btn").style.display = "none";
+  } catch (e) { dbg("submitUnoPlay error: " + e.message, true); }
+};
 
 // ========================================
 // UNOカードを引く
