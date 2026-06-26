@@ -145,11 +145,12 @@
           <div class="hand-done" style="color:var(--color-text-tertiary)">読み込み中...</div>
         </div>
         <div class="phase-btns">
-          <!-- トランプ0枚の場合のスキップボタン -->
+          <button class="btn sm red" id="trump-play-btn" onclick="submitTrumpPlay()" style="display:none">
+            選択したトランプを出す
+          </button>
           <button class="btn sm red" id="trump-skip-btn" onclick="trumpSkip()" style="display:none">
             トランプ0枚 → UNOへ進む ▶
           </button>
-          <!-- 通常のパスボタン -->
           <button class="btn sm" id="trump-pass-btn" onclick="trumpPass()" style="display:none">
             パス（トランプを出さない）
           </button>
@@ -165,6 +166,9 @@
           <div class="hand-done" style="color:var(--color-text-tertiary)">読み込み中...</div>
         </div>
         <div class="phase-btns">
+          <button class="btn sm red" id="uno-play-btn" onclick="submitUnoPlay()" style="display:none">
+            選択したカードを出す
+          </button>
           <button class="btn red" id="uno-btn" onclick="sayUno()" style="display:none">
             📢 UNO!
           </button>
