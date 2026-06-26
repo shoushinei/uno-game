@@ -5,7 +5,7 @@ import { state } from "./state.js";
 import { AVATAR_COLORS, unoCardColorClass, trumpCanPlay, unoCanPlay } from "./game-logic.js";
 
 // ----------------------------------------
-// 画面切り替え（元のまま流用）
+// 画面切り替え
 // ----------------------------------------
 export function show(id) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
@@ -13,7 +13,7 @@ export function show(id) {
 }
 
 // ----------------------------------------
-// メッセージ表示（元のまま流用）
+// メッセージ表示
 // ----------------------------------------
 export function setHomeMsg(text) {
   document.getElementById("hm").textContent = text;
@@ -335,7 +335,7 @@ function renderUnoHand(hand, canAct, g, topUno, iFinished, myUnoDone) {
 }
 
 // ----------------------------------------
-// リザルト画面の描画（元のまま流用）
+// リザルト画面の描画
 // ----------------------------------------
 export function renderResult(room) {
   const g        = room.game;
@@ -373,7 +373,7 @@ export function renderResult(room) {
 }
 
 // ----------------------------------------
-// リアクションフィードバック（元のまま流用）
+// リアクションフィードバック
 // ----------------------------------------
 export function flashReactionBtn(emoji) {
   document.querySelectorAll(".react-btn").forEach(b => {

@@ -68,7 +68,7 @@ window.trumpCanPlayCard = function(card, fieldCards, currentSelectedIds) {
 };
 
 // ========================================
-// Google ログイン（元のまま流用）
+// Google ログイン
 // ========================================
 const loginButton = document.getElementById("login-btn");
 if (loginButton) {
@@ -111,7 +111,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ========================================
-// リアルタイムリスナー（元のまま流用）
+// リアルタイムリスナー
 // ========================================
 function startListening() {
   if (state.unsubscribeRoom) state.unsubscribeRoom();
@@ -216,7 +216,7 @@ window.joinRoom = async function () {
 };
 
 // ========================================
-// 準備完了トグル（元のまま流用）
+// 準備完了トグル
 // ========================================
 window.toggleReady = async function () {
   try {
@@ -570,12 +570,12 @@ window.pickParentColor = async function (color) {
     const pname = room.players.find(p => p.id === state.myId)?.name || state.myName;
     const cname = { red:"赤", blue:"青", green:"緑", yellow:"黄" }[color] || color;
     const logs  = [...(room.log || []), `${pname}が親の権限でUNOの色を【${cname}】に変更！`];
-    await fbUpdate("rooms/" + state.roomId, { g: g, log: logs.slice(-8) });
+    await fbUpdate("rooms/" + state.roomId, { game: g, log: logs.slice(-8) });
   } catch (e) { dbg("pickParentColor error: " + e.message, true); }
 };
 
 // ========================================
-// リアクション送信（元のまま流用）
+// リアクション送信
 // ========================================
 window.sendReaction = async function (emoji) {
   if (state.reactionCooldown) return;
@@ -589,7 +589,7 @@ window.sendReaction = async function (emoji) {
 };
 
 // ========================================
-// ロ lobbyへ戻る（元のまま流用）
+// ロ lobbyへ戻る
 // ========================================
 window.backToLobby = async function () {
   try {
@@ -640,7 +640,7 @@ window.leaveGame = async function () {
 };
 
 // ========================================
-// input オートフォーマット（元のまま流用）
+// input オートフォーマット
 // ========================================
 document.getElementById("ri").addEventListener("input", function () {
   this.value = this.value.toUpperCase();
