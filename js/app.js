@@ -15,11 +15,36 @@ import {
   initFusionGame,
   applyTrumpPlay, applyTrumpPass,
   applyUnoPlay, applyUnoDraw,
+  trumpCanPlay, trumpStrength,
 } from "./game-logic.js";
 
+// ui.js の trumpCanPlayCard から参照するためwindowに公開
+window._trumpLogic = { trumpCanPlay, trumpStrength };
+window._currentTrumpHand = [];
+
 //  選択されたカードの情報を一時保存する変数を追加
-let selectedTrumpIds = []; 
+let selectedTrumpIds = [];
 let selectedUnoIdx = null;
+
+// ui.jsから参照できるようwindowに公開
+Object.defineProperty(window, '_selectedTrumpIds', { get: () => selectedTrumpIds });
+Object.defineProperty(window, '_selectedUnoIdx',   { get: () => selectedUnoIdx });
+
+/**
+ * トランプカードが現在出せるか判定する関数（ui.jsから呼ばれる）
+ * 複数枚選択中は「同ランクのカード」のみ追加選択可能
+ */
+window.trumpCanPlayCard = function(card, fieldCard, currentSelectedIds) {
+  const { trumpCanPlay } = window._trumpLogic;
+  // まだ1枚も選択されていない → 通常の出せる判定
+  if (currentSelectedIds.length === 0) return trumpCanPlay(card, fieldCard);
+  // すでに選択済みのカード → trueを返して選択解除操作を許可
+  if (currentSelectedIds.includes(card.id)) return true;
+  // 1枚以上選択中 → 最初に選んだカードと同ランク（同じv値）のみ追加選択可
+  const hand   = window._currentTrumpHand || [];
+  const firstV = hand.find(c => c.id === currentSelectedIds[0])?.v;
+  return firstV !== undefined && card.v === firstV;
+};
 
 // ========================================
 // Google ログイン（元のまま流用）
@@ -73,6 +98,10 @@ function startListening() {
     "rooms/" + state.roomId,
     (room) => {
       if (!room) return;
+      // ui.js の複数枚選択判定用に現在の手札を更新
+      if (room.game && room.game.trumpHands) {
+        window._currentTrumpHand = room.game.trumpHands[state.myId] || [];
+      }
       if (room.state === "lobby") {
         renderLobby(room);
       } else if (room.state === "playing") {
@@ -203,19 +232,80 @@ window.startGame = async function () {
 // ========================================
 // トランプを出す
 // ========================================
+
+/**
+ * トランプ手札の選択状態だけをDOMに反映する軽量再描画
+ * Firebase を経由せずローカルで即座に更新する
+ */
+function _refreshTrumpHandDisplay() {
+  const el = document.getElementById("my-trump-hand"); if (!el) return;
+  el.querySelectorAll(".trump-hand-card").forEach(div => {
+    const cardId = div.dataset.cardId;
+    if (!cardId) return;
+    const isSelected = selectedTrumpIds.includes(cardId);
+    div.classList.toggle("selected", isSelected);
+    // 選択中1枚がある場合、同ランク以外の未選択カードをdimにする
+    if (selectedTrumpIds.length > 0 && !isSelected && !div.classList.contains("off")) {
+      const firstV = window._currentTrumpHand?.find(c => c.id === selectedTrumpIds[0])?.v;
+      const thisV  = window._currentTrumpHand?.find(c => c.id === cardId)?.v;
+      if (firstV !== undefined && firstV !== thisV) {
+        div.classList.add("off");
+        div.onclick = null;
+      }
+    } else if (!div.classList.contains("selected") && div.dataset.canPlay === "1") {
+      div.classList.remove("off");
+    }
+  });
+}
+
+/**
+ * UNO手札の選択状態だけをDOMに反映する軽量再描画
+ */
+function _refreshUnoHandDisplay() {
+  const el = document.getElementById("my-uno-hand"); if (!el) return;
+  el.querySelectorAll(".hcd").forEach(div => {
+    const idxStr = div.dataset.cardIdx;
+    if (idxStr === undefined) return;
+    const idx = parseInt(idxStr, 10);
+    div.classList.toggle("selected", idx === selectedUnoIdx);
+  });
+}
+
 window.selectTrumpCard = function (cardId) {
-  // すでに選択されている場合は解除、未選択の場合は配列に追加
+  const hand = window._currentTrumpHand;
+
   if (selectedTrumpIds.includes(cardId)) {
+    // 選択解除
     selectedTrumpIds = selectedTrumpIds.filter(id => id !== cardId);
   } else {
-    selectedTrumpIds.push(cardId);
+    // 新規選択：複数枚は同ランクのみ許可
+    if (selectedTrumpIds.length === 0) {
+      selectedTrumpIds.push(cardId);
+    } else {
+      const firstV = hand.find(c => c.id === selectedTrumpIds[0])?.v;
+      const thisV  = hand.find(c => c.id === cardId)?.v;
+      if (firstV !== undefined && firstV === thisV) {
+        selectedTrumpIds.push(cardId);
+      }
+      // 異なるランクは無視（選択できない）
+    }
   }
 
-  // 1枚以上選択されていたら「決定ボタン」を表示、0枚なら非表示にする
+  // ボタンの表示とラベル更新
   const playBtn = document.getElementById("trump-play-btn");
   if (playBtn) {
-    playBtn.style.display = selectedTrumpIds.length > 0 ? "inline-block" : "none";
+    if (selectedTrumpIds.length > 0) {
+      playBtn.style.display = "inline-block";
+      playBtn.textContent = selectedTrumpIds.length === 1
+        ? "選択したトランプを出す"
+        : `選択した ${selectedTrumpIds.length} 枚を出す`;
+    } else {
+      playBtn.style.display = "none";
+    }
   }
+
+  // 手札を再描画して選択状態を反映（renderGameを呼ばずに手札のみ更新）
+  _refreshTrumpHandDisplay();
 };
 
 // ========================================
@@ -276,6 +366,9 @@ window.selectUnoCard = function (idx) {
   if (playBtn) {
     playBtn.style.display = selectedUnoIdx !== null ? "inline-block" : "none";
   }
+
+  // 手札を再描画して選択状態を反映
+  _refreshUnoHandDisplay();
 };
 
 // ========================================
@@ -322,22 +415,31 @@ window.submitTrumpPlay = async function () {
   if (selectedTrumpIds.length === 0) return;
   try {
     const room = await fbGet("rooms/" + state.roomId); if (!room) return;
-    const g    = room.game;
+    let g    = room.game;
     if (!g || g.order[g.ci] !== state.myId || g.phase !== "trump") return;
-    
-    // 現在は1枚出し仕様のため、選択されたトランプの最初の1枚を確定データとして送信
-    const cardId = selectedTrumpIds[0];
-    const pname  = room.players.find(p => p.id === state.myId)?.name || state.myName;
-    const result = applyTrumpPlay(g, state.myId, cardId, pname);
-    if (!result) { dbg("出せないカードです", true); return; }
-    
-    const { g: newG, logMsg } = result;
-    const logs = [...(room.log || []), logMsg];
-    await fbUpdate("rooms/" + state.roomId, { game: newG, log: logs.slice(-8), trumpPassCount: 0 });
 
-    // 送信が成功したら選択をリセットして決定ボタンを隠す
+    const pname  = room.players.find(p => p.id === state.myId)?.name || state.myName;
+    const logMsgs = [];
+
+    // 選択された複数枚を順番に出す（同ランク縛りはselectTrumpCard側で保証済み）
+    for (const cardId of selectedTrumpIds) {
+      const result = applyTrumpPlay(g, state.myId, cardId, pname);
+      if (!result) { dbg(`カード ${cardId} は出せませんでした`, true); continue; }
+      g = result.g;
+      logMsgs.push(result.logMsg);
+      // 最初の1枚が8/JOKERで場が流れたら残りの枚数は意味がないので中断
+      if (!g.trumpField && g.hasParent) break;
+    }
+
+    if (logMsgs.length === 0) { dbg("出せるカードがありませんでした", true); return; }
+
+    const logs = [...(room.log || []), ...logMsgs];
+    await fbUpdate("rooms/" + state.roomId, { game: g, log: logs.slice(-8), trumpPassCount: 0 });
+
+    // 送信成功後に選択をリセット
     selectedTrumpIds = [];
-    document.getElementById("trump-play-btn").style.display = "none";
+    const playBtn = document.getElementById("trump-play-btn");
+    if (playBtn) { playBtn.style.display = "none"; playBtn.textContent = "選択したトランプを出す"; }
   } catch (e) { dbg("submitTrumpPlay error: " + e.message, true); }
 };
 
@@ -351,23 +453,20 @@ window.submitUnoPlay = async function () {
     const myHand = (g.unoHands && g.unoHands[state.myId]) || [];
     const card   = myHand[selectedUnoIdx]; if (!card) return;
     
-    // ワイルドカードの場合は、ここで初めて色選択ピッカーを表示する（ピッカー側で最終確定する）
+    // ワイルドカードの場合は色選択ピッカーを表示して待機
     if (card.t === "w" || card.t === "w4") {
       pendingUnoIdx = selectedUnoIdx;
       document.getElementById("cpick")?.classList.add("show");
-      
-      // 次のために選択をリセットしてボタンを隠す
       selectedUnoIdx = null;
       document.getElementById("uno-play-btn").style.display = "none";
       return;
     }
     
     // 通常の数字・記号カードはそのまま確定送信
-    await doUnoPlay(selectedUnoIdx, null);
-    
-    // 選択をリセットしてボタンを隠す
+    const playIdx = selectedUnoIdx;
     selectedUnoIdx = null;
     document.getElementById("uno-play-btn").style.display = "none";
+    await doUnoPlay(playIdx, null);
   } catch (e) { dbg("submitUnoPlay error: " + e.message, true); }
 };
 
