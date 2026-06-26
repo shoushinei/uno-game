@@ -285,14 +285,22 @@ function renderTrumpHand(hand, canAct, g, iFinished, myTrumpDone) {
   if (iFinished) { el.innerHTML = `<div class="hand-done">🏁 上がり（観戦中）</div>`; return; }
   if (myTrumpDone) { el.innerHTML = `<div class="hand-done">✅ トランプ出し切り！UNOフェイズのみ</div>`; return; }
 
+  // 現在の選択状態を取得（app.js側で公開している変数）
+  const selectedIds = window._selectedTrumpIds || [];
+
   el.innerHTML = "";
   hand.forEach(card => {
-    const ok    = canAct && trumpCanPlay(card, g.trumpField);
-    const isRed = card.s === "♥" || card.s === "♦";
+    // 選択0枚時は通常判定、1枚以上選択中は同ランクのみ追加選択可
+    const canPlay = canAct && window.trumpCanPlayCard(card, g.trumpField, selectedIds);
+    const isRed     = card.s === "♥" || card.s === "♦";
+    const isSelected = selectedIds.includes(card.id);
     const div   = document.createElement("div");
-    div.className = `trump-hand-card${isRed ? " red" : ""}${ok ? "" : " off"}`;
+    div.className = `trump-hand-card${isRed ? " red" : ""}${!canPlay && !isSelected ? " off" : ""}${isSelected ? " selected" : ""}`;
+    div.dataset.cardId  = card.id;
+    div.dataset.canPlay = canPlay ? "1" : "0";
     div.innerHTML = `<span class="ts">${card.s}</span><span class="tv">${card.v}</span>`;
-    if (ok) div.onclick = () => window.selectTrumpCard(card.id);
+    // 出せるカードと選択済みカード（解除用）のみクリック可能
+    if (canPlay || isSelected) div.onclick = () => window.selectTrumpCard(card.id);
     el.appendChild(div);
   });
 }
@@ -304,13 +312,19 @@ function renderUnoHand(hand, canAct, g, topUno, iFinished, myUnoDone) {
   if (iFinished)  { el.innerHTML = `<div class="hand-done">🏁 上がり（観戦中）</div>`; return; }
   if (myUnoDone)  { el.innerHTML = `<div class="hand-done">✅ UNO出し切り！トランプフェイズのみ</div>`; return; }
 
+  // 現在の選択状態を取得（app.js側で公開している変数）
+  const selectedIdx = window._selectedUnoIdx;
+
   el.innerHTML = "";
   hand.forEach((card, idx) => {
-    const ok  = canAct && topUno && unoCanPlay(card, topUno, g.unoCurrentColor, g.unoPenaltyAccum);
+    const canPlay    = canAct && topUno && unoCanPlay(card, topUno, g.unoCurrentColor, g.unoPenaltyAccum);
+    const isSelected = idx === selectedIdx;
     const div = document.createElement("div");
-    div.className = `hcd ${unoCardColorClass(card)}${ok ? "" : " off"}`;
+    div.className = `hcd ${unoCardColorClass(card)}${!canPlay && !isSelected ? " off" : ""}${isSelected ? " selected" : ""}`;
+    div.dataset.cardIdx = idx;
     div.innerHTML = `<span class="hs">${card.v}</span>${card.v}<span class="hs br">${card.v}</span>`;
-    if (ok) div.onclick = () => window.selectUnoCard(idx);
+    // 出せるカードと選択済みカード（解除用）のみクリック可能
+    if (canPlay || isSelected) div.onclick = () => window.selectUnoCard(idx);
     el.appendChild(div);
   });
 }
