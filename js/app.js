@@ -15,11 +15,11 @@ import {
   initFusionGame,
   applyTrumpPlay, applyTrumpPass,
   applyUnoPlay, applyUnoDraw,
-  trumpCanPlay, trumpStrength,
+  trumpCanPlay,
 } from "./game-logic.js";
 
 // ui.js の trumpCanPlayCard から参照するためwindowに公開
-window._trumpLogic = { trumpCanPlay, trumpStrength };
+window._trumpLogic = { trumpCanPlay };
 window._currentTrumpHand = [];
 
 //  選択されたカードの情報を一時保存する変数を追加
@@ -592,3 +592,4 @@ window.leaveGame = async function () {
 document.getElementById("ri").addEventListener("input", function () {
   this.value = this.value.toUpperCase();
 });
+
