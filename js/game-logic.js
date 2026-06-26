@@ -1,5 +1,5 @@
 // =============================================
-// 大富豪×UNO 融合ゲーム ロジック
+// 大富豪×UNO 融合ゲーム ロジック（複数枚出し対応版）
 // =============================================
 
 // ---- UNO ----
@@ -51,9 +51,34 @@ export function trumpStrength(card) {
   return TRUMP_STRENGTH[card.v] ?? 0;
 }
 
-export function trumpCanPlay(card, fieldCard) {
-  if (!fieldCard) return true;
-  return trumpStrength(card) > trumpStrength(fieldCard);
+/**
+ * ★変更箇所①: トランプの複数枚出し判定
+ */
+export function trumpCanPlay(selectedCards, fieldCards) {
+  if (!Array.isArray(selectedCards) || selectedCards.length === 0) return false;
+
+  // 1. 選択されたカードがすべて同じ数字かチェック
+  const nonJokerCards = selectedCards.filter(c => c.v !== 'JOKER');
+  let targetValue = 'JOKER';
+  if (nonJokerCards.length > 0) {
+    targetValue = nonJokerCards[0].v;
+    if (!nonJokerCards.every(c => c.v === targetValue)) return false;
+  }
+
+  const selectedPower = TRUMP_STRENGTH[targetValue] ?? 0;
+  const fCards = Array.isArray(fieldCards) ? fieldCards : [];
+
+  // 場が空なら、同じ数字であれば何枚でも出せる
+  if (fCards.length === 0) return true;
+
+  // 場にカードがあるなら、「枚数が同じ」かつ「場のカードより強い」必要がある
+  if (selectedCards.length !== fCards.length) return false;
+
+  const nonJokerField = fCards.filter(c => c.v !== 'JOKER');
+  const fieldValue = nonJokerField.length > 0 ? nonJokerField[0].v : 'JOKER';
+  const fieldPower = TRUMP_STRENGTH[fieldValue] ?? 0;
+
+  return selectedPower > fieldPower;
 }
 
 export function sortTrumpHand(hand) {
@@ -80,21 +105,18 @@ export function initFusionGame(players) {
   const unoHands   = {};
   players.forEach(p => { trumpHands[p.id]=[]; unoHands[p.id]=[]; });
 
-  // トランプを均等配布
   let di=0;
   while (di < trumpDeck.length) {
     players.forEach(p => { if(di<trumpDeck.length) trumpHands[p.id].push(trumpDeck[di++]); });
   }
   players.forEach(p => { trumpHands[p.id] = sortTrumpHand(trumpHands[p.id]); });
 
-  //UNOを1人7枚ずつ分配（残りはすべて山札へ）
   const unoPerPlayer = 7;
   players.forEach((p,i) => {
     unoHands[p.id] = unoDeck.slice(i*unoPerPlayer, (i+1)*unoPerPlayer);
   });
   const unoDrawPile = unoDeck.slice(unoPerPlayer*players.length);
 
-  // UNO最初の場のカード
   let unoFieldCard;
   const remaining = [...unoDrawPile];
   const extraDiscard = [];
@@ -105,7 +127,6 @@ export function initFusionGame(players) {
   }
   const finalDrawPile = [...remaining, ...extraDiscard];
 
-  // ダイヤ3を持つプレイヤーが先攻
   const order = players.map(p=>p.id);
   const d3holder = players.find(p => trumpHands[p.id].some(c=>c.s==='♦'&&c.v==='3'));
   const startCI = d3holder ? order.indexOf(d3holder.id) : 0;
@@ -117,7 +138,7 @@ export function initFusionGame(players) {
     phase:     'trump',
     rankings:  [],
     trumpHands,
-    trumpField:  null,
+    trumpField:  [], // ★変更箇所②: null から空配列 [] に変更
     hasParent:   null,
     unoHands,
     unoDrawPile:    finalDrawPile,
@@ -147,45 +168,53 @@ export function drawUnoCards(g, playerId, count) {
   }
 }
 
-// =============================================
-// フェイズ1: トランプを出す
-// =============================================
-export function applyTrumpPlay(g, playerId, cardId, playerName) {
-  const hand = [...(g.trumpHands[playerId]||[])];
-  const card = hand.find(c=>c.id===cardId);
-  if (!card) return null;
-  if (!trumpCanPlay(card, g.trumpField)) return null;
+/**
+ * ★変更箇所③: トランプをまとめて出す処理（一括で配列を場に出す）
+ */
+export function applyTrumpPlay(g, playerId, cardIds, playerName) {
+  if (!Array.isArray(cardIds) || cardIds.length === 0) return null;
 
-  g.trumpHands[playerId] = hand.filter(c=>c.id!==cardId);
-  g.trumpField = card;
+  const hand = [...(g.trumpHands[playerId]||[])];
+  const selectedCards = [];
+
+  for (const id of cardIds) {
+    const card = hand.find(c=>c.id===id);
+    if (!card) return null;
+    selectedCards.push(card);
+  }
+
+  // 出せるか最終チェック
+  if (!trumpCanPlay(selectedCards, g.trumpField)) return null;
+
+  // 手札から一括削除
+  g.trumpHands[playerId] = hand.filter(c => !cardIds.includes(c.id));
+  g.trumpField = selectedCards; // 場のカードを配列として上書き
 
   let extra = '';
-  if (card.v==='JOKER') {
-    g.trumpField = null; g.hasParent = playerId;
+  const hasJokerSingle = selectedCards.length === 1 && selectedCards[0].v === 'JOKER';
+  const has8 = selectedCards.some(c => c.v === '8');
+
+  if (hasJokerSingle) {
+    g.trumpField = []; g.hasParent = playerId;
     extra = 'ジョーカー！場が流れた 👑親になった';
-  } else if (card.v==='8') {
-    g.trumpField = null; g.hasParent = playerId;
+  } else if (has8) {
+    g.trumpField = []; g.hasParent = playerId;
     extra = '8切り！場が流れた 👑親になった';
   }
 
   g.phase = 'uno';
+  const cardNames = selectedCards.map(c => `${c.s}${c.v}`).join(',');
   return {
     g,
-    logMsg: `${playerName}がトランプ[${card.s}${card.v}]を出した${extra?' '+extra:''}`,
+    logMsg: `${playerName}がトランプ[${cardNames}]を出した${extra?' '+extra:''}`,
   };
 }
 
-// =============================================
-// フェイズ1: トランプパス
-// =============================================
 export function applyTrumpPass(g, playerId, playerName) {
   g.phase = 'uno';
   return { g, logMsg: `${playerName}がトランプをパス` };
 }
 
-// =============================================
-// フェイズ2: UNOカードを出す
-// =============================================
 export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
   const myHand = [...(g.unoHands[playerId]||[])];
   const card = myHand[cardIdx];
@@ -200,14 +229,12 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
   if (card.t==='w'||card.t==='w4') g.unoCurrentColor = chosenColor||'red';
   else g.unoCurrentColor = card.c;
 
-  // ドロー累積リセット（ここで出した場合）
   if (card.t!=='d2' && card.t!=='w4') g.unoPenaltyAccum = 0;
 
   let logExtra = '';
   const n = g.order.length;
 
   if (!g.unoSaid) g.unoSaid={};
-  // UNO忘れペナルティ（UNOフェイズ終了後1枚になった時）
   if (myHand.length===1 && !g.unoSaid[playerId]) {
     drawUnoCards(g, playerId, 2);
     logExtra += '（UNO忘れ！2枚引き）';
@@ -231,7 +258,6 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
     logExtra += ` ワイルド！${UNO_COLOR_NAMES[chosenColor]}色に変更`;
   }
 
-  // 上がりチェック（両方0枚）
   const trumpDone = (g.trumpHands[playerId]||[]).length===0;
   const isWinner  = trumpDone && myHand.length===0;
   if (isWinner) {
@@ -240,7 +266,6 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
     g.order = g.order.filter(id=>id!==playerId);
   }
 
-  // 次の手番
   g.phase = 'trump';
   const curOrderLen = g.order.length;
   if (curOrderLen > 0) {
@@ -267,9 +292,6 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
   };
 }
 
-// =============================================
-// フェイズ2: UNOカードを引く
-// =============================================
 export function applyUnoDraw(g, playerId, playerName) {
   const n = g.order.length;
   let logMsg = '';
@@ -279,13 +301,11 @@ export function applyUnoDraw(g, playerId, playerName) {
     drawUnoCards(g, playerId, count);
     g.unoPenaltyAccum = 0;
     logMsg = `${playerName}がペナルティ${count}枚引いた（手番は継続）`;
-    // ペナルティは手番を飛ばさない（ルール5）
   } else {
     drawUnoCards(g, playerId, 1);
     logMsg = `${playerName}がUNOを1枚引いた`;
   }
 
-  // 次の手番へ
   g.phase = 'trump';
   const myIdx = g.order.indexOf(playerId);
   if (myIdx !== -1) g.ci = (myIdx + g.dir + n) % n;
