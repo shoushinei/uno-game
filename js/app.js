@@ -16,6 +16,7 @@ import {
   applyTrumpPlay, applyTrumpPass,
   applyUnoPlay, applyUnoDraw,
   trumpCanPlay,
+  trumpStrength,
 } from "./game-logic.js";
 
 // ui.js の trumpCanPlayCard から参照するためwindowに公開
@@ -34,16 +35,36 @@ Object.defineProperty(window, '_selectedUnoIdx',   { get: () => selectedUnoIdx }
  * トランプカードが現在出せるか判定する関数（ui.jsから呼ばれる）
  * 複数枚選択中は「同ランクのカード」のみ追加選択可能
  */
-window.trumpCanPlayCard = function(card, fieldCard, currentSelectedIds) {
-  const { trumpCanPlay } = window._trumpLogic;
-  // まだ1枚も選択されていない → 通常の出せる判定
-  if (currentSelectedIds.length === 0) return trumpCanPlay(card, fieldCard);
-  // すでに選択済みのカード → trueを返して選択解除操作を許可
-  if (currentSelectedIds.includes(card.id)) return true;
-  // 1枚以上選択中 → 最初に選んだカードと同ランク（同じv値）のみ追加選択可
-  const hand   = window._currentTrumpHand || [];
-  const firstV = hand.find(c => c.id === currentSelectedIds[0])?.v;
-  return firstV !== undefined && card.v === firstV;
+window.trumpCanPlayCard = function(card, fieldCards, currentSelectedIds) {
+  const fCards = Array.isArray(fieldCards) ? fieldCards : [];
+  
+  // すでに選択済みのカードなら、選択解除操作のために常に true を返す
+  if (currentSelectedIds.length > 0 && currentSelectedIds.includes(card.id)) return true;
+
+  const hand = window._currentTrumpHand || [];
+
+  // 【1枚目の選択判定】
+  if (currentSelectedIds.length === 0) {
+    if (fCards.length === 0) return true; // 場が空なら手札の何でも1枚目として選択可能！
+
+    // 場にカードがある場合、その場にあるカード（の1枚目）の数字より強いカードしか選べない
+    const fNonJoker = fCards.filter(c => c.v !== 'JOKER');
+    const fValue = fNonJoker.length > 0 ? fNonJoker[0].v : 'JOKER';
+    
+    return trumpStrength(card) > trumpStrength({ v: fValue });
+  }
+
+  // 【2枚目以降の選択判定】
+  const firstCard = hand.find(c => c.id === currentSelectedIds[0]);
+  if (!firstCard) return false;
+
+  // 最初に選んだカードと同じ数字（またはJOKER）のみ追加選択可能
+  if (card.v !== firstCard.v && card.v !== 'JOKER' && firstCard.v !== 'JOKER') return false;
+
+  // もし場にカードがあるなら、場の枚数を超えて選択することはできない
+  if (fCards.length > 0 && currentSelectedIds.length >= fCards.length) return false;
+
+  return true;
 };
 
 // ========================================
@@ -244,16 +265,21 @@ function _refreshTrumpHandDisplay() {
     if (!cardId) return;
     const isSelected = selectedTrumpIds.includes(cardId);
     div.classList.toggle("selected", isSelected);
-    // 選択中1枚がある場合、同ランク以外の未選択カードをdimにする
-    if (selectedTrumpIds.length > 0 && !isSelected && !div.classList.contains("off")) {
+    
+    // 選択中カードがある場合、同ランク以外の未選択カードを暗転＆クリック不可にする
+    if (selectedTrumpIds.length > 0 && !isSelected) {
       const firstV = window._currentTrumpHand?.find(c => c.id === selectedTrumpIds[0])?.v;
       const thisV  = window._currentTrumpHand?.find(c => c.id === cardId)?.v;
       if (firstV !== undefined && firstV !== thisV) {
         div.classList.add("off");
-        div.onclick = null;
+        div.onclick = null; // 同ランク以外はクリックイベントを消す
       }
-    } else if (!div.classList.contains("selected") && div.dataset.canPlay === "1") {
-      div.classList.remove("off");
+    } else {
+      // 選択が0枚に戻った時、または同ランクのカードのイベントを「再代入」して復活させる！
+      if (div.dataset.canPlay === "1" || isSelected) {
+        div.classList.remove("off");
+        div.onclick = () => window.selectTrumpCard(cardId); // ⚡️これでフリーズが直ります！
+      }
     }
   });
 }
@@ -415,26 +441,24 @@ window.submitTrumpPlay = async function () {
   if (selectedTrumpIds.length === 0) return;
   try {
     const room = await fbGet("rooms/" + state.roomId); if (!room) return;
-    let g    = room.game;
+    let g = room.game;
     if (!g || g.order[g.ci] !== state.myId || g.phase !== "trump") return;
 
-    const pname  = room.players.find(p => p.id === state.myId)?.name || state.myName;
-    const logMsgs = [];
-
-    // 選択された複数枚を順番に出す（同ランク縛りはselectTrumpCard側で保証済み）
-    for (const cardId of selectedTrumpIds) {
-      const result = applyTrumpPlay(g, state.myId, cardId, pname);
-      if (!result) { dbg(`カード ${cardId} は出せませんでした`, true); continue; }
-      g = result.g;
-      logMsgs.push(result.logMsg);
-      // 最初の1枚が8/JOKERで場が流れたら残りの枚数は意味がないので中断
-      if (!g.trumpField && g.hasParent) break;
+    // 場にカードがある場合、選択枚数と場の枚数が一致していなければ出せない
+    const fCards = Array.isArray(g.trumpField) ? g.trumpField : [];
+    if (fCards.length > 0 && selectedTrumpIds.length !== fCards.length) {
+      dbg(`場の枚数（${fCards.length}枚）と一致させてください`, true);
+      return;
     }
 
-    if (logMsgs.length === 0) { dbg("出せるカードがありませんでした", true); return; }
+    const pname = room.players.find(p => p.id === state.myId)?.name || state.myName;
+    
+    // 選択されたカードIDの配列を「一括」でロジックへ渡す
+    const result = applyTrumpPlay(g, state.myId, selectedTrumpIds, pname);
+    if (!result) { dbg("選択したカードの組み合わせは出せません", true); return; }
 
-    const logs = [...(room.log || []), ...logMsgs];
-    await fbUpdate("rooms/" + state.roomId, { game: g, log: logs.slice(-8), trumpPassCount: 0 });
+    const logs = [...(room.log || []), result.logMsg];
+    await fbUpdate("rooms/" + state.roomId, { game: result.g, log: logs.slice(-8), trumpPassCount: 0 });
 
     // 送信成功後に選択をリセット
     selectedTrumpIds = [];
