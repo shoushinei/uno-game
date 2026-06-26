@@ -1,294 +1,393 @@
-// =============================================
-// 大富豪×UNO 融合ゲーム ロジック
-// =============================================
+// ========================================
+// UI 描画・操作関数（大富豪×UNO 融合版）
+// ========================================
+import { state } from "./state.js";
+import { AVATAR_COLORS, unoCardColorClass, trumpCanPlay, unoCanPlay } from "./game-logic.js";
 
-// ---- UNO ----
-export const UNO_COLORS = ['red','blue','green','yellow'];
-export const UNO_COLOR_NAMES = { red:'赤', blue:'青', green:'緑', yellow:'黄' };
-export const AVATAR_COLORS = ['#e74c3c','#2980b9','#27ae60','#f39c12','#8e44ad'];
+// ----------------------------------------
+// 画面切り替え（元のまま流用）
+// ----------------------------------------
+export function show(id) {
+  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+  document.getElementById("s-" + id).classList.add("active");
+}
 
-export function buildUnoDeck() {
-  const d = [];
-  UNO_COLORS.forEach(c => {
-    d.push({ c, t:'num', v:'0' });
-    for (let i=1;i<=9;i++) { d.push({c,t:'num',v:''+i}); d.push({c,t:'num',v:''+i}); }
-    [{t:'skip',v:'⊘'},{t:'rev',v:'⇄'},{t:'d2',v:'+2'}].forEach(x => {
-      d.push({c,t:x.t,v:x.v}); d.push({c,t:x.t,v:x.v});
-    });
+// ----------------------------------------
+// メッセージ表示（元のまま流用）
+// ----------------------------------------
+export function setHomeMsg(text) {
+  document.getElementById("hm").textContent = text;
+}
+export function setLobbyMsg(text) {
+  document.getElementById("lm").textContent = text;
+}
+export function setStatus(msg, type) {
+  const el = document.getElementById("fb-status");
+  el.textContent = msg;
+  el.className = "msg" + (type ? " " + type : "");
+}
+export function dbg(msg, isErr = false) {
+  const el = document.getElementById("dbg-log");
+  if (!el) return;
+  const d = new Date();
+  const t = `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+  el.innerHTML += `<div style="color:${isErr ? "#e74c3c" : "inherit"}">[${t}] ${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+export function setLoading(btnId, loading, text) {
+  const b = document.getElementById(btnId);
+  if (!b) return;
+  b.disabled = loading;
+  b.textContent = loading ? text + "..." : text;
+}
+
+// ----------------------------------------
+// ロビー画面の描画（最小人数を3人に変更のみ）
+// ----------------------------------------
+export function renderLobby(room) {
+  const players = room.players || [];
+  const pl = document.getElementById("lpl");
+  pl.innerHTML = "";
+
+  let allReady = true;
+  players.forEach((p, i) => {
+    const el = document.createElement("div");
+    el.className = "pi";
+    let tags = "";
+    if (p.id === state.myId) tags += '<span class="tag you">あなた</span>';
+    if (p.id === room.host)  tags += '<span class="tag host">ホスト</span>';
+    tags += p.ready
+      ? '<span class="tag ready">✓ Ready</span>'
+      : '<span class="tag not-ready">準備中</span>';
+    if (!p.ready) allReady = false;
+    el.innerHTML = `
+      <div class="av" style="background:${AVATAR_COLORS[i % 5]}">${p.name[0].toUpperCase()}</div>
+      <span class="pi-name">${p.name}</span>
+      <div class="pi-tags">${tags}</div>
+    `;
+    pl.appendChild(el);
   });
-  for (let i=0;i<4;i++) { d.push({c:'w',t:'w',v:'W'}); d.push({c:'w',t:'w4',v:'+4'}); }
-  return d;
-}
 
-export function unoCanPlay(card, top, currentColor, penaltyAccum) {
-  if (penaltyAccum > 0) {
-    return (top.t==='d2' && card.t==='d2') || (top.t==='w4' && card.t==='w4');
-  }
-  if (card.t==='w' || card.t==='w4') return true;
-  if (card.c === currentColor) return true;
-  if (card.t==='num' && top.t==='num' && card.v===top.v) return true;
-  if (card.t!=='num' && card.t===top.t) return true;
-  return false;
-}
+  const sb = document.getElementById("sbtn");
+  const rb = document.getElementById("rbtn");
 
-export function unoCardColorClass(card) {
-  return (card.t==='w'||card.t==='w4') ? 'w' : card.c[0];
-}
-
-// ---- トランプ ----
-const TRUMP_SUITS = ['♠','♥','♦','♣'];
-const TRUMP_NUMS  = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
-const TRUMP_STRENGTH = {'3':1,'4':2,'5':3,'6':4,'7':5,'8':6,'9':7,'10':8,'J':9,'Q':10,'K':11,'A':12,'2':13,'JOKER':14};
-
-export function buildTrumpDeck() {
-  const d = [];
-  TRUMP_SUITS.forEach(s => TRUMP_NUMS.forEach(v => d.push({ s, v, id:`${s}${v}` })));
-  d.push({ s:'🃏', v:'JOKER', id:'JOKER' });
-  return d;
-}
-
-export function trumpStrength(card) {
-  return TRUMP_STRENGTH[card.v] ?? 0;
-}
-
-export function trumpCanPlay(card, fieldCard) {
-  if (!fieldCard) return true;
-  return trumpStrength(card) > trumpStrength(fieldCard);
-}
-
-export function sortTrumpHand(hand) {
-  return [...hand].sort((a,b) => trumpStrength(a) - trumpStrength(b));
-}
-
-export function shuffle(a) {
-  const arr = [...a];
-  for (let i=arr.length-1;i>0;i--) {
-    const j=Math.floor(Math.random()*(i+1));
-    [arr[i],arr[j]]=[arr[j],arr[i]];
-  }
-  return arr;
-}
-
-// =============================================
-// ゲーム初期化
-// =============================================
-export function initFusionGame(players) {
-  const trumpDeck = shuffle(buildTrumpDeck());
-  const unoDeck   = shuffle(buildUnoDeck());
-
-  const trumpHands = {};
-  const unoHands   = {};
-  players.forEach(p => { trumpHands[p.id]=[]; unoHands[p.id]=[]; });
-
-  // トランプを均等配布
-  let di=0;
-  while (di < trumpDeck.length) {
-    players.forEach(p => { if(di<trumpDeck.length) trumpHands[p.id].push(trumpDeck[di++]); });
-  }
-  players.forEach(p => { trumpHands[p.id] = sortTrumpHand(trumpHands[p.id]); });
-
-  //UNOを1人7枚ずつ分配（残りはすべて山札へ）
-  const unoPerPlayer = 7;
-  players.forEach((p,i) => {
-    unoHands[p.id] = unoDeck.slice(i*unoPerPlayer, (i+1)*unoPerPlayer);
-  });
-  const unoDrawPile = unoDeck.slice(unoPerPlayer*players.length);
-
-  // UNO最初の場のカード
-  let unoFieldCard;
-  const remaining = [...unoDrawPile];
-  const extraDiscard = [];
-  while (remaining.length > 0) {
-    const card = remaining.pop();
-    if (card.t !== 'w' && card.t !== 'w4') { unoFieldCard = card; break; }
-    extraDiscard.push(card);
-  }
-  const finalDrawPile = [...remaining, ...extraDiscard];
-
-  // ダイヤ3を持つプレイヤーが先攻
-  const order = players.map(p=>p.id);
-  const d3holder = players.find(p => trumpHands[p.id].some(c=>c.s==='♦'&&c.v==='3'));
-  const startCI = d3holder ? order.indexOf(d3holder.id) : 0;
-
-  return {
-    order,
-    ci:        startCI,
-    dir:       1,
-    phase:     'trump',
-    rankings:  [],
-    trumpHands,
-    trumpField:  null,
-    hasParent:   null,
-    unoHands,
-    unoDrawPile:    finalDrawPile,
-    unoDiscardPile: unoFieldCard ? [unoFieldCard] : [],
-    unoCurrentColor: unoFieldCard ? unoFieldCard.c : 'red',
-    unoPenaltyAccum: 0,
-    unoSaid:   {},
-  };
-}
-
-export function nextPlayerIndex(ci, dir, n) {
-  return (ci + dir + n) % n;
-}
-
-export function reshuffleUno(g) {
-  const top = g.unoDiscardPile[g.unoDiscardPile.length-1];
-  g.unoDrawPile = shuffle(g.unoDiscardPile.slice(0, g.unoDiscardPile.length-1));
-  g.unoDiscardPile = [top];
-}
-
-export function drawUnoCards(g, playerId, count) {
-  for (let i=0;i<count;i++) {
-    if (g.unoDrawPile.length===0) reshuffleUno(g);
-    if (g.unoDrawPile.length>0) {
-      g.unoHands[playerId] = [...(g.unoHands[playerId]||[]), g.unoDrawPile.pop()];
-    }
-  }
-}
-
-// =============================================
-// フェイズ1: トランプを出す
-// =============================================
-export function applyTrumpPlay(g, playerId, cardId, playerName) {
-  const hand = [...(g.trumpHands[playerId]||[])];
-  const card = hand.find(c=>c.id===cardId);
-  if (!card) return null;
-  if (!trumpCanPlay(card, g.trumpField)) return null;
-
-  g.trumpHands[playerId] = hand.filter(c=>c.id!==cardId);
-  g.trumpField = card;
-
-  let extra = '';
-  if (card.v==='JOKER') {
-    g.trumpField = null; g.hasParent = playerId;
-    extra = 'ジョーカー！場が流れた 👑親になった';
-  } else if (card.v==='8') {
-    g.trumpField = null; g.hasParent = playerId;
-    extra = '8切り！場が流れた 👑親になった';
-  }
-
-  g.phase = 'uno';
-  return {
-    g,
-    logMsg: `${playerName}がトランプ[${card.s}${card.v}]を出した${extra?' '+extra:''}`,
-  };
-}
-
-// =============================================
-// フェイズ1: トランプパス
-// =============================================
-export function applyTrumpPass(g, playerId, playerName) {
-  g.phase = 'uno';
-  return { g, logMsg: `${playerName}がトランプをパス` };
-}
-
-// =============================================
-// フェイズ2: UNOカードを出す
-// =============================================
-export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
-  const myHand = [...(g.unoHands[playerId]||[])];
-  const card = myHand[cardIdx];
-  if (!card) return null;
-  const topUno = g.unoDiscardPile[g.unoDiscardPile.length-1];
-  if (!unoCanPlay(card, topUno, g.unoCurrentColor, g.unoPenaltyAccum)) return null;
-
-  myHand.splice(cardIdx,1);
-  g.unoHands[playerId] = myHand;
-  g.unoDiscardPile.push(card);
-
-  if (card.t==='w'||card.t==='w4') g.unoCurrentColor = chosenColor||'red';
-  else g.unoCurrentColor = card.c;
-
-  // ドロー累積リセット（ここで出した場合）
-  if (card.t!=='d2' && card.t!=='w4') g.unoPenaltyAccum = 0;
-
-  let logExtra = '';
-  const n = g.order.length;
-
-  if (!g.unoSaid) g.unoSaid={};
-  // UNO忘れペナルティ（UNOフェイズ終了後1枚になった時）
-  if (myHand.length===1 && !g.unoSaid[playerId]) {
-    drawUnoCards(g, playerId, 2);
-    logExtra += '（UNO忘れ！2枚引き）';
-  }
-  if (myHand.length!==1) delete g.unoSaid[playerId];
-
-  let skipNext = false;
-  if (card.t==='rev') {
-    g.dir *= -1;
-    logExtra += ' リバース！';
-  } else if (card.t==='skip') {
-    skipNext = true;
-    logExtra += ' スキップ！';
-  } else if (card.t==='d2') {
-    g.unoPenaltyAccum = (g.unoPenaltyAccum||0)+2;
-    logExtra += ` +2（累積${g.unoPenaltyAccum}枚）`;
-  } else if (card.t==='w4') {
-    g.unoPenaltyAccum = (g.unoPenaltyAccum||0)+4;
-    logExtra += ` +4（累積${g.unoPenaltyAccum}枚）`;
-  } else if (card.t==='w') {
-    logExtra += ` ワイルド！${UNO_COLOR_NAMES[chosenColor]}色に変更`;
-  }
-
-  // 上がりチェック（両方0枚）
-  const trumpDone = (g.trumpHands[playerId]||[]).length===0;
-  const isWinner  = trumpDone && myHand.length===0;
-  if (isWinner) {
-    if (!g.rankings) g.rankings=[];
-    if (!g.rankings.some(r=>r.id===playerId)) g.rankings.push({id:playerId, name:playerName});
-    g.order = g.order.filter(id=>id!==playerId);
-  }
-
-  // 次の手番
-  g.phase = 'trump';
-  const curOrderLen = g.order.length;
-  if (curOrderLen > 0) {
-    const myIdx = g.order.indexOf(playerId);
-    if (myIdx === -1) {
-      g.ci = g.ci % curOrderLen;
+  if (state.myId === room.host) {
+    sb.style.display = "block";
+    rb.style.display = "none";
+    if (players.length < 3) {
+      sb.disabled = true;
+      setLobbyMsg(`あと ${3 - players.length} 人必要です（最低3人）`);
+    } else if (!allReady) {
+      sb.disabled = true;
+      setLobbyMsg("全員が準備完了するのを待っています...");
     } else {
-      let nxt = (myIdx + g.dir + curOrderLen) % curOrderLen;
-      if (skipNext && curOrderLen > 1) nxt = (nxt + g.dir + curOrderLen) % curOrderLen;
-      g.ci = nxt;
+      sb.disabled = false;
+      setLobbyMsg(`全員準備完了！ゲームを開始できます (${players.length}人)`);
+    }
+  } else {
+    sb.style.display = "none";
+    rb.style.display = "block";
+    const me = players.find((p) => p.id === state.myId);
+    if (me && me.ready) {
+      rb.textContent = "準備をキャンセル";
+      rb.className = "btn";
+      setLobbyMsg("ホストがゲームを開始するまで待ってね...");
+    } else {
+      rb.textContent = "準備完了！";
+      rb.className = "btn red";
+      setLobbyMsg("準備ができたらボタンを押してね");
+    }
+  }
+}
+
+// ----------------------------------------
+// ゲーム画面の描画（融合ゲーム専用）
+// ----------------------------------------
+export function renderGame(room) {
+  const g        = room.game;
+  if (!g) return;
+  const players   = room.players || [];
+  const reactions = room.reactions || {};
+  const curId     = g.order[g.ci];
+  const isMyTurn  = curId === state.myId;
+  const phase     = g.phase || "trump";
+  const myRankIdx = (g.rankings || []).findIndex(r => r.id === state.myId);
+  const iFinished = myRankIdx !== -1;
+
+  const myTrump     = (g.trumpHands && g.trumpHands[state.myId]) || [];
+  const myUno       = (g.unoHands   && g.unoHands[state.myId])   || [];
+  const myTrumpDone = myTrump.length === 0;
+  const myUnoDone   = myUno.length === 0;
+
+  // ---- ターンバナー ----
+  const tb = document.getElementById("tbnr");
+  if (iFinished) {
+    tb.textContent = `🏁 上がり確定（${myRankIdx + 1}位・観戦中）`;
+    tb.className = "tb finished";
+  } else if (isMyTurn) {
+    tb.textContent = phase === "trump"
+      ? "あなたのターン【①トランプフェイズ】"
+      : "あなたのターン【②UNOフェイズ】";
+    tb.className = "tb myturn";
+  } else {
+    const cp = players.find(p => p.id === curId);
+    tb.textContent = `${cp ? cp.name : "?"}のターン【${phase === "trump" ? "①トランプ" : "②UNO"}】`;
+    tb.className = "tb wait";
+  }
+
+  // ---- フェイズインジケーター ----
+  const pi = document.getElementById("phase-indicator");
+  if (pi) {
+    pi.innerHTML = `
+      <span class="${phase === "trump" ? "phase-active" : "phase-idle"}">① 🃏 トランプ</span>
+      <span class="phase-arrow">→</span>
+      <span class="${phase === "uno" ? "phase-active" : "phase-idle"}">② 🎴 UNO</span>
+    `;
+  }
+
+  // ---- 他プレイヤー ----
+  const opl = document.getElementById("opl");
+  opl.innerHTML = "";
+  players.filter(p => p.id !== state.myId).forEach(p => {
+    const tc    = (g.trumpHands && g.trumpHands[p.id]) ? g.trumpHands[p.id].length : 0;
+    const uc    = (g.unoHands   && g.unoHands[p.id])   ? g.unoHands[p.id].length   : 0;
+    const active  = p.id === curId && g.order.includes(p.id);
+    const rIdx    = (g.rankings || []).findIndex(r => r.id === p.id);
+    const react   = reactions[p.id];
+    const reactHtml = (react && Date.now() - react.ts < 4000)
+      ? `<div class="react-badge">${react.emoji}</div>` : "";
+    const el = document.createElement("div");
+    el.className = "op" + (active ? " cur" : "");
+    el.innerHTML = `
+      ${reactHtml}
+      <div class="on">${p.name}</div>
+      ${rIdx !== -1
+        ? `<div class="oc finish-badge">🏁${rIdx+1}位</div>`
+        : `<div class="oc"><div class="trump-cnt">🃏${tc}枚</div><div class="uno-cnt">🎴${uc}枚</div></div>`
+      }
+    `;
+    opl.appendChild(el);
+  });
+
+  // ---- トランプの場 ----
+  const tfEl = document.getElementById("trump-field");
+  if (tfEl) {
+    if (g.trumpField) {
+      const c = g.trumpField;
+      const isRed = c.s === "♥" || c.s === "♦";
+      tfEl.innerHTML = `<div class="trump-card${isRed ? " red" : ""}">
+        <span class="ts">${c.s}</span><span class="tv">${c.v}</span>
+      </div>`;
+    } else {
+      tfEl.innerHTML = `<div class="trump-empty">場は空<br><small>何でも出せる</small></div>`;
     }
   }
 
-  const isGameOver = g.order.length <= 1;
-  if (isGameOver && g.order.length===1) {
-    const lastId = g.order[0];
-    if (!g.rankings.some(r=>r.id===lastId)) g.rankings.push({id:lastId, name:'?'});
+  // ---- 親バッジ ----
+  const parentBadge = document.getElementById("parent-badge");
+  if (parentBadge) {
+    if (g.hasParent) {
+      const pName = players.find(p => p.id === g.hasParent)?.name || "?";
+      const isMeParent = g.hasParent === state.myId;
+      parentBadge.textContent = `👑 親: ${pName}${isMeParent ? "（あなた）" : ""}`;
+      parentBadge.style.display = "inline-block";
+    } else {
+      parentBadge.style.display = "none";
+    }
   }
 
-  return {
-    g,
-    logMsg: `${playerName}がUNO[${card.v}]を出した${logExtra?' '+logExtra:''}`,
-    isGameOver,
-  };
+  // ---- UNOの場 ----
+  const topUno = g.unoDiscardPile && g.unoDiscardPile.length > 0
+    ? g.unoDiscardPile[g.unoDiscardPile.length - 1] : null;
+  if (topUno) {
+    const ufEl = document.getElementById("uno-field");
+    if (ufEl) {
+      ufEl.className = "uno-field-card tc " + unoCardColorClass(topUno);
+      document.getElementById("uf-val").textContent  = topUno.v;
+      document.getElementById("uf-sym").textContent  = topUno.v;
+      document.getElementById("uf-sym2").textContent = topUno.v;
+    }
+  }
+
+  // ---- 現在色バッジ ----
+  const ccEl = document.getElementById("current-color");
+  if (ccEl) {
+    const colorMap = { red:"🔴 赤", blue:"🔵 青", green:"🟢 緑", yellow:"🟡 黄" };
+    ccEl.textContent = "現在の色: " + (colorMap[g.unoCurrentColor] || g.unoCurrentColor);
+    ccEl.className   = "current-color-badge cc-" + g.unoCurrentColor;
+  }
+
+  // ---- 累積ドロー警告 ----
+  const penEl = document.getElementById("penalty-warn");
+  if (penEl) {
+    if (g.unoPenaltyAccum > 0) {
+      penEl.textContent = `⚠️ +${g.unoPenaltyAccum} 累積中！同種で返すかまとめて引く`;
+      penEl.style.display = "block";
+    } else {
+      penEl.style.display = "none";
+    }
+  }
+
+  // ---- 自分のトランプ手札 ----
+  renderTrumpHand(myTrump, isMyTurn && phase === "trump", g, iFinished, myTrumpDone);
+
+  // ---- 自分のUNO手札 ----
+  renderUnoHand(myUno, isMyTurn && phase === "uno", g, topUno, iFinished, myUnoDone);
+
+  // ---- アクションボタン表示制御 ----
+  // トランプフェイズ
+  const tpassBtn    = document.getElementById("trump-pass-btn");
+  const tskipBtn    = document.getElementById("trump-skip-btn");
+  if (tpassBtn) tpassBtn.style.display = (isMyTurn && phase === "trump" && !iFinished && !myTrumpDone) ? "inline-block" : "none";
+  if (tskipBtn) tskipBtn.style.display = (isMyTurn && phase === "trump" && !iFinished && myTrumpDone)  ? "inline-block" : "none";
+
+  // UNOフェイズ
+  const udrawBtn = document.getElementById("uno-draw-btn");
+  if (udrawBtn) {
+    udrawBtn.style.display = (isMyTurn && phase === "uno" && !iFinished) ? "inline-block" : "none";
+    if (g.unoPenaltyAccum > 0) {
+      udrawBtn.textContent = `ペナルティ ${g.unoPenaltyAccum} 枚引く`;
+      udrawBtn.classList.add("penalty");
+    } else {
+      udrawBtn.textContent = "UNOを1枚引く";
+      udrawBtn.classList.remove("penalty");
+    }
+  }
+
+  // UNO宣言ボタン
+  const unoBtn = document.getElementById("uno-btn");
+  if (unoBtn) {
+    const showUno = !iFinished && !myUnoDone && isMyTurn && phase === "uno"
+      && myUno.length <= 2 && !(g.unoSaid && g.unoSaid[state.myId]);
+    unoBtn.style.display = showUno ? "inline-block" : "none";
+  }
+
+  // 親カラー変更ボタン
+  const parentColorBtn = document.getElementById("parent-color-btn");
+  if (parentColorBtn) {
+    parentColorBtn.style.display = (isMyTurn && phase === "uno" && g.hasParent === state.myId) ? "block" : "none";
+  }
+
+  // カラーピッカーを閉じる
+  document.getElementById("cpick")?.classList.remove("show");
+
+  // ---- ログ ----
+  const logEl = document.getElementById("glog");
+  const logs  = room.log || [];
+  logEl.innerHTML = logs.slice(-6).map(l => `<div class="log-entry">${l}</div>`).join("");
+  logEl.scrollTop = logEl.scrollHeight;
 }
 
-// =============================================
-// フェイズ2: UNOカードを引く
-// =============================================
-export function applyUnoDraw(g, playerId, playerName) {
-  const n = g.order.length;
-  let logMsg = '';
+function renderTrumpHand(hand, canAct, g, iFinished, myTrumpDone) {
+  const el    = document.getElementById("my-trump-hand"); if (!el) return;
+  const cntEl = document.getElementById("trump-cnt");     if (cntEl) cntEl.textContent = hand.length;
 
-  if (g.unoPenaltyAccum > 0) {
-    const count = g.unoPenaltyAccum;
-    drawUnoCards(g, playerId, count);
-    g.unoPenaltyAccum = 0;
-    logMsg = `${playerName}がペナルティ${count}枚引いた（手番は継続）`;
-    // ペナルティは手番を飛ばさない（ルール5）
+  if (iFinished) { el.innerHTML = `<div class="hand-done">🏁 上がり（観戦中）</div>`; return; }
+  if (myTrumpDone) { el.innerHTML = `<div class="hand-done">✅ トランプ出し切り！UNOフェイズのみ</div>`; return; }
+
+  // 現在の選択状態を取得（app.js側の変数を参照）
+  const selectedIds = window._selectedTrumpIds || [];
+
+  el.innerHTML = "";
+  hand.forEach(card => {
+    const canPlay = canAct && window.trumpCanPlayCard(card, g.trumpField, selectedIds);
+    const isRed   = card.s === "♥" || card.s === "♦";
+    const isSelected = selectedIds.includes(card.id);
+    const div   = document.createElement("div");
+    div.className = `trump-hand-card${isRed ? " red" : ""}${!canPlay && !isSelected ? " off" : ""}${isSelected ? " selected" : ""}`;
+    div.dataset.cardId  = card.id;
+    div.dataset.canPlay = canPlay ? "1" : "0";
+    div.innerHTML = `<span class="ts">${card.s}</span><span class="tv">${card.v}</span>`;
+    // 出せるカード・選択済みカードのみクリック可能
+    if (canPlay || isSelected) div.onclick = () => window.selectTrumpCard(card.id);
+    el.appendChild(div);
+  });
+}
+
+function renderUnoHand(hand, canAct, g, topUno, iFinished, myUnoDone) {
+  const el    = document.getElementById("my-uno-hand"); if (!el) return;
+  const cntEl = document.getElementById("uno-cnt-my"); if (cntEl) cntEl.textContent = hand.length;
+
+  if (iFinished)  { el.innerHTML = `<div class="hand-done">🏁 上がり（観戦中）</div>`; return; }
+  if (myUnoDone)  { el.innerHTML = `<div class="hand-done">✅ UNO出し切り！トランプフェイズのみ</div>`; return; }
+
+  // 現在の選択状態を取得（app.js側の変数を参照）
+  const selectedIdx = window._selectedUnoIdx;
+
+  el.innerHTML = "";
+  hand.forEach((card, idx) => {
+    const canPlay  = canAct && topUno && unoCanPlay(card, topUno, g.unoCurrentColor, g.unoPenaltyAccum);
+    const isSelected = idx === selectedIdx;
+    const div = document.createElement("div");
+    div.className = `hcd ${unoCardColorClass(card)}${!canPlay && !isSelected ? " off" : ""}${isSelected ? " selected" : ""}`;
+    div.dataset.cardIdx = idx;
+    div.innerHTML = `<span class="hs">${card.v}</span>${card.v}<span class="hs br">${card.v}</span>`;
+    // 出せるカード・選択済みカードのみクリック可能
+    if (canPlay || isSelected) div.onclick = () => window.selectUnoCard(idx);
+    el.appendChild(div);
+  });
+}
+
+// ----------------------------------------
+// リザルト画面の描画（元のまま流用）
+// ----------------------------------------
+export function renderResult(room) {
+  const g        = room.game;
+  const rankings = (g && g.rankings) || [];
+  const rlist    = document.getElementById("rlist");
+  rlist.innerHTML = "";
+
+  rankings.forEach((r, idx) => {
+    const medal = ["🥇","🥈","🥉"][idx] || `${idx + 1}位`;
+    const isMe  = r.id === state.myId
+      ? '<span class="tag you" style="margin:0">あなた</span>' : "";
+    const el    = document.createElement("div");
+    el.className = "rank-row" + (r.id === state.myId ? " rank-me" : "");
+    el.innerHTML = `<span class="rank-medal">${medal}</span><span class="rank-name">${r.name}</span>${isMe}`;
+    rlist.appendChild(el);
+  });
+
+  const myRankIdx = rankings.findIndex(r => r.id === state.myId);
+  const ric  = document.getElementById("ric");
+  const rtit = document.getElementById("rtit");
+  if (myRankIdx === 0)       { ric.textContent = "👑"; rtit.textContent = "あなたが1位！"; }
+  else if (myRankIdx !== -1) { ric.textContent = "🏁"; rtit.textContent = `${myRankIdx + 1}位でゴール！`; }
+  else                        { ric.textContent = "😅"; rtit.textContent = "ゲーム終了！"; }
+
+  const resBtn = document.getElementById("res-back-btn");
+  if (state.myId === room.host) {
+    resBtn.style.display = "block";
+    resBtn.disabled      = false;
+    resBtn.textContent   = "もう一度遊ぶ（ロビーへ）";
   } else {
-    drawUnoCards(g, playerId, 1);
-    logMsg = `${playerName}がUNOを1枚引いた`;
+    resBtn.style.display = "block";
+    resBtn.disabled      = true;
+    resBtn.textContent   = "ホストが再開するのを待っています...";
   }
+}
 
-  // 次の手番へ
-  g.phase = 'trump';
-  const myIdx = g.order.indexOf(playerId);
-  if (myIdx !== -1) g.ci = (myIdx + g.dir + n) % n;
+// ----------------------------------------
+// リアクションフィードバック（元のまま流用）
+// ----------------------------------------
+export function flashReactionBtn(emoji) {
+  document.querySelectorAll(".react-btn").forEach(b => {
+    if (b.dataset.emoji === emoji) {
+      b.classList.add("reacted");
+      showSelfReaction(emoji);
+      setTimeout(() => b.classList.remove("reacted"), 1500);
+    }
+  });
+}
 
-  return { g, logMsg };
+export function showSelfReaction(emoji) {
+  let popup = document.getElementById("self-react-popup");
+  if (!popup) {
+    popup = document.createElement("div");
+    popup.id = "self-react-popup";
+    document.body.appendChild(popup);
+  }
+  popup.textContent = emoji;
+  popup.classList.remove("pop-anim");
+  void popup.offsetWidth;
+  popup.classList.add("pop-anim");
 }
