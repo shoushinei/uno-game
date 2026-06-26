@@ -347,19 +347,8 @@ window.trumpPass = async function () {
     const { g: newG, logMsg } = applyTrumpPass(g, state.myId, pname);
     const logs = [...(room.log || []), logMsg];
 
-    // 全員パス → 場を流す（最後にカードを出した人が親）
-    if (g.trumpField && passCount >= g.order.length - 1) {
-      // 自分の前のプレイヤー（最後にトランプを出した人）が親
-      const myIdx    = g.order.indexOf(state.myId);
-      const parentIdx = (myIdx - g.dir + g.order.length) % g.order.length;
-      newG.trumpField = null;
-      newG.hasParent  = g.order[parentIdx];
-      const parentName = room.players.find(p => p.id === newG.hasParent)?.name || "?";
-      logs.push(`全員パス！場が流れた 👑 ${parentName}が親になった`);
-      await fbUpdate("rooms/" + state.roomId, { game: newG, log: logs.slice(-8), trumpPassCount: 0 });
-    } else {
-      await fbUpdate("rooms/" + state.roomId, { game: newG, log: logs.slice(-8), trumpPassCount: passCount });
-    }
+    // ⚡️ここではパスカウントを増やすだけ。場を流す処理は次のUNOフェイズ終了時に安全に行います。
+    await fbUpdate("rooms/" + state.roomId, { game: newG, log: logs.slice(-8), trumpPassCount: passCount });
   } catch (e) { dbg("trumpPass error: " + e.message, true); }
 };
 
@@ -413,6 +402,10 @@ async function doUnoPlay(idx, chosenColor) {
     const g    = room.game;
     if (!g || g.order[g.ci] !== state.myId) return;
     const pname  = room.players.find(p => p.id === state.myId)?.name || state.myName;
+    
+    // 現在のトランプパスカウントを一時記憶
+    const currentPassCount = room.trumpPassCount || 0;
+
     const result = applyUnoPlay(g, state.myId, idx, chosenColor, pname);
     if (!result) return;
     const { g: newG, logMsg, isGameOver } = result;
@@ -426,12 +419,30 @@ async function doUnoPlay(idx, chosenColor) {
       });
     }
     const logs = [...(room.log || []), logMsg];
-    await fbUpdate("rooms/" + state.roomId, {
-      game: newG,
-      log:  logs.slice(-8),
-      trumpPassCount: 0,
-      ...(isGameOver ? { state: "ended" } : {}),
-    });
+
+    // ⚡️UNOを出し終え、スキップ等も計算された「本当の次のプレイヤー」が決まった手番で場を流す判定を行う
+    const fCards = Array.isArray(newG.trumpField) ? newG.trumpField : [];
+    if (fCards.length > 0 && currentPassCount >= newG.order.length - 1 && newG.order.length > 0) {
+      const nextPlayerId = newG.order[newG.ci];
+      newG.trumpField = [];           // トランプの場を完全にクリア
+      newG.hasParent  = nextPlayerId; // スキップ等も考慮された次の人に親権限を付与
+      
+      const parentName = room.players.find(p => p.id === nextPlayerId)?.name || "?";
+      logs.push(`全員パス！場が流れた 👑 ${parentName}が親になった`);
+
+      await fbUpdate("rooms/" + state.roomId, {
+        game: newG,
+        log:  logs.slice(-8),
+        trumpPassCount: 0, // 親が決まったのでパスカウントをリセット
+        ...(isGameOver ? { state: "ended" } : {}),
+      });
+    } else {
+      await fbUpdate("rooms/" + state.roomId, {
+        game: newG,
+        log:  logs.slice(-8),
+        ...(isGameOver ? { state: "ended" } : {}),
+      });
+    }
   } catch (e) { dbg("doUnoPlay error: " + e.message, true); }
 }
 // ========================================
@@ -503,9 +514,27 @@ window.unoDraw = async function () {
     const g    = room.game;
     if (!g || g.order[g.ci] !== state.myId || g.phase !== "uno") return;
     const pname       = room.players.find(p => p.id === state.myId)?.name || state.myName;
+    
+    // 現在のトランプパスカウントを記憶
+    const currentPassCount = room.trumpPassCount || 0;
+
     const { g: newG, logMsg } = applyUnoDraw(g, state.myId, pname);
     const logs = [...(room.log || []), logMsg];
-    await fbUpdate("rooms/" + state.roomId, { game: newG, log: logs.slice(-8) });
+
+    // ⚡️カードを引いて手番が次の人に移動したタイミングでも、全員パスが成立していれば場を流す
+    const fCards = Array.isArray(newG.trumpField) ? newG.trumpField : [];
+    if (fCards.length > 0 && currentPassCount >= newG.order.length - 1 && newG.order.length > 0) {
+      const nextPlayerId = newG.order[newG.ci];
+      newG.trumpField = [];          // 場を空にする
+      newG.hasParent  = nextPlayerId; // スキップ等も考慮された次の人に親権限を付与
+      
+      const parentName = room.players.find(p => p.id === nextPlayerId)?.name || "?";
+      logs.push(`全員パス！場が流れた 👑 ${parentName}が親になった`);
+
+      await fbUpdate("rooms/" + state.roomId, { game: newG, log: logs.slice(-8), trumpPassCount: 0 });
+    } else {
+      await fbUpdate("rooms/" + state.roomId, { game: newG, log: logs.slice(-8) });
+    }
   } catch (e) { dbg("unoDraw error: " + e.message, true); }
 };
 
@@ -541,7 +570,7 @@ window.pickParentColor = async function (color) {
     const pname = room.players.find(p => p.id === state.myId)?.name || state.myName;
     const cname = { red:"赤", blue:"青", green:"緑", yellow:"黄" }[color] || color;
     const logs  = [...(room.log || []), `${pname}が親の権限でUNOの色を【${cname}】に変更！`];
-    await fbUpdate("rooms/" + state.roomId, { game: g, log: logs.slice(-8) });
+    await fbUpdate("rooms/" + state.roomId, { g: g, log: logs.slice(-8) });
   } catch (e) { dbg("pickParentColor error: " + e.message, true); }
 };
 
@@ -560,7 +589,7 @@ window.sendReaction = async function (emoji) {
 };
 
 // ========================================
-// ロビーへ戻る（元のまま流用）
+// ロ lobbyへ戻る（元のまま流用）
 // ========================================
 window.backToLobby = async function () {
   try {
