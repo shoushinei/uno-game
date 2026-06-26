@@ -169,15 +169,20 @@ export function renderGame(room) {
     opl.appendChild(el);
   });
 
-  // ---- トランプの場 ----
+// ---- トランプの場 ----
   const tfEl = document.getElementById("trump-field");
   if (tfEl) {
-    if (g.trumpField) {
-      const c = g.trumpField;
-      const isRed = c.s === "♥" || c.s === "♦";
-      tfEl.innerHTML = `<div class="trump-card${isRed ? " red" : ""}">
-        <span class="ts">${c.s}</span><span class="tv">${c.v}</span>
-      </div>`;
+    // 場のデータが配列であることを保証
+    const fCards = Array.isArray(g.trumpField) ? g.trumpField : (g.trumpField ? [g.trumpField] : []);
+    
+    if (fCards.length > 0) {
+      // 出された全てのトランプカードを .map で回して横に並べて描画する
+      tfEl.innerHTML = fCards.map(c => {
+        const isRed = c.s === "♥" || c.s === "♦";
+        return `<div class="trump-card${isRed ? " red" : ""}">
+          <span class="ts">${c.s}</span><span class="tv">${c.v}</span>
+        </div>`;
+      }).join("");
     } else {
       tfEl.innerHTML = `<div class="trump-empty">場は空<br><small>何でも出せる</small></div>`;
     }
