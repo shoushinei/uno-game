@@ -69,7 +69,14 @@
 .field-label { font-size:11px; font-weight:600; color:var(--color-text-secondary); margin-bottom:4px; }
 
 /* ---- トランプ場のカード ---- */
-.trump-field { min-height:70px; display:flex; align-items:center; justify-content:center; }
+.trump-field { 
+  min-height:70px; 
+  display:flex; 
+  gap:4px;            /* カードとカードの間に隙間を空ける */
+  flex-wrap:wrap;     /* 枚数が多くても綺麗に折り返せるようにする */
+  align-items:center; 
+  justify-content:center; 
+}
 .trump-card {
   width:52px; height:74px; border-radius:8px;
   background:white; border:1.5px solid rgba(0,0,0,.1);
