@@ -3,6 +3,7 @@
 // Firebaseリスナー管理とゲームアクション処理を担う。
 // 認証・ルーム管理は auth.js に分離済み。
 // ========================================
+import './auth.js';
 import { state } from './state.js';
 import { fbGet, fbUpdate, fbSet, fbListen } from './db.js';
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg, setLobbyMsg } from './ui-render.js';
