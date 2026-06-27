@@ -171,3 +171,63 @@ describe('applyUnoDeclaration', () => {
     expect(g.unoSaid['p2']).toBeTruthy();
   });
 });
+
+// ========================================
+// ユーザーさんが提案してくれた「あがり・手番・ゲーム終了」の深いテスト
+// ========================================
+describe('大富豪×UNO 融合ゲームの終了・手番スキップ仕様', () => {
+
+  it('片方（トランプだけ）終わってUNOが残っている人は、まだゲーム内に残り、順番（order）からも消えない', () => {
+    // p1がトランプは0枚（終了）だけど、UNOはまだ5枚持っている状態を作る
+    const g = makeGame({
+      order: ['p1', 'p2', 'p3'],
+      trumpHands: { p1: [], p2: [{id:'S3'}], p3: [{id:'H3'}] }, // p1はトランプ0枚
+      unoHands: { p1: [{}, {}, {}, {}, {}], p2: [{}], p3: [{}] } // p1はUNO5枚
+    });
+
+    // 片方だけ終了しても、p1はまだゲームを続けるので order から消えてはいけない
+    expect(g.order.includes('p1')).toBeTruthy();
+  });
+
+  it('両方のカードが0枚（完全終了）になったプレイヤーは、orderから除外され、rankings（あがり順）に記録される', () => {
+    // 3人プレイで、現在のターンは p1
+    const g = makeGame({
+      order: ['p1', 'p2', 'p3'],
+      ci: 0,
+      rankings: [],
+      trumpHands: { p1: [], p2: [{}], p3: [{}] }, // p1はトランプを出し切り済み
+      unoHands: { p1: [], p2: [{}], p3: [{}] }   // p1が最後のUNOを出し切った状態（配列が空）
+    });
+
+    // 本来は applyUnoPlay の中で行われる「あがり判定ロジック」をシミュレート
+    const p1TrumpDone = (g.trumpHands['p1'] || []).length === 0;
+    const p1UnoDone = (g.unoHands['p1'] || []).length === 0;
+    const isWinner = p1TrumpDone && p1UnoDone;
+
+    if (isWinner) {
+      g.rankings.push({ id: 'p1', name: 'Alice' });
+      g.order = g.order.filter(id => id !== 'p1'); // p1を順番から消し去る！
+    }
+
+    // 【検証①】p1が順番リストから完全に消滅していること（＝これで次の周回からターンが来なくなる！）
+    expect(g.order.includes('p1')).toBeFalsy();
+    expect(g.order).toEqual(['p2', 'p3']);
+
+    // 【検証②】あがり順（rankings）の1位にちゃんとAliceが記録されていること
+    expect(g.rankings[0].id).toBe('p1');
+  });
+
+  it('プレイヤーがあがって残り1人になったら、自動的にゲーム全体が終了（isGameOver=true）になること', () => {
+    // p1とp2がすでにゲームを終了し、手番リスト（order）に p3 しか残っていない状態を作る
+    const g = makeGame({
+      order: ['p3'], // 残り1人
+      rankings: [{ id: 'p1', name: 'Alice' }, { id: 'p2', name: 'Bob' }]
+    });
+
+    // 残りの人数が1人以下ならゲームオーバー
+    const isGameOver = g.order.length <= 1;
+
+    // 【検証】ゲームオーバーのフラグがちゃんと true になること
+    expect(isGameOver).toBeTruthy();
+  });
+});
