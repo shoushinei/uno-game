@@ -1,0 +1,17 @@
+{
+  "name": "uno-game",
+  "version": "1.0.0",
+  "description": "トランプ（大富豪ルール）と UNO を**同時進行**させるリアルタイムマルチプレイヤーカードゲーム（3〜8人）。   Firebase Realtime Database でリアルタイム同期。Google アカウントでログイン不要の手軽さで遊べます。",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "vite": "^8.1.0",
+    "vitest": "^4.1.9"
+  }
+}
