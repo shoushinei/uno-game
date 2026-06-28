@@ -173,6 +173,181 @@ describe('applyUnoDeclaration', () => {
 });
 
 // ========================================
+// checkAllPassed 追加テスト（正常系・異常系）
+// ========================================
+describe('checkAllPassed — 追加（正常系）', () => {
+  it('cleared=true のとき logMsg は null でない', () => {
+    const g = makeGame();
+    const r = checkAllPassed(g, 2, PLAYERS);
+    expect(r.logMsg).not.toBeNull();
+  });
+
+  it('cleared=false のとき logMsg は null', () => {
+    const g = makeGame();
+    const r = checkAllPassed(g, 0, PLAYERS);
+    expect(r.logMsg).toBeNull();
+  });
+
+  it('cleared=true のとき trumpField が空配列になる', () => {
+    const g = makeGame();
+    checkAllPassed(g, 2, PLAYERS);
+    expect(g.trumpField).toEqual([]);
+  });
+});
+
+describe('checkAllPassed — 追加（異常系）', () => {
+  it('order が空の場合は cleared=false を返す', () => {
+    const g = makeGame({ order: [] });
+    const r = checkAllPassed(g, 0, PLAYERS);
+    expect(r.cleared).toBe(false);
+  });
+
+  it('PLAYERS に ci のプレイヤーが見つからなくても例外にならず parentName が "?" になる', () => {
+    const g = makeGame({ ci: 0, order: ['unknown'] });
+    const r = checkAllPassed(g, 0, PLAYERS); // order.length-1 = 0, passCount=0 → cleared=true
+    expect(r.cleared).toBe(true);
+    expect(r.parentName).toBe('?');
+  });
+});
+
+// ========================================
+// resolveRankingNames 追加テスト（正常系・異常系）
+// ========================================
+describe('resolveRankingNames — 追加（正常系）', () => {
+  it('複数の ? を一度に解決できる', () => {
+    const rankings = [
+      { id: 'p1', name: '?' },
+      { id: 'p2', name: '?' },
+      { id: 'p3', name: '?' },
+    ];
+    resolveRankingNames(rankings, PLAYERS);
+    expect(rankings[0].name).toBe('Alice');
+    expect(rankings[1].name).toBe('Bob');
+    expect(rankings[2].name).toBe('Carol');
+  });
+
+  it('空の rankings を渡してもエラーにならない', () => {
+    expect(() => resolveRankingNames([], PLAYERS)).not.toThrow();
+  });
+});
+
+describe('resolveRankingNames — 追加（異常系）', () => {
+  it('PLAYERS が空でも例外にならず ? のまま', () => {
+    const rankings = [{ id: 'p1', name: '?' }];
+    expect(() => resolveRankingNames(rankings, [])).not.toThrow();
+    expect(rankings[0].name).toBe('?');
+  });
+});
+
+// ========================================
+// applyTrumpSkip 追加テスト（正常系・異常系）
+// ========================================
+describe('applyTrumpSkip — 追加（正常系）', () => {
+  it('返り値は { logMsg } の形を持つ', () => {
+    const g = makeGame();
+    const r = applyTrumpSkip(g, 'Alice');
+    expect(r).toHaveProperty('logMsg');
+  });
+
+  it('何度呼んでも phase は uno のまま（冪等性）', () => {
+    const g = makeGame();
+    applyTrumpSkip(g, 'Alice');
+    applyTrumpSkip(g, 'Alice');
+    expect(g.phase).toBe('uno');
+  });
+});
+
+describe('applyTrumpSkip — 追加（異常系）', () => {
+  it('playerName が空文字でもエラーにならず logMsg が生成される', () => {
+    const g = makeGame();
+    const { logMsg } = applyTrumpSkip(g, '');
+    expect(typeof logMsg).toBe('string');
+  });
+});
+
+// ========================================
+// applyParentColorChange 追加テスト（正常系・異常系）
+// ========================================
+describe('applyParentColorChange — 追加（正常系）', () => {
+  it('返り値は { logMsg } の形を持つ', () => {
+    const g = makeGame({ hasParent: 'p1' });
+    const r = applyParentColorChange(g, 'p1', 'red', 'Alice');
+    expect(r).toHaveProperty('logMsg');
+  });
+
+  it('4色すべてで色変更できる', () => {
+    ['red', 'blue', 'green', 'yellow'].forEach(color => {
+      const g = makeGame({ hasParent: 'p1' });
+      const r = applyParentColorChange(g, 'p1', color, 'Alice');
+      expect(r).not.toBeNull();
+      expect(g.unoCurrentColor).toBe(color);
+    });
+  });
+
+  it('logMsg にプレイヤー名が含まれる', () => {
+    const g = makeGame({ hasParent: 'p1' });
+    const r = applyParentColorChange(g, 'p1', 'blue', 'Alice');
+    expect(r.logMsg).toContain('Alice');
+  });
+});
+
+describe('applyParentColorChange — 追加（異常系）', () => {
+  it('hasParent が null なら null を返す', () => {
+    const g = makeGame({ hasParent: null });
+    const r = applyParentColorChange(g, 'p1', 'blue', 'Alice');
+    expect(r).toBeNull();
+  });
+
+  it('一度使用した後は hasParent が null になるため再度呼んでも null を返す（1回限り保証）', () => {
+    const g = makeGame({ hasParent: 'p1' });
+    applyParentColorChange(g, 'p1', 'blue', 'Alice'); // 1回目：成功
+    const r2 = applyParentColorChange(g, 'p1', 'red', 'Alice'); // 2回目：失敗
+    expect(r2).toBeNull();
+    expect(g.unoCurrentColor).toBe('blue'); // 1回目の結果のまま
+  });
+});
+
+// ========================================
+// applyUnoDeclaration 追加テスト（正常系・異常系）
+// ========================================
+describe('applyUnoDeclaration — 追加（正常系）', () => {
+  it('複数プレイヤーが別々に宣言しても互いに干渉しない', () => {
+    const g = makeGame({ unoSaid: {} });
+    applyUnoDeclaration(g, 'p1', 'Alice');
+    applyUnoDeclaration(g, 'p2', 'Bob');
+    expect(g.unoSaid['p1']).toBeTruthy();
+    expect(g.unoSaid['p2']).toBeTruthy();
+  });
+
+  it('返り値は { logMsg } の形を持つ', () => {
+    const g = makeGame({ unoSaid: {} });
+    const r = applyUnoDeclaration(g, 'p1', 'Alice');
+    expect(r).toHaveProperty('logMsg');
+  });
+
+  it('logMsg にプレイヤー名が含まれる', () => {
+    const g = makeGame({ unoSaid: {} });
+    const { logMsg } = applyUnoDeclaration(g, 'p1', 'Carol');
+    expect(logMsg).toContain('Carol');
+  });
+});
+
+describe('applyUnoDeclaration — 追加（異常系）', () => {
+  it('同じプレイヤーが2回宣言してもエラーにならない（上書き可）', () => {
+    const g = makeGame({ unoSaid: {} });
+    applyUnoDeclaration(g, 'p1', 'Alice');
+    expect(() => applyUnoDeclaration(g, 'p1', 'Alice')).not.toThrow();
+    expect(g.unoSaid['p1']).toBeTruthy();
+  });
+
+  it('playerName が空文字でもエラーにならず unoSaid が更新される', () => {
+    const g = makeGame({ unoSaid: {} });
+    applyUnoDeclaration(g, 'p1', '');
+    expect(g.unoSaid['p1']).toBeTruthy();
+  });
+});
+
+// ========================================
 // ユーザーさんが提案してくれた「あがり・手番・ゲーム終了」の深いテスト
 // ========================================
 describe('大富豪×UNO 融合ゲームの終了・手番スキップ仕様', () => {

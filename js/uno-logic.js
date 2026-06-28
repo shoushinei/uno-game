@@ -58,6 +58,7 @@ export function unoCardColorClass(card) {
  * 山札が切れた場合に捨て山をシャッフルして補充する（破壊的）
  */
 export function reshuffleUno(g) {
+  if (!g.unoDiscardPile || g.unoDiscardPile.length === 0) return; // 捨て山が空なら何もしない
   const top = g.unoDiscardPile[g.unoDiscardPile.length - 1];
   g.unoDrawPile = shuffle(g.unoDiscardPile.slice(0, g.unoDiscardPile.length - 1));
   g.unoDiscardPile = [top];
