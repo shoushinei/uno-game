@@ -56,11 +56,12 @@ function normalizeSuitGroup(suits) {
   return [...suits].sort((a, b) => suitSortValue(a) - suitSortValue(b));
 }
 
-function suitKey(suits = []) {
+function suitKey(suits) {
+  if (!Array.isArray(suits)) return '';
   return normalizeSuitGroup(suits).join('|');
 }
 
-function sameSuitGroup(a = [], b = []) {
+function sameSuitGroup(a, b) {
   return suitKey(a) === suitKey(b);
 }
 
