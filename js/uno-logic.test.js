@@ -1,7 +1,7 @@
 // ========================================
 // uno-logic.js 単体テスト
 // ========================================
-import { describe, it, expect } from 'vitest'; // ✨ Vitest公式パーツ
+import { describe, it, expect } from 'vitest'; 
 import {
   buildUnoDeck,
   unoCanPlay,
