@@ -42,6 +42,7 @@ export function startListening() {
     'rooms/' + state.roomId,
     (room) => {
       if (!room) return;
+      window._currentGame = room.game || null;
       if (room.game?.trumpHands) {
         window._currentTrumpHand = room.game.trumpHands[state.myId] ?? [];
       }

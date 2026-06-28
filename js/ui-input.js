@@ -1,11 +1,13 @@
 // ========================================
-// UI 入力制御モジュール
-// カードの選択状態をローカルで管理し、
-// 送信確定前のDOMだけを高速更新する責務を担う。
-// ゲームロジックの「判定関数」をwindowに公開することで
-// ui-render.js から参照できるようにする。
+// UI 入力管理モジュール
+//
+// 責務：
+//   - カードの選択状態をローカルで管理する
+//   - 送信確認前のDOMだけをリアルタイム更新する
+//   - ゲームロジックの「判定関数」を window に公開することで
+//     ui-render.js から呼び出せるようにする
 // ========================================
-import { trumpCanPlay, trumpStrength } from './trump-logic.js';
+import { trumpCanPlay } from './trump-logic.js';
 import { unoCanPlay } from './uno-logic.js';
 
 // ----------------------------------------
@@ -20,83 +22,107 @@ Object.defineProperty(window, '_selectedTrumpIds', { get: () => selectedTrumpIds
 Object.defineProperty(window, '_selectedUnoIdx',   { get: () => selectedUnoIdx });
 
 // ----------------------------------------
-// ゲームロジックの判定関数をwindowに公開
-// ui-render.js がDOMを生成する際に参照する
+// ゲームロジックの判定関数を window に公開
+// ui-render.js が DOM を生成する際に参照する
 // ----------------------------------------
 
 /**
- * UNOカードが出せるか判定する（ui-render.js から参照）
+ * UNO カードが出せるか判定する（ui-render.js から呼び出し）
  */
 window.unoCanPlayCard = function (card, topUno, currentColor, penaltyAccum) {
   return unoCanPlay(card, topUno, currentColor, penaltyAccum);
 };
 
 /**
- * トランプカードが選択可能か判定する（ui-render.js から参照）
- * 複数枚選択中は「同ランクのカード」のみ追加選択可能
+ * トランプカードが選択可能か判定する（ui-render.js から呼び出し）
+ *
+ * 判定ロジック：
+ *  - 既に選択中のカードは常に true（選択解除できる）
+ *  - 場の枚数に達していたら追加不可
+ *  - 場が空・選択途中の場合は、追加後の組み合わせが
+ *    analyzeTrumpPlay で valid になるかで判定
  */
 window.trumpCanPlayCard = function (card, fieldCards, currentSelectedIds) {
   const fCards = Array.isArray(fieldCards) ? fieldCards : [];
+  const selectedIds = Array.isArray(currentSelectedIds) ? currentSelectedIds : [];
 
-  // 選択済みのカードは常にtrue（解除操作のため）
-  if (currentSelectedIds.length > 0 && currentSelectedIds.includes(card.id)) return true;
+  // 既に選択中のカードは解除のために常に true
+  if (selectedIds.includes(card.id)) return true;
 
-  const hand = window._currentTrumpHand || [];
+  // 場のカードがあり、選択枚数が場の枚数に達していたら追加不可
+  if (fCards.length > 0 && selectedIds.length >= fCards.length) return false;
 
-  // 1枚目の選択判定
-  if (currentSelectedIds.length === 0) {
-    if (fCards.length === 0) return true;
-    const fNonJoker = fCards.filter(c => c.v !== 'JOKER');
-    const fValue = fNonJoker.length > 0 ? fNonJoker[0].v : 'JOKER';
-    return trumpStrength(card) > trumpStrength({ v: fValue });
-  }
+  const g = window._currentGame || {};
 
-  // 2枚目以降の選択判定：最初のカードと同じ数字（またはJOKER）のみ
-  const firstCard = hand.find(c => c.id === currentSelectedIds[0]);
-  if (!firstCard) return false;
-  if (card.v !== firstCard.v && card.v !== 'JOKER' && firstCard.v !== 'JOKER') return false;
+  // 試しにこのカードを追加した状態で valid かチェック
+  const nextCards = selectedTrumpCards([...selectedIds, card.id]);
 
-  // 場にカードがある場合は場の枚数を超えて選択できない
-  if (fCards.length > 0 && currentSelectedIds.length >= fCards.length) return false;
+  // 場が空で既に選択がある場合：同数字か階段の可能性があれば許可
+  if (fCards.length === 0 && selectedIds.length > 0) return true;
 
-  return true;
+  // 場の枚数に満たない途中段階も許可（まだ揃えている最中）
+  if (fCards.length > 0 && nextCards.length < fCards.length) return true;
+
+  return trumpCanPlay(nextCards, fCards, g) || fCards.length === 0;
 };
 
-// app.js がリスナー更新時に現在の手札をここに書き込む
+// app.js がリスナー更新時に現在の状態をここに書き込む
 window._currentTrumpHand = [];
+window._currentGame = null;
+
+// ---- ヘルパー：選択ID から手札オブジェクト配列を返す ----
+function selectedTrumpCards(ids = selectedTrumpIds) {
+  const hand = window._currentTrumpHand || [];
+  return ids.map(id => hand.find(c => c.id === id)).filter(Boolean);
+}
+
+// ---- 提出ボタンの有効/無効を更新する ----
+function updateTrumpPlayButton() {
+  const playBtn = document.getElementById('trump-play-btn');
+  if (!playBtn) return;
+
+  if (selectedTrumpIds.length === 0) {
+    playBtn.style.display = 'none';
+    playBtn.disabled = false;
+    return;
+  }
+
+  const g = window._currentGame || {};
+  const canSubmit = trumpCanPlay(selectedTrumpCards(), g.trumpField || [], g);
+  playBtn.style.display = 'inline-block';
+  playBtn.disabled = !canSubmit;
+  playBtn.textContent = selectedTrumpIds.length === 1
+    ? 'トランプを出す'
+    : `${selectedTrumpIds.length}枚のトランプを出す`;
+}
 
 // ----------------------------------------
-// トランプ手札のDOM選択状態を即時更新する（Firebase不使用）
+// トランプ手札の DOM 選択状態をリアルタイム更新する
+// （Firebase を使わずに即時反映させる）
 // ----------------------------------------
 function refreshTrumpHandDisplay() {
-  const el = document.getElementById('my-trump-hand'); if (!el) return;
+  const el = document.getElementById('my-trump-hand');
+  if (!el) return;
   el.querySelectorAll('.trump-hand-card').forEach(div => {
     const cardId = div.dataset.cardId;
     if (!cardId) return;
     const isSelected = selectedTrumpIds.includes(cardId);
+    const card = (window._currentTrumpHand || []).find(c => c.id === cardId);
+    const canSelect = card
+      ? window.trumpCanPlayCard(card, window._currentGame?.trumpField || [], selectedTrumpIds)
+      : false;
     div.classList.toggle('selected', isSelected);
-
-    if (selectedTrumpIds.length > 0 && !isSelected) {
-      const firstV = window._currentTrumpHand?.find(c => c.id === selectedTrumpIds[0])?.v;
-      const thisV  = window._currentTrumpHand?.find(c => c.id === cardId)?.v;
-      if (firstV !== undefined && firstV !== thisV) {
-        div.classList.add('off');
-        div.onclick = null;
-      }
-    } else {
-      if (div.dataset.canPlay === '1' || isSelected) {
-        div.classList.remove('off');
-        div.onclick = () => window.selectTrumpCard(cardId);
-      }
-    }
+    div.classList.toggle('off', !canSelect && !isSelected);
+    div.onclick = (canSelect || isSelected) ? () => window.selectTrumpCard(cardId) : null;
   });
 }
 
 // ----------------------------------------
-// UNO手札のDOM選択状態を即時更新する
+// UNO 手札の DOM 選択状態をリアルタイム更新する
 // ----------------------------------------
 function refreshUnoHandDisplay() {
-  const el = document.getElementById('my-uno-hand'); if (!el) return;
+  const el = document.getElementById('my-uno-hand');
+  if (!el) return;
   el.querySelectorAll('.hcd').forEach(div => {
     const idxStr = div.dataset.cardIdx;
     if (idxStr === undefined) return;
@@ -109,39 +135,22 @@ function refreshUnoHandDisplay() {
 // トランプカードの選択／解除
 // ----------------------------------------
 window.selectTrumpCard = function (cardId) {
-  const hand = window._currentTrumpHand;
-
   if (selectedTrumpIds.includes(cardId)) {
+    // 解除
     selectedTrumpIds = selectedTrumpIds.filter(id => id !== cardId);
   } else {
-    if (selectedTrumpIds.length === 0) {
+    // 追加：追加後に valid かを確認してから追加する
+    const card = (window._currentTrumpHand || []).find(c => c.id === cardId);
+    if (card && window.trumpCanPlayCard(card, window._currentGame?.trumpField || [], selectedTrumpIds)) {
       selectedTrumpIds.push(cardId);
-    } else {
-      const firstV = hand.find(c => c.id === selectedTrumpIds[0])?.v;
-      const thisV  = hand.find(c => c.id === cardId)?.v;
-      if (firstV !== undefined && firstV === thisV) {
-        selectedTrumpIds.push(cardId);
-      }
     }
   }
-
-  const playBtn = document.getElementById('trump-play-btn');
-  if (playBtn) {
-    if (selectedTrumpIds.length > 0) {
-      playBtn.style.display = 'inline-block';
-      playBtn.textContent = selectedTrumpIds.length === 1
-        ? '選択したトランプを出す'
-        : `選択した ${selectedTrumpIds.length} 枚を出す`;
-    } else {
-      playBtn.style.display = 'none';
-    }
-  }
-
+  updateTrumpPlayButton();
   refreshTrumpHandDisplay();
 };
 
 // ----------------------------------------
-// UNOカードの選択／解除
+// UNO カードの選択／解除
 // ----------------------------------------
 window.selectUnoCard = function (idx) {
   selectedUnoIdx = (selectedUnoIdx === idx) ? null : idx;
@@ -159,10 +168,12 @@ window.selectUnoCard = function (idx) {
 // ----------------------------------------
 export function resetTrumpSelection() {
   selectedTrumpIds = [];
+  updateTrumpPlayButton();
   const playBtn = document.getElementById('trump-play-btn');
   if (playBtn) {
     playBtn.style.display = 'none';
-    playBtn.textContent = '選択したトランプを出す';
+    playBtn.disabled = false;
+    playBtn.textContent = 'トランプを出す';
   }
 }
 

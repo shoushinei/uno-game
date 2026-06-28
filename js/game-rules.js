@@ -22,6 +22,9 @@ export function checkAllPassed(g, passCount, players) {
 
   const nextPlayerId = g.order[g.ci];
   g.trumpField = [];
+  g.trumpFieldMeta = null;
+  g.trumpElevenBack = false;
+  g.trumpSuitLock = null;
   g.hasParent  = nextPlayerId;
   const parentName = players.find(p => p.id === nextPlayerId)?.name ?? '?';
 

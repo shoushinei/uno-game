@@ -87,6 +87,86 @@
 .trump-card.red { color:#e74c3c; }
 .trump-empty { font-size:11px; color:var(--color-text-tertiary); text-align:center; line-height:1.5; }
 
+.trump-rule-status {
+  display:none;
+  gap:4px;
+  flex-wrap:wrap;
+  justify-content:center;
+  margin-top:6px;
+}
+.trump-rule-badge {
+  border-radius:999px;
+  padding:2px 7px;
+  font-size:10px;
+  font-weight:800;
+  border:1px solid rgba(0,0,0,.08);
+  background:rgba(44,62,80,.08);
+  color:#2c3e50;
+}
+.trump-rule-badge.revolution { background:rgba(142,68,173,.14); color:#8e44ad; border-color:rgba(142,68,173,.32); }
+.trump-rule-badge.eleven { background:rgba(41,128,185,.14); color:#2980b9; border-color:rgba(41,128,185,.32); }
+.trump-rule-badge.lock { background:rgba(39,174,96,.14); color:#1e8449; border-color:rgba(39,174,96,.32); }
+
+.trump-effect {
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+  z-index:9998;
+}
+.trump-effect.show { display:flex; animation:effectFade 2.8s ease forwards; }
+.trump-effect::before {
+  content:'';
+  position:absolute;
+  inset:0;
+  background:rgba(12,18,28,.28);
+}
+.trump-effect-burst {
+  position:absolute;
+  width:min(72vw,360px);
+  aspect-ratio:1;
+  border-radius:50%;
+  background:conic-gradient(from 0deg, transparent, rgba(255,255,255,.72), transparent 34%);
+  animation:effectSpin 1.25s linear infinite, effectPop 2.8s ease forwards;
+}
+.trump-effect-title,
+.trump-effect-sub {
+  position:relative;
+  text-align:center;
+  color:white;
+  text-shadow:0 3px 16px rgba(0,0,0,.45);
+}
+.trump-effect-title {
+  font-size:clamp(32px,8vw,64px);
+  font-weight:950;
+  line-height:1;
+}
+.trump-effect-sub {
+  margin-top:10px;
+  font-size:clamp(14px,3vw,20px);
+  font-weight:800;
+}
+.trump-effect.eightCut .trump-effect-title { color:#ffd166; }
+.trump-effect.revolution .trump-effect-title { color:#d7b4ff; }
+.trump-effect.elevenBack .trump-effect-title { color:#9be7ff; }
+.trump-effect.suitLock .trump-effect-title { color:#93f5bc; }
+.trump-effect.spadeThree .trump-effect-title { color:#ffffff; }
+.trump-effect.jokerSingle .trump-effect-title { color:#ffeaa7; }
+@keyframes effectFade {
+  0%{opacity:0}
+  10%,78%{opacity:1}
+  100%{opacity:0}
+}
+@keyframes effectSpin { to{transform:rotate(360deg)} }
+@keyframes effectPop {
+  0%{transform:scale(.35); opacity:0}
+  16%{transform:scale(1); opacity:.9}
+  80%{transform:scale(1.08); opacity:.6}
+  100%{transform:scale(1.22); opacity:0}
+}
+
 /* ---- 親バッジ ---- */
 .parent-badge {
   font-size:11px; font-weight:700; color:#f39c12;

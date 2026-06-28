@@ -110,6 +110,12 @@ export function renderGame(room) {
   const g = room.game;
   if (!g) return;
 
+  // ui-input.js の判定関数が最新のゲーム状態を参照できるよう同期する
+  window._currentGame = g;
+  if (g.trumpHands) {
+    window._currentTrumpHand = g.trumpHands[state.myId] ?? [];
+  }
+
   const players = room.players || [];
   const reactions = room.reactions || {};
   const curId = g.order[g.ci];
@@ -127,6 +133,8 @@ export function renderGame(room) {
   _renderPhaseIndicator(phase);
   _renderOtherPlayers(g, players, reactions, curId);
   _renderTrumpField(g);
+  _renderTrumpStatus(g);
+  _renderTrumpEffect(g, players);
   _renderParentBadge(g, players);
   _renderUnoField(g);
   _renderCurrentColor(g);
@@ -210,6 +218,91 @@ function _renderTrumpField(g) {
   } else {
     tfEl.innerHTML = `<div class="trump-empty">場は空<br><small>何でも出せる</small></div>`;
   }
+}
+
+function _renderTrumpStatus(g) {
+  const tfEl = document.getElementById('trump-field');
+  if (!tfEl) return;
+  let status = document.getElementById('trump-rule-status');
+  if (!status) {
+    status = document.createElement('div');
+    status.id = 'trump-rule-status';
+    status.className = 'trump-rule-status';
+    tfEl.insertAdjacentElement('afterend', status);
+  }
+
+  const badges = [];
+  if (g.trumpRevolution) badges.push(['revolution', '革命']);
+  if (g.trumpElevenBack) badges.push(['eleven', 'Jバック']);
+  if (Array.isArray(g.trumpSuitLock) && g.trumpSuitLock.length > 0) {
+    badges.push(['lock', `しばり ${g.trumpSuitLock.join('')}`]);
+  }
+
+  status.innerHTML = badges.map(([type, text]) =>
+    `<span class="trump-rule-badge ${type}">${text}</span>`
+  ).join('');
+  status.style.display = badges.length > 0 ? 'flex' : 'none';
+}
+
+// 演出オーバーレイの自動クリア用タイマー
+let _effectClearTimer = null;
+
+function _renderTrumpEffect(g, players) {
+  let el = document.getElementById('trump-effect');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'trump-effect';
+    el.className = 'trump-effect';
+    document.body.appendChild(el);
+  }
+
+  const effect = g.trumpEffect;
+  if (!effect || !effect.ts || Date.now() - effect.ts > 2800) {
+    el.className = 'trump-effect';
+    el.innerHTML = '';
+    return;
+  }
+
+  // 同じ演出が既に表示中なら再トリガーしない
+  if (el.dataset.effectTs === String(effect.ts)) return;
+  el.dataset.effectTs = String(effect.ts);
+
+  const names = {
+    eightCut: '✂️ 8切り',
+    revolution: g.trumpRevolution ? '🌀 革命！' : '🌀 革命返し',
+    elevenBack: '🔄 イレブンバック',
+    suitLock: '⛓️ しばり',
+    jokerSingle: '🃏 ジョーカー！',
+    spadeThree: '♠ スペード3',
+  };
+  const messages = {
+    eightCut: '場が流れた 👑 親になった',
+    revolution: g.trumpRevolution ? '強さが全て逆転！' : '革命解除！通常の強さに戻った',
+    elevenBack: 'この場だけ強さが逆転',
+    suitLock: '同じマークのカードしか出せない',
+    jokerSingle: '無敵のカード！場が流れた 👑 親になった',
+    spadeThree: 'ジョーカーを返した 👑 親になった',
+  };
+  const types = Array.isArray(effect.types) ? effect.types : [effect.type];
+  const title = types.map(t => names[t]).filter(Boolean).join(' / ') || 'SPECIAL';
+  const mainType = effect.type || types[types.length - 1] || 'special';
+  const playerName = players.find(p => p.id === effect.playerId)?.name || '';
+  const message = messages[mainType] || '特殊効果発動';
+
+  el.className = `trump-effect show ${mainType}`;
+  el.innerHTML = `
+    <div class="trump-effect-burst"></div>
+    <div class="trump-effect-title">${title}</div>
+    <div class="trump-effect-sub">${playerName ? playerName + ' - ' : ''}${message}</div>
+  `;
+
+  // アニメーション終了後に自動クリア（残像が残らないように）
+  if (_effectClearTimer) clearTimeout(_effectClearTimer);
+  _effectClearTimer = setTimeout(() => {
+    const e = document.getElementById('trump-effect');
+    if (e) { e.className = 'trump-effect'; e.innerHTML = ''; delete e.dataset.effectTs; }
+    _effectClearTimer = null;
+  }, 2900);
 }
 
 function _renderParentBadge(g, players) {
