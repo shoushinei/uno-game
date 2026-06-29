@@ -162,3 +162,16 @@ window.sendReaction = async (emoji) => {
   if (result?.error) dbg(result.error, true);
   setTimeout(() => { state.reactionCooldown = false; }, 2000);
 };
+
+// ========================================
+// 離脱防止（誤操作によるブラウザ閉じ・戻るボタン対策）
+// ========================================
+window.addEventListener('beforeunload', (event) => {
+  // ルームIDが存在し、かつゲームが終了（ended）していない状態の時に警告を出す
+  const currentGame = window._currentGame;
+  if (state.roomId && currentGame && currentGame.state !== 'ended') {
+    event.preventDefault();
+    event.returnValue = 'ゲーム中ですが、本当に離脱しますか？';
+    return 'ゲーム中ですが、本当に離脱しますか？';
+  }
+});
