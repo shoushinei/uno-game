@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    /* 2026年の最新仕様へアップデート */
+    "target": "ESNext",                          /* 最新のJavaScript機能をフル活用 */
+    "module": "ESNext",                          /* Viteなどのモダンバンドラーに最適化 */
+    "moduleResolution": "bundler",               /* Vite環境における現在の世界標準（デファクトスタンダード） */
+    "noEmit": true,                              /* コンパイル後のファイル出力はせず型チェックに特化（Viteと分業） */
+    
+    /*  JSとTSの段階的同居設定（ここは維持） */
+    "allowJs": true,                             /* 既存のJS同居を許可 */
+    "checkJs": false,                            /* 既存のJSへの厳格チェックはスルー */
+    
+    /*  安全性と速度の最高設定 */
+    "strict": true,                              /* Java並みに厳格な型チェックを強制 */
+    "skipLibCheck": true,                        /* 外部ライブラリのチェックをスキップして爆速化 */
+    "esModuleInterop": true,                     /* 旧モジュールとの互換性確保 */
+    "isolatedModules": true                      /* 高速ビルドツールとの相性抜群の設定 */
+  },
+  "include": ["js/**/*"]                         /* jsフォルダ内をスキャン */
+}

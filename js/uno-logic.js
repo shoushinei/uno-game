@@ -92,8 +92,14 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
   g.unoHands[playerId] = myHand;
   g.unoDiscardPile.push(card);
 
-  if (card.t === 'w' || card.t === 'w4') g.unoCurrentColor = chosenColor || 'red';
-  else g.unoCurrentColor = card.c;
+  // ワイルド系: chosenColor が正しく渡された場合のみ色を変更する
+  // chosenColor が null/undefined の場合は現在の色を維持する
+  // (色ピッカーを経由せずに呼ばれたときの誤った 'red' 固定を防ぐ)
+  if (card.t === 'w' || card.t === 'w4') {
+    g.unoCurrentColor = chosenColor ?? g.unoCurrentColor;
+  } else {
+    g.unoCurrentColor = card.c;
+  }
 
   if (card.t !== 'd2' && card.t !== 'w4') g.unoPenaltyAccum = 0;
 

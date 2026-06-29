@@ -150,15 +150,31 @@ function lockMatches(candidate, g = {}) {
 
 /**
  * 場のカードからメタ情報（型・強さ）を取得する
+ *
+ * ★バグ修正★ イレブンバック・革命で強さが反転した後、キャッシュされた
+ * fieldMeta.power が古い値のままになる問題を修正する。
+ * キャッシュを使う場合でも power だけは現在のゲーム状態で毎回再計算する。
  */
 function getFieldMeta(g = {}, fieldCards = []) {
-  // 場のメタが既にある場合はそれを使う
+  let meta;
   if (g.trumpFieldMeta && g.trumpFieldMeta.length === fieldCards.length) {
-    return g.trumpFieldMeta;
+    meta = g.trumpFieldMeta;
+  } else {
+    const setCandidate = buildSetCandidate(fieldCards, g, null);
+    meta = setCandidate ?? (buildSequenceCandidates(fieldCards, g, null)[0] ?? null);
   }
-  const setCandidate = buildSetCandidate(fieldCards, g, null);
-  if (setCandidate) return setCandidate;
-  return buildSequenceCandidates(fieldCards, g, null)[0] ?? null;
+  if (!meta) return null;
+
+  // power を現在の強さ反転状態で再計算する
+  // (革命・イレブンバック発動後に正しく比較できるようにする)
+  if (meta.type === 'sequence') {
+    // 階段: 最大値のカードの現在の power を再計算
+    const recalcPower = Math.max(...(meta.values ?? [meta.rank]).map(v => trumpPowerForValue(v, g)));
+    return { ...meta, power: recalcPower };
+  } else {
+    // single / set: rank の現在の power を再計算
+    return { ...meta, power: trumpPowerForValue(meta.rank, g) };
+  }
 }
 
 /**

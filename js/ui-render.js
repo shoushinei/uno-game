@@ -297,10 +297,17 @@ function _renderTrumpEffect(g, players) {
   `;
 
   // アニメーション終了後に自動クリア（残像が残らないように）
+  // ★バグ修正★ effectTs は削除しない。削除すると次の renderGame 呼び出しで
+  // ガードが外れて同じ演出が再表示される。'cleared' ダミー値で上書きして
+  // 同じ ts による再表示だけをブロックする。
   if (_effectClearTimer) clearTimeout(_effectClearTimer);
   _effectClearTimer = setTimeout(() => {
     const e = document.getElementById('trump-effect');
-    if (e) { e.className = 'trump-effect'; e.innerHTML = ''; delete e.dataset.effectTs; }
+    if (e) {
+      e.className = 'trump-effect';
+      e.innerHTML = '';
+      e.dataset.effectTs = 'cleared'; // ts を消さず、無効値で上書きする
+    }
     _effectClearTimer = null;
   }, 2900);
 }
