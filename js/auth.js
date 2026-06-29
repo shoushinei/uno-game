@@ -40,6 +40,47 @@ onAuthStateChanged(auth, async (user) => {
     if (ok) {
       setStatus(`ログイン中: ${user.displayName} ✓`, 'ok');
       dbg('Firebase 接続成功');
+
+      // LocalStorageによるセッション復帰チェック
+      const savedRoomId = localStorage.getItem('savedRoomId');
+      const savedMyId   = localStorage.getItem('savedMyId');
+      if (savedRoomId && savedMyId) {
+        try {
+          setStatus('前のルームに復帰中...');
+          const room = await fbGet('rooms/' + savedRoomId);
+          // ルームが存在し、自分がまだプレイヤーリストに残っていれば復帰
+          if (room && room.players && room.players.some(p => p.id === savedMyId)) {
+            state.roomId = savedRoomId;
+            state.myId   = savedMyId;
+            state.myName = localStorage.getItem('savedMyName') || 'ゲスト';
+            state.isHost = localStorage.getItem('savedIsHost') === 'true';
+
+            document.getElementById('lrid').textContent = state.roomId;
+            
+            // 部屋の状態に合わせて直接画面を切り替える
+            if (room.state === 'lobby') {
+              show('lobby');
+            } else if (room.state === 'playing') {
+              show('game');
+            } else if (room.state === 'ended') {
+              show('result');
+            }
+            
+            window._startListening?.();
+            dbg('セッション復帰成功: ' + state.roomId);
+            if (gameMenuArea) gameMenuArea.style.display = 'none';
+            return; // 復帰した場合は通常のホームメニュー表示をスキップ
+          } else {
+            // 部屋が消滅しているか自分がいない場合はストレージをクリア
+            localStorage.removeItem('savedRoomId');
+            localStorage.removeItem('savedMyId');
+            localStorage.removeItem('savedMyName');
+            localStorage.removeItem('savedIsHost');
+          }
+        } catch (e) {
+          dbg('自動復帰エラー: ' + e.message, true);
+        }
+      }
     } else {
       setStatus('接続エラー — データベースへのアクセス権限がありません', 'err');
       dbg('Firebase 接続失敗', true);
@@ -73,6 +114,13 @@ window.createRoom = async function () {
       game: null, log: [], ts: Date.now(), reactions: {}, trumpPassCount: 0,
     };
     await fbSet('rooms/' + state.roomId, room);
+
+    // LocalStorageにセッション情報を保存
+    localStorage.setItem('savedRoomId', state.roomId);
+    localStorage.setItem('savedMyId', state.myId);
+    localStorage.setItem('savedMyName', state.myName);
+    localStorage.setItem('savedIsHost', String(state.isHost));
+
     document.getElementById('lrid').textContent = state.roomId;
     show('lobby');
     window._startListening?.();
@@ -108,6 +156,13 @@ window.joinRoom = async function () {
     state.roomId = rid;
     players.push({ id: state.myId, name: state.myName, bi: players.length, ready: false });
     await fbUpdate('rooms/' + rid, { players });
+
+    // LocalStorageにセッション情報を保存
+    localStorage.setItem('savedRoomId', state.roomId);
+    localStorage.setItem('savedMyId', state.myId);
+    localStorage.setItem('savedMyName', state.myName);
+    localStorage.setItem('savedIsHost', String(state.isHost));
+
     document.getElementById('lrid').textContent = state.roomId;
     show('lobby');
     window._startListening?.();
@@ -180,6 +235,12 @@ window.leaveGame = async function () {
       }
     } catch (e) { dbg('退出処理でエラーが発生しました: ' + e.message, true); }
   }
+  // LocalStorageからセッション情報をクリア
+  localStorage.removeItem('savedRoomId');
+  localStorage.removeItem('savedMyId');
+  localStorage.removeItem('savedMyName');
+  localStorage.removeItem('savedIsHost');
+  
   state.roomId = '';
   state.myId   = '';
   state.myName = '';
