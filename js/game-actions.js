@@ -18,6 +18,7 @@ import {
   checkAllPassed,
   resolveRankingNames,
   applyTrumpSkip,
+  applyUnoSkip,
   applyParentColorChange,
   applyUnoDeclaration,
 } from './game-rules.js';
@@ -130,6 +131,40 @@ export async function actionTrumpSkip() {
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: appendLog(room, logMsg),
+  });
+  return { ok: true };
+}
+
+// ----------------------------------------
+// UNO：スキップ（手札0枚）
+// ★バグ修正で追加★ トランプを出し切った時の actionTrumpSkip と対になる処理。
+// UNOを出し切ったプレイヤーが「引く」しかできず足止めされていたのを解消する。
+// ----------------------------------------
+export async function actionUnoSkip() {
+  const room = await fbGet('rooms/' + state.roomId);
+  if (!room) return { error: 'ルームが見つかりません' };
+  const g = room.game;
+  if (!g || g.order[g.ci] !== state.myId || g.phase !== 'uno') {
+    return { error: '自分のターン（UNOフェイズ）ではありません' };
+  }
+  const myUno = (g.unoHands && g.unoHands[state.myId]) || [];
+  if (myUno.length > 0) {
+    return { error: 'UNO手札が残っているためスキップできません' };
+  }
+
+  const pname = getPlayerName(room.players);
+  const currentPassCount = room.trumpPassCount ?? 0;
+  const { logMsg } = applyUnoSkip(g, state.myId, pname);
+  const logs = appendLog(room, logMsg);
+
+  // スキップ後に全員パスが成立するか判定（場が流れる）
+  const passResult = checkAllPassed(g, currentPassCount, room.players);
+  if (passResult.cleared) logs.push(passResult.logMsg);
+
+  await fbUpdate('rooms/' + state.roomId, {
+    game: g,
+    log: logs.slice(-8),
+    trumpPassCount: passResult.cleared ? 0 : currentPassCount,
   });
   return { ok: true };
 }

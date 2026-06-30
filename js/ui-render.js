@@ -359,15 +359,18 @@ function _renderPenaltyWarning(g) {
 
 function _renderActionButtons(g, isMyTurn, phase, iFinished, myTrumpDone, myUnoDone) {
   const myUno = (g.unoHands && g.unoHands[state.myId]) || [];
+  const isMyUnoTurn = isMyTurn && phase === 'uno' && !iFinished;
 
   const tpassBtn = document.getElementById('trump-pass-btn');
   const tskipBtn = document.getElementById('trump-skip-btn');
   if (tpassBtn) tpassBtn.style.display = (isMyTurn && phase === 'trump' && !iFinished && !myTrumpDone) ? 'inline-block' : 'none';
   if (tskipBtn) tskipBtn.style.display = (isMyTurn && phase === 'trump' && !iFinished && myTrumpDone) ? 'inline-block' : 'none';
 
+  // ★バグ修正★ UNO出し切り済みのプレイヤーには「引く」ボタンを出さない。
+  // 出すカードがないのに引かされてしまうのを防ぐ（uno-skip-btn が代わりに表示される）。
   const udrawBtn = document.getElementById('uno-draw-btn');
   if (udrawBtn) {
-    udrawBtn.style.display = (isMyTurn && phase === 'uno' && !iFinished) ? 'inline-block' : 'none';
+    udrawBtn.style.display = (isMyUnoTurn && !myUnoDone) ? 'inline-block' : 'none';
     if (g.unoPenaltyAccum > 0) {
       udrawBtn.textContent = `ペナルティ ${g.unoPenaltyAccum} 枚引く`;
       udrawBtn.classList.add('penalty');
@@ -375,6 +378,27 @@ function _renderActionButtons(g, isMyTurn, phase, iFinished, myTrumpDone, myUnoD
       udrawBtn.textContent = 'UNOを1枚引く';
       udrawBtn.classList.remove('penalty');
     }
+  }
+
+  // ★バグ修正★ UNO出し切り済みのプレイヤーの自分のターンには
+  // 自動スキップ用のボタンを表示する（トランプの uno-skip-btn と対になる仕組み）。
+  // 自分が親の場合は、色変更権限を使わずに進める旨がわかるよう文言を変える。
+  const uskipBtn = document.getElementById('uno-skip-btn');
+  if (uskipBtn) {
+    const isParent = g.hasParent === state.myId;
+    uskipBtn.style.display = (isMyUnoTurn && myUnoDone) ? 'inline-block' : 'none';
+    uskipBtn.textContent = isParent
+      ? '色を変更せず次へ進む ▶'
+      : 'UNO0枚 → 次のトランプフェイズへ ▶';
+  }
+
+  // ★バグ修正★ uno-play-btn は selectUnoCard が呼ばれた時しか表示制御されておらず、
+  // ターンが他人に移っても選択状態のまま残留していた。
+  // renderGame のたびに必ずここで自分のターンかどうかを再評価する。
+  const uplayBtn = document.getElementById('uno-play-btn');
+  if (uplayBtn) {
+    const hasSelection = window._selectedUnoIdx !== null && window._selectedUnoIdx !== undefined;
+    uplayBtn.style.display = (isMyUnoTurn && !myUnoDone && hasSelection) ? 'inline-block' : 'none';
   }
 
   const unoBtn = document.getElementById('uno-btn');
@@ -386,7 +410,11 @@ function _renderActionButtons(g, isMyTurn, phase, iFinished, myTrumpDone, myUnoD
 
   const parentColorBtn = document.getElementById('parent-color-btn');
   if (parentColorBtn) {
-    parentColorBtn.style.display = (isMyTurn && phase === 'uno' && g.hasParent === state.myId) ? 'block' : 'none';
+    const isParentNow = isMyTurn && phase === 'uno' && g.hasParent === state.myId;
+    parentColorBtn.style.display = isParentNow ? 'block' : 'none';
+    parentColorBtn.textContent = (isParentNow && myUnoDone)
+      ? '👑 親の権限：UNOの色を変更する（UNO出し切り済み・行使すると次のプレイヤーへ）'
+      : '👑 親の権限：UNOの色を強制変更する';
   }
 }
 

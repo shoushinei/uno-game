@@ -716,3 +716,113 @@ describe('applyTrumpPlay 基本動作', () => {
     expect(result.logMsg).toContain('Alice');
   });
 });
+
+// ========================================
+// ★バグ修正の回帰テスト★
+// Jバック発動後、場の強さ(fieldMeta.power)が古い値のままになり
+// 同じ強さのカードが正しく比較できなくなるバグの修正確認
+// ========================================
+describe('[バグ修正] イレブンバック発動後の場の強さ再計算', () => {
+
+  it('[正常] Jバック発動直後、場のJより7が出せる（反転後の強さで比較）', () => {
+    // p1 が J を出してイレブンバックを発動させる
+    const g = makeGame({
+      trumpHands: {
+        p1: [c('♥', 'J')],
+        p2: [c('♠', '7')],
+      },
+      trumpField: [c('♦', '5')], // ダミーの場（Jが出せるよう強さ調整は不要、場が空でもOK）
+    });
+    // 場を空にしてJを単独で出す（場が空なら何でも出せる）
+    g.trumpField = [];
+    g.trumpFieldMeta = null;
+    const playJ = applyTrumpPlay(g, 'p1', ['♥J'], 'Alice');
+    expect(playJ).not.toBeNull();
+    expect(playJ.g.trumpElevenBack).toBe(true);
+
+    // p2 が 7 を出そうとする → イレブンバック中は 7 の方が J より強い
+    const canPlay7 = trumpCanPlay([c('♠', '7')], playJ.g.trumpField, playJ.g);
+    expect(canPlay7).toBe(true);
+  });
+
+  it('[正常] Jバック発動直後、場のJより弱いQは出せない（反転後の強さで比較）', () => {
+    const g = makeGame({
+      trumpHands: { p1: [c('♥', 'J')], p2: [c('♠', 'Q')] },
+    });
+    const playJ = applyTrumpPlay(g, 'p1', ['♥J'], 'Alice');
+    expect(playJ).not.toBeNull();
+
+    // イレブンバック中: Q(normal=10,reversed=4) は J(normal=9,reversed=5) より弱い
+    const canPlayQ = trumpCanPlay([c('♠', 'Q')], playJ.g.trumpField, playJ.g);
+    expect(canPlayQ).toBe(false);
+  });
+
+  it('[正常] Jバック発動後、場の数字と同じ数字は（反転状態でも）出せない', () => {
+    const g = makeGame({
+      trumpHands: { p1: [c('♥', 'J')], p2: [c('♠', 'J')] },
+    });
+    const playJ = applyTrumpPlay(g, 'p1', ['♥J'], 'Alice');
+    // 同じJ同士は強さが同じなので出せない
+    const canPlaySameJ = trumpCanPlay([c('♠', 'J')], playJ.g.trumpField, playJ.g);
+    expect(canPlaySameJ).toBe(false);
+  });
+
+  it('[正常] 通常時に出した数字の上に、後からイレブンバックが発動しても場の比較が壊れない', () => {
+    // p1が通常時に7を出す→p2がJで上書き(Jバック発動)→p3が場のJ(=7のさらに後)に対して強さを判定
+    const g = makeGame({
+      order: ['p1', 'p2', 'p3'],
+      trumpHands: {
+        p1: [c('♠', '7')],
+        p2: [c('♥', 'J')],
+        p3: [c('♦', '8')],
+      },
+    });
+    const play7 = applyTrumpPlay(g, 'p1', ['♠7'], 'Alice'); // 場: 7 (通常)
+    expect(play7).not.toBeNull();
+
+    const playJ = applyTrumpPlay(play7.g, 'p2', ['♥J'], 'Bob'); // 場: J, イレブンバック発動
+    expect(playJ).not.toBeNull();
+    expect(playJ.g.trumpElevenBack).toBe(true);
+
+    // p3が8を出そうとする: イレブンバック中 8(reversed=8) > J(reversed=5) → 出せる
+    const canPlay8 = trumpCanPlay([c('♦', '8')], playJ.g.trumpField, playJ.g);
+    expect(canPlay8).toBe(true);
+  });
+
+  it('[正常] 革命発動後も場の強さが正しく再計算される', () => {
+    // 4枚出しで革命発動 → 場の rank=5 のカードを通常強さでキャッシュしていても
+    // 革命後の強さで正しく比較できる
+    const g = makeGame({
+      trumpHands: {
+        p1: [c('♠', '5'), c('♥', '5'), c('♦', '5'), c('♣', '5')],
+        p2: [c('♠', '4'), c('♥', '4'), c('♦', '4'), c('♣', '4')],
+      },
+    });
+    const playRev = applyTrumpPlay(g, 'p1', ['♠5', '♥5', '♦5', '♣5'], 'Alice');
+    expect(playRev.g.trumpRevolution).toBe(true);
+
+    // 革命中: 4(reversed power=12) > 5(reversed power=11) → 4の方が強い → 出せる
+    const canPlay4 = trumpCanPlay(
+      [c('♠', '4'), c('♥', '4'), c('♦', '4'), c('♣', '4')],
+      playRev.g.trumpField,
+      playRev.g
+    );
+    expect(canPlay4).toBe(true);
+  });
+
+  it('[正常] イレブンバック中の階段も正しい強さで再計算される', () => {
+    // 場に階段(♠3,♠4,♠5)があり、後でJバックが発動した場合の比較
+    const g = makeGame({
+      trumpHands: {
+        p1: [c('♠', '3'), c('♠', '4'), c('♠', '5')],
+        p2: [c('♥', 'J')],
+      },
+    });
+    const playSeq = applyTrumpPlay(g, 'p1', ['♠3', '♠4', '♠5'], 'Alice');
+    expect(playSeq.g.trumpFieldMeta?.type).toBe('sequence');
+
+    // Jは1枚なので階段(3枚)とは出せない（枚数不一致）
+    const canPlayJ = trumpCanPlay([c('♥', 'J')], playSeq.g.trumpField, playSeq.g);
+    expect(canPlayJ).toBe(false);
+  });
+});

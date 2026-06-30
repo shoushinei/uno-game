@@ -20,6 +20,7 @@ import {
   actionTrumpSkip,
   actionUnoPlay,
   actionUnoDraw,
+  actionUnoSkip,
   actionSayUno,
   actionPickParentColor,
   actionSendReaction,
@@ -107,6 +108,17 @@ window.submitUnoPlay = async () => {
   const idx = getSelectedUnoIdx();
   if (idx === null) return;
 
+  // ★バグ修正★ 自分のターンでない場合は色ピッカーを開く前に弾く。
+  // 以前はターンチェックをせずワイルドカード判定だけで色ピッカーを表示していたため、
+  // 他人のターン中でも色選択UIが操作可能になってしまっていた。
+  const g = window._currentGame;
+  const isMyTurn = g && g.order[g.ci] === state.myId;
+  if (!g || !isMyTurn || g.phase !== 'uno') {
+    dbg('自分のターン（UNOフェイズ）ではありません', true);
+    resetUnoSelection();
+    return;
+  }
+
   // ワイルドカードは色ピッカーを先に表示
   const room = await (await import('./db.js')).fbGet('rooms/' + state.roomId);
   const card  = room?.game?.unoHands?.[state.myId]?.[idx];
@@ -118,7 +130,7 @@ window.submitUnoPlay = async () => {
   }
 
   const result = await actionUnoPlay(idx, null);
-  if (result?.error) { dbg(result.error, true); return; }
+  if (result?.error) { dbg(result.error, true); resetUnoSelection(); return; }
   resetUnoSelection();
 };
 
@@ -133,6 +145,11 @@ window.pickColor = async (color) => {
 
 window.unoDraw = async () => {
   const result = await actionUnoDraw();
+  if (result?.error) dbg(result.error, true);
+};
+
+window.unoSkip = async () => {
+  const result = await actionUnoSkip();
   if (result?.error) dbg(result.error, true);
 };
 

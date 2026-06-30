@@ -2,30 +2,130 @@
 // トランプ（大富豪）ロジック
 // ========================================
 
-const TRUMP_SUITS = ['♠', '♥', '♦', '♣'];
-const TRUMP_NUMS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
-const TRUMP_STRENGTH = {
+// ----------------------------------------
+// 型定義
+// ----------------------------------------
+
+export type TrumpSuit = '♠' | '♥' | '♦' | '♣';
+export type TrumpNum =
+  | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10'
+  | 'J' | 'Q' | 'K' | 'A' | '2' | 'JOKER';
+export type TrumpValue = TrumpNum; // カードの数値文字列
+
+/** デッキ上の1枚のカード */
+export interface TrumpCard {
+  s: TrumpSuit | string; // JOKER はジョーカー絵文字スーツ
+  v: TrumpValue;
+  id: string;
+}
+
+/** 場・手の「型」 */
+export type PlayType = 'single' | 'set' | 'sequence';
+
+/** 特殊効果の種別 */
+export type TrumpEffectType =
+  | 'suitLock'
+  | 'revolution'
+  | 'elevenBack'
+  | 'eightCut'
+  | 'jokerSingle'
+  | 'spadeThree';
+
+/** 出し手・場のカードメタ情報 */
+export interface CardMeta {
+  type: PlayType;
+  length: number;
+  /** 代表ランク（set/single: そのランク / sequence: 最高ランク） */
+  rank: TrumpValue;
+  /** 現在のゲーム状態で評価した強さ */
+  power: number;
+  /** 関与スーツ一覧（しばり判定用） */
+  suits: string[];
+  /** 階段の場合のみ: 構成するランク列 */
+  values?: TrumpValue[];
+  /** スペードの3でジョーカーを返したとき true */
+  spadeThreeBreak?: boolean;
+}
+
+/** 演出データ */
+export interface TrumpEffect {
+  type: TrumpEffectType;
+  types: TrumpEffectType[];
+  playerId: string;
+  ts: number;
+}
+
+/** このファイルが参照するゲーム状態のサブセット */
+export interface TrumpGameState {
+  phase: 'trump' | 'uno';
+  order: string[];
+  ci: number;
+  dir: number;
+  rankings: Array<{ id: string; name: string }>;
+
+  trumpHands: Record<string, TrumpCard[]>;
+  trumpField: TrumpCard[];
+  trumpFieldMeta: CardMeta | null;
+  /** 現在の場のカードを出したプレイヤー（全員パス時の「親」判定に使う） */
+  trumpFieldOwner: string | null;
+  trumpSuitLock: string[] | null;
+  trumpRevolution: boolean;
+  trumpElevenBack: boolean;
+  trumpEffect?: TrumpEffect;
+  hasParent?: string;
+
+  // UNO 側フィールド（トランプロジックからは直接操作しないが型に含める）
+  unoHands?: Record<string, unknown[]>;
+}
+
+/**
+ * 公開 API で g を省略可能にするための部分型
+ * テストや呼び出し側が一部フィールドだけのオブジェクトを渡せるようにする
+ */
+export type PartialGameState = Partial<TrumpGameState>;
+
+// ----------------------------------------
+// 定数
+// ----------------------------------------
+
+const TRUMP_SUITS: TrumpSuit[] = ['♠', '♥', '♦', '♣'];
+const TRUMP_NUMS: TrumpNum[] = [
+  '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2',
+];
+const TRUMP_STRENGTH: Record<string, number> = {
   '3': 1, '4': 2, '5': 3, '6': 4, '7': 5, '8': 6, '9': 7,
   '10': 8, 'J': 9, 'Q': 10, 'K': 11, 'A': 12, '2': 13, 'JOKER': 14,
 };
-const TRUMP_INDEX = Object.fromEntries(TRUMP_NUMS.map((v, i) => [v, i]));
-// スペードの3 用：スペードマークそのもの
+const TRUMP_INDEX: Record<string, number> = Object.fromEntries(
+  TRUMP_NUMS.map((v, i) => [v, i])
+);
+/** スペードの3 判定用マーク */
 const SPADE_SUIT = '\u2660'; // ♠
+
+// ----------------------------------------
+// デッキ生成
+// ----------------------------------------
 
 /**
  * トランプデッキを生成する
  */
-export function buildTrumpDeck() {
-  const d = [];
-  TRUMP_SUITS.forEach(s => TRUMP_NUMS.forEach(v => d.push({ s, v, id: `${s}${v}` })));
+export function buildTrumpDeck(): TrumpCard[] {
+  const d: TrumpCard[] = [];
+  TRUMP_SUITS.forEach(s =>
+    TRUMP_NUMS.forEach(v => d.push({ s, v, id: `${s}${v}` }))
+  );
   d.push({ s: '\uD83C\uDCCF', v: 'JOKER', id: 'JOKER' });
   return d;
 }
 
+// ----------------------------------------
+// 強さ計算
+// ----------------------------------------
+
 /**
  * カードの強さを返す（革命・Jバック非考慮の生の強さ）
  */
-export function trumpStrength(card) {
+export function trumpStrength(card: TrumpCard): number {
   return TRUMP_STRENGTH[card.v] ?? 0;
 }
 
@@ -33,45 +133,59 @@ export function trumpStrength(card) {
  * 現在のゲーム状態で強さが反転しているか判定する
  * 革命 XOR イレブンバック で反転
  */
-export function trumpIsReversed(g = {}) {
+export function trumpIsReversed(g: PartialGameState = {}): boolean {
   return Boolean(g.trumpRevolution) !== Boolean(g.trumpElevenBack);
 }
 
 /**
  * 指定の数値 (value) の現在の強さを返す
  */
-export function trumpPowerForValue(value, g = {}) {
-  if (value === 'JOKER') return TRUMP_STRENGTH.JOKER;
+export function trumpPowerForValue(
+  value: string,
+  g: PartialGameState = {}
+): number {
+  if (value === 'JOKER') return TRUMP_STRENGTH['JOKER']!;
   const normal = TRUMP_STRENGTH[value] ?? 0;
   return trumpIsReversed(g) ? 14 - normal : normal;
 }
 
-// ---- スーツ正規化ヘルパー ----
-function suitSortValue(suit) {
-  const idx = TRUMP_SUITS.indexOf(suit);
+// ----------------------------------------
+// スーツ正規化ヘルパー
+// ----------------------------------------
+
+function suitSortValue(suit: string): number {
+  const idx = TRUMP_SUITS.indexOf(suit as TrumpSuit);
   return idx === -1 ? TRUMP_SUITS.length : idx;
 }
 
-function normalizeSuitGroup(suits) {
+function normalizeSuitGroup(suits: string[]): string[] {
   return [...suits].sort((a, b) => suitSortValue(a) - suitSortValue(b));
 }
 
-function suitKey(suits) {
+function suitKey(suits: unknown): string {
   if (!Array.isArray(suits)) return '';
-  return normalizeSuitGroup(suits).join('|');
+  return normalizeSuitGroup(suits as string[]).join('|');
 }
 
-function sameSuitGroup(a, b) {
+function sameSuitGroup(a: unknown, b: unknown): boolean {
   return suitKey(a) === suitKey(b);
 }
+
+// ----------------------------------------
+// 場の型解析サブ関数
+// ----------------------------------------
 
 /**
  * ジョーカーを「しばり」のスーツに合わせて補完する
  */
-function consumeRequiredSuits(baseSuits, jokerCount, requiredSuits) {
+function consumeRequiredSuits(
+  baseSuits: string[],
+  jokerCount: number,
+  requiredSuits: string[] | null
+): string[] {
   const suits = [...baseSuits];
   if (!Array.isArray(requiredSuits) || requiredSuits.length === 0) {
-    return normalizeSuitGroup([...suits, ...Array(jokerCount).fill('JOKER')]);
+    return normalizeSuitGroup([...suits, ...Array<string>(jokerCount).fill('JOKER')]);
   }
   const remaining = [...requiredSuits];
   for (const suit of baseSuits) {
@@ -84,21 +198,23 @@ function consumeRequiredSuits(baseSuits, jokerCount, requiredSuits) {
   return normalizeSuitGroup(suits);
 }
 
-// ---- 場の型を解析するサブ関数 ----
-
 /**
  * 重ね数字（同数字複数枚）の候補を生成する
  */
-function buildSetCandidate(cards, g, requiredSuits) {
+function buildSetCandidate(
+  cards: TrumpCard[],
+  g: PartialGameState,
+  requiredSuits: string[] | null
+): CardMeta | null {
   const nonJokers = cards.filter(c => c.v !== 'JOKER');
   const jokerCount = cards.length - nonJokers.length;
-  const value = nonJokers[0]?.v ?? 'JOKER';
+  const value: string = nonJokers[0]?.v ?? 'JOKER';
   if (!nonJokers.every(c => c.v === value)) return null;
 
   return {
     type: cards.length === 1 ? 'single' : 'set',
     length: cards.length,
-    rank: value,
+    rank: value as TrumpValue,
     power: trumpPowerForValue(value, g),
     suits: consumeRequiredSuits(nonJokers.map(c => c.s), jokerCount, requiredSuits),
   };
@@ -108,30 +224,37 @@ function buildSetCandidate(cards, g, requiredSuits) {
  * 階段（同スーツ3枚以上連続）の候補を生成する
  * ジョーカーは穴埋めとして使用可能
  */
-function buildSequenceCandidates(cards, g, requiredSuits) {
+function buildSequenceCandidates(
+  cards: TrumpCard[],
+  g: PartialGameState,
+  requiredSuits: string[] | null
+): CardMeta[] {
   if (cards.length < 3) return [];
   const nonJokers = cards.filter(c => c.v !== 'JOKER');
-  const jokerCount = cards.length - nonJokers.length;
   const nonJokerSuits = [...new Set(nonJokers.map(c => c.s))];
   // 階段は全て同マーク（ジョーカー除く）
   if (nonJokerSuits.length > 1) return [];
 
   const usedIndexes = nonJokers.map(c => TRUMP_INDEX[c.v]);
   if (usedIndexes.some(i => i === undefined)) return [];
-  if (new Set(usedIndexes).size !== usedIndexes.length) return [];
+  // ここ以降 usedIndexes の要素は全て number
+  const definedIndexes = usedIndexes as number[];
+  if (new Set(definedIndexes).size !== definedIndexes.length) return [];
 
-  const candidates = [];
-  // ジョーカーで埋められる場所を全探索
+  const candidates: CardMeta[] = [];
   for (let start = 0; start <= TRUMP_NUMS.length - cards.length; start++) {
     const seqIndexes = Array.from({ length: cards.length }, (_, i) => start + i);
-    if (!usedIndexes.every(i => seqIndexes.includes(i))) continue;
+    if (!definedIndexes.every(i => seqIndexes.includes(i))) continue;
 
     const suit = nonJokerSuits[0] ?? requiredSuits?.[0] ?? 'JOKER';
-    const values = seqIndexes.map(i => TRUMP_NUMS[i]);
+    const values = seqIndexes.map(i => TRUMP_NUMS[i]).filter((v): v is TrumpNum => v !== undefined);
+    if (values.length !== seqIndexes.length) continue; // 念のため
+    const topRank = values[values.length - 1];
+    if (topRank === undefined) continue;
     candidates.push({
       type: 'sequence',
       length: cards.length,
-      rank: values[values.length - 1],
+      rank: topRank,
       values,
       power: Math.max(...values.map(v => trumpPowerForValue(v, g))),
       suits: [suit],
@@ -143,7 +266,10 @@ function buildSequenceCandidates(cards, g, requiredSuits) {
 /**
  * しばり中の場合、スーツが一致するか確認する
  */
-function lockMatches(candidate, g = {}) {
+function lockMatches(
+  candidate: CardMeta,
+  g: PartialGameState
+): boolean {
   const lock = g.trumpSuitLock;
   return !Array.isArray(lock) || lock.length === 0 || sameSuitGroup(candidate.suits, lock);
 }
@@ -155,8 +281,11 @@ function lockMatches(candidate, g = {}) {
  * fieldMeta.power が古い値のままになる問題を修正する。
  * キャッシュを使う場合でも power だけは現在のゲーム状態で毎回再計算する。
  */
-function getFieldMeta(g = {}, fieldCards = []) {
-  let meta;
+function getFieldMeta(
+  g: PartialGameState,
+  fieldCards: TrumpCard[]
+): CardMeta | null {
+  let meta: CardMeta | null;
   if (g.trumpFieldMeta && g.trumpFieldMeta.length === fieldCards.length) {
     meta = g.trumpFieldMeta;
   } else {
@@ -168,11 +297,11 @@ function getFieldMeta(g = {}, fieldCards = []) {
   // power を現在の強さ反転状態で再計算する
   // (革命・イレブンバック発動後に正しく比較できるようにする)
   if (meta.type === 'sequence') {
-    // 階段: 最大値のカードの現在の power を再計算
-    const recalcPower = Math.max(...(meta.values ?? [meta.rank]).map(v => trumpPowerForValue(v, g)));
+    const recalcPower = Math.max(
+      ...(meta.values ?? [meta.rank]).map(v => trumpPowerForValue(v, g))
+    );
     return { ...meta, power: recalcPower };
   } else {
-    // single / set: rank の現在の power を再計算
     return { ...meta, power: trumpPowerForValue(meta.rank, g) };
   }
 }
@@ -180,14 +309,19 @@ function getFieldMeta(g = {}, fieldCards = []) {
 /**
  * ♠3 かどうか判定する
  */
-function isSpadeThree(cards) {
-  return cards.length === 1 && cards[0].s === SPADE_SUIT && cards[0].v === '3';
+function isSpadeThree(cards: TrumpCard[]): boolean {
+  const first = cards[0];
+  return cards.length === 1 && first !== undefined && first.s === SPADE_SUIT && first.v === '3';
 }
 
 /**
  * 候補の中から場を上回れるものを選ぶ
  */
-function chooseCandidate(candidates, fieldMeta, g) {
+function chooseCandidate(
+  candidates: CardMeta[],
+  fieldMeta: CardMeta | null,
+  g: PartialGameState
+): CardMeta | null {
   const playable = candidates.filter(c => lockMatches(c, g));
   if (!fieldMeta) return playable[0] ?? null;
   return playable.find(c =>
@@ -197,11 +331,19 @@ function chooseCandidate(candidates, fieldMeta, g) {
   ) ?? null;
 }
 
+// ----------------------------------------
+// 公開 API
+// ----------------------------------------
+
 /**
  * 選択したカードが出せる形かどうかを解析し、メタ情報を返す
  * 出せない場合は null を返す
  */
-export function analyzeTrumpPlay(selectedCards, g = {}, fieldCards = g.trumpField) {
+export function analyzeTrumpPlay(
+  selectedCards: TrumpCard[],
+  g: PartialGameState = {},
+  fieldCards: TrumpCard[] = g.trumpField ?? []
+): CardMeta | null {
   if (!Array.isArray(selectedCards) || selectedCards.length === 0) return null;
   const fCards = Array.isArray(fieldCards) ? fieldCards : [];
   const fieldMeta = fCards.length > 0 ? getFieldMeta(g, fCards) : null;
@@ -221,10 +363,11 @@ export function analyzeTrumpPlay(selectedCards, g = {}, fieldCards = g.trumpFiel
   // 場にカードがある場合は枚数を一致させる必要がある
   if (fCards.length > 0 && selectedCards.length !== fCards.length) return null;
 
-  const requiredSuits = Array.isArray(g.trumpSuitLock) && g.trumpSuitLock.length > 0
-    ? g.trumpSuitLock
-    : null;
-  const candidates = [];
+  const requiredSuits =
+    Array.isArray(g.trumpSuitLock) && g.trumpSuitLock.length > 0
+      ? g.trumpSuitLock
+      : null;
+  const candidates: CardMeta[] = [];
   const setCandidate = buildSetCandidate(selectedCards, g, requiredSuits);
   if (setCandidate) candidates.push(setCandidate);
   candidates.push(...buildSequenceCandidates(selectedCards, g, requiredSuits));
@@ -235,15 +378,25 @@ export function analyzeTrumpPlay(selectedCards, g = {}, fieldCards = g.trumpFiel
 /**
  * 選択したカードが出せるかどうかを返す（true/false）
  */
-export function trumpCanPlay(selectedCards, fieldCards, g = {}) {
+export function trumpCanPlay(
+  selectedCards: TrumpCard[],
+  fieldCards: TrumpCard[],
+  g: PartialGameState = {}
+): boolean {
   return Boolean(analyzeTrumpPlay(selectedCards, g, fieldCards));
 }
 
 /**
  * 手札をランク昇順にソートして返す（非破壊的）
  */
-export function sortTrumpHand(hand) {
+export function sortTrumpHand(hand: TrumpCard[]): TrumpCard[] {
   return [...hand].sort((a, b) => trumpStrength(a) - trumpStrength(b));
+}
+
+/** applyTrumpPlay の戻り値 */
+export interface TrumpPlayResult {
+  g: TrumpGameState;
+  logMsg: string;
 }
 
 /**
@@ -254,14 +407,17 @@ export function sortTrumpHand(hand) {
  *  2. analyzeTrumpPlay で出せるか確認
  *  3. 特殊効果（8切り・革命・Jバック・しばり・スペ3）を適用
  *  4. phase を 'uno' に進める
- *
- * @returns {{ g, logMsg: string } | null}
  */
-export function applyTrumpPlay(g, playerId, cardIds, playerName) {
+export function applyTrumpPlay(
+  g: TrumpGameState,
+  playerId: string,
+  cardIds: string[],
+  playerName: string
+): TrumpPlayResult | null {
   if (!Array.isArray(cardIds) || cardIds.length === 0) return null;
 
-  const hand = [...(g.trumpHands[playerId] || [])];
-  const selectedCards = [];
+  const hand = [...(g.trumpHands[playerId] ?? [])];
+  const selectedCards: TrumpCard[] = [];
   for (const id of cardIds) {
     const card = hand.find(c => c.id === id);
     if (!card) return null;
@@ -278,12 +434,16 @@ export function applyTrumpPlay(g, playerId, cardIds, playerName) {
   // 場を更新
   g.trumpField = selectedCards;
   g.trumpFieldMeta = playMeta;
+  // ★バグ修正★ 場を作った人を常に記録する。
+  // 「全員パス」で場が流れたときに正しい「親」を判定するために使う。
+  g.trumpFieldOwner = playerId;
 
   // ---- 特殊効果の判定 ----
-  const effects = [];
+  const effects: TrumpEffectType[] = [];
 
   // しばり：前の場と同型・同スーツが連続した場合に発動
-  const createsSuitLock = previousMeta &&
+  const createsSuitLock =
+    previousMeta !== null &&
     previousMeta.type === playMeta.type &&
     previousMeta.length === playMeta.length &&
     sameSuitGroup(previousMeta.suits, playMeta.suits) &&
@@ -322,15 +482,17 @@ export function applyTrumpPlay(g, playerId, cardIds, playerName) {
   if (has8Cut || isJokerSingle || playMeta.spadeThreeBreak) {
     g.trumpField = [];
     g.trumpFieldMeta = null;
+    g.trumpFieldOwner = null;
     g.trumpSuitLock = null;
     g.trumpElevenBack = false;
     g.hasParent = playerId;
   }
 
   // 演出データを保存
-  if (effects.length > 0) {
+  const lastEffect = effects[effects.length - 1];
+  if (effects.length > 0 && lastEffect !== undefined) {
     g.trumpEffect = {
-      type: effects[effects.length - 1],
+      type: lastEffect,
       types: effects,
       playerId,
       ts: Date.now(),
@@ -338,15 +500,15 @@ export function applyTrumpPlay(g, playerId, cardIds, playerName) {
   }
 
   // ログメッセージ生成
-  const effectLabels = {
-    suitLock: 'しばり',
-    revolution: g.trumpRevolution ? '🌀 革命！' : '🌀 革命返し！',
-    elevenBack: '🔄 イレブンバック！',
-    eightCut: '✂️ 8切り！',
+  const effectLabels: Record<TrumpEffectType, string> = {
+    suitLock:    'しばり',
+    revolution:  g.trumpRevolution ? '🌀 革命！' : '🌀 革命返し！',
+    elevenBack:  '🔄 イレブンバック！',
+    eightCut:    '✂️ 8切り！',
     jokerSingle: '🃏 ジョーカー！',
-    spadeThree: '♠3 ジョーカー返し！',
+    spadeThree:  '♠3 ジョーカー返し！',
   };
-  const effectText = effects.map(e => effectLabels[e]).filter(Boolean).join(' / ');
+  const effectText = effects.map(e => effectLabels[e]).join(' / ');
 
   g.phase = 'uno';
   const cardNames = selectedCards.map(c => `${c.s}${c.v}`).join(',');
@@ -356,11 +518,21 @@ export function applyTrumpPlay(g, playerId, cardIds, playerName) {
   };
 }
 
+/** applyTrumpPass の戻り値 */
+export interface TrumpPassResult {
+  g: TrumpGameState;
+  logMsg: string;
+}
+
 /**
  * トランプをパスする処理（破壊的）
  * パス後は UNO フェイズに進む
  */
-export function applyTrumpPass(g, playerId, playerName) {
+export function applyTrumpPass(
+  g: TrumpGameState,
+  playerId: string,
+  playerName: string
+): TrumpPassResult {
   g.phase = 'uno';
   return { g, logMsg: `${playerName}がトランプをパス` };
 }

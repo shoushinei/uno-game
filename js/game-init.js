@@ -77,6 +77,9 @@ export function initFusionGame(players) {
     trumpHands,
     trumpField: [],
     trumpFieldMeta: null,
+    // ★バグ修正で追加★ 場を作ったプレイヤーを記録する。
+    // 全員パスで場が流れた際の「親」判定（checkAllPassed）に使う。
+    trumpFieldOwner: null,
     trumpRevolution: false,
     trumpElevenBack: false,
     trumpSuitLock: null,
