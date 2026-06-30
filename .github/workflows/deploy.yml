@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ master ] # masterブランチにプッシュされたら起動
+    branches: [ master ]
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: '${{ steps: deployment.outputs.page_url }}'
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -33,7 +33,7 @@ jobs:
         run: npm ci
 
       - name: Build project
-        run: npm run build #  ここでViteがすべてのTSをJSに自動翻訳します
+        run: npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -41,7 +41,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist' # Viteが書き出した本番用フォルダだけをアップロード
+          path: './dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
