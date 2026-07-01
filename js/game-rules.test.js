@@ -6,6 +6,7 @@ import {
   checkAllPassed,
   resolveRankingNames,
   applyTrumpSkip,
+  applyUnoSkip,
   applyParentColorChange,
   applyUnoDeclaration,
 } from './game-rules.js';
@@ -392,7 +393,7 @@ describe('大富豪×UNO 融合ゲームの終了・手番スキップ仕様', (
     expect(g.rankings[0].id).toBe('p1');
   });
 
-  it('プレイヤーがあがって残り1人になったら、自動的にゲーム全体が終了（isGameOver=true）になること', () => {
+  it('残りプレイヤーが1人以下になると isGameOver=true', () => {
     // p1とp2がすでにゲームを終了し、手番リスト（order）に p3 しか残っていない状態を作る
     const g = makeGame({
       order: ['p3'], // 残り1人
@@ -404,5 +405,123 @@ describe('大富豪×UNO 融合ゲームの終了・手番スキップ仕様', (
 
     // 【検証】ゲームオーバーのフラグがちゃんと true になること
     expect(isGameOver).toBeTruthy();
+  });
+});
+
+// ========================================
+// ★バグ3 回帰テスト★
+// 「全員パス」が成立した瞬間に checkAllPassed() が g.ci / g.phase を
+// 書き換えてしまい、最後にパスした本人のUNOターンがまるごとスキップされていた
+// 不具合の回帰テスト。
+// ========================================
+describe('checkAllPassed — バグ3回帰（全員パスでの手番すっ飛ばし防止）', () => {
+  it('★重要★ 全員パス成立の瞬間に g.ci / g.phase を書き換えてはいけない（最後にパスした本人のUNOターンを奪わない）', () => {
+    const g = makeGame({
+      ci: 2, // Carol が最後にパスした直後を想定
+      phase: 'uno', // applyTrumpPass が既にセットしたUNOフェイズ
+      trumpField: [{ s: '♠', v: '5', id: '♠5' }],
+    });
+    const before = { ci: g.ci, phase: g.phase };
+
+    const r = checkAllPassed(g, 2, PLAYERS);
+
+    expect(r.cleared).toBe(true);
+    // ci・phase は checkAllPassed 呼び出し前後で変化しないこと
+    expect(g.ci).toBe(before.ci);
+    expect(g.phase).toBe(before.phase);
+  });
+
+  it('3人プレイのフルシナリオ：A出す→B/Cパス→Cのターンが飛ばされず、Aが正しいタイミングで親になる', () => {
+    function nextIdx(idx, dir, n) { return (idx + dir + n) % n; }
+    function fakeTrumpPlay(g, playerId) {
+      g.trumpField = [{ s: '♠', v: '5', id: 'x' }];
+      g.trumpFieldOwner = playerId;
+      g.phase = 'uno';
+    }
+    function fakeTrumpPass(g) {
+      g.phase = 'uno'; // ci は変えない（applyTrumpPass 本体と同じ挙動）
+    }
+    function fakeUnoTurnEnds(g, playerId) {
+      g.phase = 'trump';
+      const myIdx = g.order.indexOf(playerId);
+      g.ci = nextIdx(myIdx, g.dir, g.order.length);
+    }
+
+    const g = makeGame({ order: ['p1', 'p2', 'p3'], ci: 0, dir: 1, phase: 'trump', trumpField: [] });
+    let passCount = 0;
+
+    // 1. p1(Alice) がトランプを出す → AliceのUNOターン
+    fakeTrumpPlay(g, 'p1');
+    expect(g.ci).toBe(0);
+    expect(g.phase).toBe('uno');
+    fakeUnoTurnEnds(g, 'p1'); // Aliceのターン終了 → Bobのトランプターンへ
+    expect([g.ci, g.phase]).toEqual([1, 'trump']);
+
+    // 2. p2(Bob) がパス → BobのUNOターン
+    fakeTrumpPass(g);
+    passCount += 1;
+    let r = checkAllPassed(g, passCount, PLAYERS);
+    expect(r.cleared).toBe(false);
+    expect([g.ci, g.phase]).toEqual([1, 'uno']); // Bobのターンのまま
+    fakeUnoTurnEnds(g, 'p2');
+    expect([g.ci, g.phase]).toEqual([2, 'trump']);
+
+    // 3. p3(Carol) がパス → 全員パス成立。しかし Carol 自身のUNOターンは飛ばされてはいけない
+    fakeTrumpPass(g);
+    passCount += 1;
+    r = checkAllPassed(g, passCount, PLAYERS);
+    expect(r.cleared).toBe(true);
+    expect(g.hasParent).toBe('p1'); // Aliceが親
+    // ★ここがバグ3の核心：Carolのターン(ci=2)・UNOフェイズのままであること
+    expect(g.ci).toBe(2);
+    expect(g.phase).toBe('uno');
+
+    // Carol が自分のUNOターンを消化 → 自然にAliceのトランプターンへ
+    fakeUnoTurnEnds(g, 'p3');
+    expect([g.ci, g.phase]).toEqual([0, 'trump']);
+    expect(g.trumpField).toEqual([]); // 場が流れているので何でも出せる
+
+    // 4. Alice がトランプを出す（今度は「親」としてUNOフェイズで色変更権限が使える）
+    fakeTrumpPlay(g, 'p1');
+    expect([g.ci, g.phase]).toEqual([0, 'uno']);
+    expect(g.hasParent).toBe('p1'); // 【親の権限発動】が正しいタイミングで使える
+  });
+});
+
+// ========================================
+// applyUnoSkip のテスト
+// ★バグ修正で追加された関数★（UNO手札0枚時の自動スキップ）
+// ========================================
+describe('applyUnoSkip', () => {
+  it('次のプレイヤーのトランプターンへ進める', () => {
+    const g = makeGame({ phase: 'uno', ci: 0 });
+    applyUnoSkip(g, 'p1', 'Alice');
+    expect(g.phase).toBe('trump');
+    expect(g.ci).toBe(1); // p2(Bob)へ
+  });
+
+  it('自分が親の場合、色変更権限を行使せずに hasParent をクリアする', () => {
+    const g = makeGame({ phase: 'uno', ci: 0, hasParent: 'p1' });
+    const { logMsg } = applyUnoSkip(g, 'p1', 'Alice');
+    expect(g.hasParent).toBeNull();
+    expect(logMsg).toContain('行使せず');
+  });
+
+  it('自分が親でない場合は hasParent に影響しない', () => {
+    const g = makeGame({ phase: 'uno', ci: 0, hasParent: 'p2' });
+    applyUnoSkip(g, 'p1', 'Alice');
+    expect(g.hasParent).toBe('p2');
+  });
+
+  it('logMsg にプレイヤー名が含まれる', () => {
+    const g = makeGame({ phase: 'uno', ci: 0 });
+    const { logMsg } = applyUnoSkip(g, 'p1', 'Alice');
+    expect(logMsg).toContain('Alice');
+  });
+
+  it('反時計回り（dir=-1）でも正しく前のプレイヤーへ進む', () => {
+    const g = makeGame({ phase: 'uno', ci: 0, dir: -1 });
+    applyUnoSkip(g, 'p1', 'Alice');
+    expect(g.ci).toBe(2); // 逆回りなので p3(Carol)へ
   });
 });

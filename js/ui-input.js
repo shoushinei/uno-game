@@ -18,8 +18,14 @@ let selectedUnoIdx = null;
 let pendingUnoIdx = null;
 
 // ui-render.js・app.js から読み取り専用で参照できるよう公開
-Object.defineProperty(window, '_selectedTrumpIds', { get: () => selectedTrumpIds });
-Object.defineProperty(window, '_selectedUnoIdx',   { get: () => selectedUnoIdx });
+// ★修正★ configurable: true を付与する。
+// これが無いと、モジュールが何らかの理由で複数回評価された場合
+// （例：テストで vi.resetModules() を使って再インポートするケースや、
+// 開発中のホットリロードなど）に「Cannot redefine property」で
+// クラッシュしてしまう。configurable: true にしておけば、
+// 同じ window オブジェクトに対して安全に再定義できる。
+Object.defineProperty(window, '_selectedTrumpIds', { get: () => selectedTrumpIds, configurable: true });
+Object.defineProperty(window, '_selectedUnoIdx',   { get: () => selectedUnoIdx,   configurable: true });
 
 // ----------------------------------------
 // ゲームロジックの判定関数を window に公開
@@ -177,9 +183,22 @@ export function resetTrumpSelection() {
   }
 }
 
+// ★バグ修正（ワイルドが出せない）★
+// 以前はここで pendingUnoIdx も null にリセットしていた。
+// ワイルドカードのフローは
+//   カード選択 → selectUnoCard(idx) [selectedUnoIdx=idx]
+//   → 送信 → setPendingUnoIdx(idx) → resetUnoSelection()（選択ハイライト/送信ボタンだけ消す）
+//   → 色ピッカー表示 → pickColor(color) → getPendingUnoIdx() で idx を取り出して actionUnoPlay(idx, color)
+// という順序で進むため、resetUnoSelection() が pendingUnoIdx まで消してしまうと
+// pickColor() 時点で getPendingUnoIdx() が null を返し、
+// actionUnoPlay(null, color) → myHand[null] === undefined → 出せない、という不具合になっていた。
+//
+// resetUnoSelection() は「見た目の選択状態（selectedUnoIdx・送信ボタン）」だけを
+// リセットする責務に限定し、pendingUnoIdx のクリアは別関数 clearPendingUnoIdx() に分離する。
+// pendingUnoIdx は「ワイルド色決定が実際に送信され終わった後」に
+// 呼び出し側（app.js）が明示的に clearPendingUnoIdx() を呼んでクリアすること。
 export function resetUnoSelection() {
   selectedUnoIdx = null;
-  pendingUnoIdx = null;
   const playBtn = document.getElementById('uno-play-btn');
   if (playBtn) playBtn.style.display = 'none';
 }
@@ -195,10 +214,36 @@ export function getPendingUnoIdx() {
   return pendingUnoIdx;
 }
 
+// ワイルド色決定が完了した（送信済み・またはキャンセルされた）タイミングで
+// 呼び出し側が明示的に呼び、pendingUnoIdx だけをクリアする。
+export function clearPendingUnoIdx() {
+  pendingUnoIdx = null;
+}
+
 export function getSelectedTrumpIds() {
   return [...selectedTrumpIds];
 }
 
 export function getSelectedUnoIdx() {
   return selectedUnoIdx;
+}
+
+// ----------------------------------------
+// ★バグ修正（選択状態の残留）★ の中核ロジック
+//
+// これらは DOM に一切触れない純粋関数として切り出してある。
+// ui-render.js の renderTrumpHand / renderUnoHand は「見た目上、選択済み扱いに
+// してよいか」をここに問い合わせる。canAct（＝今まさに自分がこのフェイズを
+// 操作できるか）が false のときは、window._selectedTrumpIds /
+// window._selectedUnoIdx に古い値が残っていても、それを一切選択済みとして
+// 扱わない。これにより、リセット呼び出しのタイミングに関係なく、
+// 「自分の番ではない・出し終えたカードの残骸」が次の自分の番に持ち越されて
+// 誤って選択済み表示になる不具合を防ぐ。
+// ----------------------------------------
+export function isTrumpCardVisiblySelected(cardId, selectedIds, canAct) {
+  return Boolean(canAct) && (selectedIds || []).includes(cardId);
+}
+
+export function isUnoCardVisiblySelected(idx, selectedIdx, canAct) {
+  return Boolean(canAct) && selectedIdx !== null && selectedIdx !== undefined && idx === selectedIdx;
 }

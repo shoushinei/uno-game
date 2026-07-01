@@ -565,3 +565,28 @@ describe('drawUnoCards', () => {
     expect(g.unoHands['p1'].length).toBe(1);
   });
 });
+
+// ========================================
+// ★バグ2 回帰テスト★
+// resetUnoSelection() が pendingUnoIdx まで消してしまい、色ピッカー確定時に
+// actionUnoPlay(null, color) が呼ばれてワイルドカードが出せなくなっていた不具合。
+// ui-input.js 側の修正（pendingUnoIdx とselectedUnoIdxの分離）と対になる、
+// ロジック層（applyUnoPlay）での症状再現テスト。
+// ========================================
+describe('applyUnoPlay — バグ2回帰（cardIdx が null だと出せない症状の確認）', () => {
+  it('[バグ2の症状] ワイルドカードでも cardIdx が null なら出せない（null を返す）', () => {
+    const g = makeGame({ unoHands: { p1: [WILD], p2: [], p3: [] }, unoCurrentColor: 'red' });
+    // pendingUnoIdx が誤って失われたケースをシミュレート（idx=null で呼ばれる）
+    const result = applyUnoPlay(g, 'p1', null, 'blue', 'Alice');
+    expect(result).toBeNull();
+    expect(g.unoHands['p1'].length).toBe(1); // 手札はそのまま（出せていない）
+  });
+
+  it('[修正確認] pendingUnoIdx が正しく保持されていれば（idx=0）ワイルドカードは正常に出せる', () => {
+    const g = makeGame({ unoHands: { p1: [WILD], p2: [], p3: [] }, unoCurrentColor: 'red' });
+    const result = applyUnoPlay(g, 'p1', 0, 'blue', 'Alice');
+    expect(result).not.toBeNull();
+    expect(result.g.unoCurrentColor).toBe('blue');
+    expect(result.g.unoHands['p1'].length).toBe(0);
+  });
+});

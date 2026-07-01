@@ -30,9 +30,20 @@ export function checkAllPassed(g, passCount, players) {
   g.trumpElevenBack = false;
   g.trumpSuitLock = null;
   g.hasParent  = ownerId;
-  // 場を作った人の手番に戻す（その人が次にトランプを出す）
-  const ownerIdx = g.order.indexOf(ownerId);
-  if (ownerIdx !== -1) g.ci = ownerIdx;
+  // ★バグ修正（ターンすっ飛ばし）★
+  // 以前はここで g.ci を親(owner)のインデックスへ強制的にジャンプさせていた。
+  // しかし「全員パス」が成立するのは、まさに"最後にパスしたプレイヤー"の
+  // 手番の最中（applyTrumpPass が既に phase='uno' にして、そのプレイヤー自身の
+  // UNOターンをセットした直後）である。ここで g.ci を親へ書き換えてしまうと、
+  // 最後にパスしたプレイヤー自身のUNOターンがまるごとスキップされ、
+  // まだトランプを出してもいない親がいきなりUNOフェイズ（＋親の権限）を
+  // 押し付けられるという不具合が発生していた。
+  //
+  // checkAllPassed の責務は「場をクリアして親情報(hasParent)を記録する」ことだけに
+  // 留め、手番(g.ci)・フェイズ(g.phase)には一切触れない。手番は通常どおり
+  // applyUnoPlay / applyUnoDraw / applyUnoSkip 経由で自然に次のプレイヤーへ
+  // 進み、その次のプレイヤーが自分のトランプターンで（場が空なので）好きに
+  // 出した後、続くUNOフェイズで初めて「親」として色変更権限を使えるようになる。
   const parentName = players.find(p => p.id === ownerId)?.name ?? '?';
 
   return {

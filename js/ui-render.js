@@ -6,6 +6,12 @@
 import { state } from './state.js';
 import { AVATAR_COLORS } from './game-init.js';
 import { unoCardColorClass } from './uno-logic.js';
+import {
+  resetTrumpSelection,
+  resetUnoSelection,
+  isTrumpCardVisiblySelected,
+  isUnoCardVisiblySelected,
+} from './ui-input.js';
 
 // ----------------------------------------
 // 画面切り替え
@@ -131,6 +137,7 @@ export function renderGame(room) {
 
   _renderTurnBanner(g, players, isMyTurn, phase, iFinished);
   _renderPhaseIndicator(phase);
+  _renderTurnOrder(g, players, curId);
   _renderOtherPlayers(g, players, reactions, curId);
   _renderTrumpField(g);
   _renderTrumpStatus(g);
@@ -140,8 +147,25 @@ export function renderGame(room) {
   _renderCurrentColor(g);
   _renderPenaltyWarning(g);
 
-  renderTrumpHand(myTrump, isMyTurn && phase === 'trump', g, iFinished, myTrumpDone);
-  renderUnoHand(myUno, isMyTurn && phase === 'uno', g, iFinished, myUnoDone);
+  // ★バグ修正（選択状態の残留）★
+  // renderUnoHand/renderTrumpHand は window._selectedTrumpIds / _selectedUnoIdx を
+  // そのまま参照する。カードを出した後に app.js 側の resetXxxSelection() 呼び出しが
+  // Firebase のリアルタイム更新より後になる（＝タイミング次第で描画が先に走る）
+  // ケースがあると、古い選択インデックスが残ったまま次に自分の番が回ってきた際、
+  // 手札の並びが変わっている（配列がシフトしている）ため「本来選んでいないカード
+  // （＝直前に出したカードの右隣だったカード）」が選択済み表示になり、
+  // 送信ボタンまで出てしまっていた。
+  // 対策として、「今このフェイズで自分が操作可能ではない」瞬間には
+  // renderGame のたびに必ず選択状態をリセットする。これにより app.js 側の
+  // リセット漏れ・タイミングのズレに関係なく、次に自分の番が来た時点では
+  // 必ず選択なしの状態からスタートする（自己修復）。
+  const canActTrump = isMyTurn && phase === 'trump' && !iFinished;
+  const canActUno = isMyTurn && phase === 'uno' && !iFinished;
+  if (!canActTrump) resetTrumpSelection();
+  if (!canActUno) resetUnoSelection();
+
+  renderTrumpHand(myTrump, canActTrump, g, iFinished, myTrumpDone);
+  renderUnoHand(myUno, canActUno, g, iFinished, myUnoDone);
 
   _renderActionButtons(g, isMyTurn, phase, iFinished, myTrumpDone, myUnoDone);
 
@@ -176,6 +200,36 @@ function _renderPhaseIndicator(phase) {
     <span class="${phase === 'trump' ? 'phase-active' : 'phase-idle'}">① 🃏 トランプ</span>
     <span class="phase-arrow">→</span>
     <span class="${phase === 'uno' ? 'phase-active' : 'phase-idle'}">② 🎴 UNO</span>
+  `;
+}
+
+// ----------------------------------------
+// 手番の順番・回転方向インジケーター
+// ----------------------------------------
+// 「今どの順番で回っているか」「UNOのリバースがちゃんと効いているか」を
+// 画面上ではっきり分かるようにする追加機能。
+// g.order（現在アクティブなプレイヤーのみ、上がった人は除外済み）を
+// g.dir の向きに沿って一列に並べ、現在の手番プレイヤーをハイライトする。
+function _renderTurnOrder(g, players, curId) {
+  const el = document.getElementById('turn-order');
+  if (!el) return;
+  const order = Array.isArray(g.order) ? g.order : [];
+  if (order.length === 0) { el.innerHTML = ''; return; }
+
+  const isCW = g.dir === 1;
+  const dirLabel = isCW ? '⟳ 時計回り' : '⟲ 反時計回り';
+  const arrow = isCW ? '→' : '←';
+
+  const seq = order.map(id => {
+    const p = players.find(pl => pl.id === id);
+    const name = p ? p.name : '?';
+    const isCur = id === curId;
+    return `<span class="to-player${isCur ? ' to-cur' : ''}">${isCur ? '👉' : ''}${name}</span>`;
+  }).join(`<span class="to-arrow">${arrow}</span>`);
+
+  el.innerHTML = `
+    <span class="to-dir">${dirLabel}</span>
+    <span class="to-seq">${seq}<span class="to-arrow">${arrow}</span><span class="to-loop">…</span></span>
   `;
 }
 
@@ -441,7 +495,9 @@ export function renderTrumpHand(hand, canAct, g, iFinished, myTrumpDone) {
   hand.forEach(card => {
     const canPlay = canAct && window.trumpCanPlayCard(card, g.trumpField, selectedIds);
     const isRed = card.s === '♥' || card.s === '♦';
-    const isSelected = selectedIds.includes(card.id);
+    // ★バグ修正★ canAct でない（＝自分のトランプターンではない）場合は
+    // window._selectedTrumpIds が古い値のままでも見た目上は選択済みにしない。
+    const isSelected = isTrumpCardVisiblySelected(card.id, selectedIds, canAct);
     const div = document.createElement('div');
     div.className = `trump-hand-card${isRed ? ' red' : ''}${!canPlay && !isSelected ? ' off' : ''}${isSelected ? ' selected' : ''}`;
     div.dataset.cardId = card.id;
@@ -472,7 +528,9 @@ export function renderUnoHand(hand, canAct, g, iFinished, myUnoDone) {
     const canPlay = canAct && topUno && typeof window.unoCanPlayCard === 'function'
       ? window.unoCanPlayCard(card, topUno, g.unoCurrentColor, g.unoPenaltyAccum)
       : false;
-    const isSelected = idx === selectedIdx;
+    // ★バグ修正★ canAct でない（＝自分のUNOターンではない）場合は
+    // window._selectedUnoIdx が古い値のままでも見た目上は選択済みにしない。
+    const isSelected = isUnoCardVisiblySelected(idx, selectedIdx, canAct);
     const div = document.createElement('div');
     div.className = `hcd ${unoCardColorClass(card)}${!canPlay && !isSelected ? ' off' : ''}${isSelected ? ' selected' : ''}`;
     div.dataset.cardIdx = idx;
