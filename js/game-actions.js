@@ -78,12 +78,21 @@ export async function actionTrumpPlay(selectedCardIds) {
   const result = applyTrumpPlay(g, state.myId, selectedCardIds, pname);
   if (!result) return { error: '選択したカードの組み合わせは出せません' };
 
+  // ★ゲーム終了（リザルト画面への遷移）バグ修正★
+  // applyTrumpPlay の戻り値から g, logMsg に加えて isGameOver を正しく分割代入で受け取ります。
+  const { g: newG, logMsg, isGameOver } = result;
+
+  // ゲームが終了（残り1人以下）した場合は、ランキングの「?」を実名に解決します。
+  if (isGameOver) resolveRankingNames(newG.rankings, room.players);
+
+  // Firebase の更新データに、ゲーム終了時のみ { state: 'ended' } をマージして書き込みます。
   await fbUpdate('rooms/' + state.roomId, {
-    game: result.g,
-    log: appendLog(room, result.logMsg),
+    game: newG,
+    log: appendLog(room, logMsg),
     trumpPassCount: 0,
+    ...(isGameOver ? { state: 'ended' } : {}),
   });
-  return { ok: true };
+  return { ok: true, isGameOver };
 }
 
 // ----------------------------------------

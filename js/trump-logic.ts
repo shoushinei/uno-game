@@ -406,6 +406,7 @@ export function sortTrumpHand(hand: TrumpCard[]): TrumpCard[] {
 export interface TrumpPlayResult {
   g: TrumpGameState;
   logMsg: string;
+  isGameOver?: boolean;
 }
 
 /**
@@ -464,6 +465,7 @@ export function applyTrumpPlay(
       return {
         g,
         logMsg: log,
+        isGameOver: finishResult.isGameOver,
       };
     }
   }
