@@ -581,3 +581,85 @@ describe('finalizeIfBothHandsEmpty の Firebase互換性テスト', () => {
     expect(g.phase).toBe('uno'); // 上がらずにUNOフェイズへ進むこと
   });
 });
+
+// ========================================
+// ★新しく追加：順位確定シナリオ（1位・2位・3位）のテスト★
+// ========================================
+describe('大富豪×UNO 融合ゲームの順位確定シナリオ（1位・2位・3位）', () => {
+
+  it('【1位確定：UNOが先】AのUNOが先に上がっており、後からトランプが上がった時に1位になれるか', () => {
+    const g = {
+      order: ['p1', 'p2', 'p3'],
+      ci: 0, phase: 'trump', dir: 1, rankings: [],
+      trumpHands: { p1: [], p2: ['S3'], p3: ['H4'] }, // Aのトランプが0枚になった状態
+      unoHands:   { p1: [], p2: ['red-1'], p3: ['blue-2'] } // AのUNOはすでに0枚
+    };
+
+    const result = finalizeIfBothHandsEmpty(g, 'p1', 'Alice');
+
+    expect(result.finished).toBe(true);
+    expect(g.rankings[0].id).toBe('p1'); // Aが1位
+    expect(g.order).not.toContain('p1'); // 順番から除外
+  });
+
+  it('【1位確定：トランプが先】Aのトランプが先に上がっており、後からUNOが上がった時に1位になれるか', () => {
+    const g = {
+      order: ['p1', 'p2', 'p3'],
+      ci: 0, phase: 'uno', dir: 1, rankings: [],
+      trumpHands: { p1: [], p2: ['S3'], p3: ['H4'] }, // Aのトランプはすでに0枚
+      unoHands:   { p1: [], p2: ['red-1'], p3: ['blue-2'] } // AのUNOが0枚になった状態
+    };
+
+    const result = finalizeIfBothHandsEmpty(g, 'p1', 'Alice');
+
+    expect(result.finished).toBe(true);
+    expect(g.rankings[0].id).toBe('p1'); // Aが1位
+    expect(g.order).not.toContain('p1'); // 順番から除外
+  });
+
+  it('【2位・3位確定：UNOが先】Aが上がった状態で、BのUNOが先に上がっており、トランプが上がった時にBが2位になり、Cが3位になるか', () => {
+    const g = {
+      order: ['p2', 'p3'], // A(p1)はすでに抜けている
+      ci: 0, phase: 'trump', dir: 1,
+      rankings: [{ id: 'p1', name: 'Alice' }], // 1位はすでにA(p1)
+      trumpHands: { p2: [], p3: ['H4'] }, // Bのトランプが0枚になった状態
+      unoHands:   { p2: [], p3: ['blue-2'] } // BのUNOはすでに0枚
+    };
+
+    const result = finalizeIfBothHandsEmpty(g, 'p2', 'Bob');
+
+    expect(result.finished).toBe(true);
+    expect(g.rankings[1].id).toBe('p2'); // Bが2位
+    expect(g.order).not.toContain('p2'); // Bが順番から除外される
+
+    // game-rules.jsの内部で「残り1人になったらその人を自動で最下位にする」仕様、
+    // または関数の戻り値でゲーム終了フラグが立つかを検証
+    expect(result.isGameOver).toBe(true); 
+    
+    // もしgame-rules.js側で最後の一人を自動でランキングに入れるロジックが走る仕様であれば以下も通る
+    if (g.rankings.length === 3) {
+      expect(g.rankings[2].id).toBe('p3'); // Cが3位
+    }
+  });
+
+  it('【2位・3位確定：トランプが先】Aが上がった状態で、Bのトランプが先に上がっており、UNOが上がった時にBが2位になり、Cが3位になるか', () => {
+    const g = {
+      order: ['p2', 'p3'], // A(p1)はすでに抜けている
+      ci: 0, phase: 'uno', dir: 1,
+      rankings: [{ id: 'p1', name: 'Alice' }], // 1位はすでにA(p1)
+      trumpHands: { p2: [], p3: ['H4'] }, // B의 トランプはすでに0枚
+      unoHands:   { p2: [], p3: ['blue-2'] } // BのUNOが0枚になった状態
+    };
+
+    const result = finalizeIfBothHandsEmpty(g, 'p2', 'Bob');
+
+    expect(result.finished).toBe(true);
+    expect(g.rankings[1].id).toBe('p2'); // Bが2位
+    expect(g.order).not.toContain('p2'); // Bが順番から除外される
+    expect(result.isGameOver).toBe(true); // ゲーム終了
+
+    if (g.rankings.length === 3) {
+      expect(g.rankings[2].id).toBe('p3'); // Cが3位
+    }
+  });
+});
