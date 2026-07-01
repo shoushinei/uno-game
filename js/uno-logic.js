@@ -138,6 +138,12 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
     g.order = g.order.filter(id => id !== playerId);
   }
 
+  // ★バグ修正★ 親の色変更権限は「自分のUNOターン中に使うか、使わず終わるか」の一発勝負。
+  // pickParentColor 経由で行使済みなら applyParentColorChange で既に null になっているので
+  // ここでは何もしない。行使せずこのターンを終える場合はここで確実に失効させる。
+  // (以前は applyUnoPlay 経由でターンが終わっても権限が消えず、「貯まる」バグの原因だった)
+  if (g.hasParent === playerId) g.hasParent = null;
+
   g.phase = 'trump';
   const curOrderLen = g.order.length;
   if (curOrderLen > 0) {
@@ -182,6 +188,11 @@ export function applyUnoDraw(g, playerId, playerName) {
     drawUnoCards(g, playerId, 1);
     logMsg = `${playerName}がUNOを1枚引いた`;
   }
+
+  // ★バグ修正★ 親の権限を行使せずこのターンを終える場合、ここで確実に失効させる
+  // (applyUnoPlay と同じ理由。カードを「引く」で自分のUNOターンを終えるケースでも
+  // 以前は権限が消滅せず残り続けてしまっていた)
+  if (g.hasParent === playerId) g.hasParent = null;
 
   g.phase = 'trump';
   const myIdx = g.order.indexOf(playerId);

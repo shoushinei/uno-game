@@ -110,13 +110,13 @@ describe('resolveRankingNames', () => {
 describe('applyTrumpSkip', () => {
   it('phase が uno になる', () => {
     const g = makeGame({ phase: 'trump' });
-    applyTrumpSkip(g, 'Alice');
+    applyTrumpSkip(g, 'p1', 'Alice');
     expect(g.phase).toBe('uno');
   });
 
   it('logMsg にプレイヤー名が含まれる', () => {
     const g = makeGame({ phase: 'trump' });
-    const { logMsg } = applyTrumpSkip(g, 'Bob');
+    const { logMsg } = applyTrumpSkip(g, 'p2', 'Bob');
     expect(logMsg).toContain('Bob');
   });
 });
@@ -246,14 +246,14 @@ describe('resolveRankingNames — 追加（異常系）', () => {
 describe('applyTrumpSkip — 追加（正常系）', () => {
   it('返り値は { logMsg } の形を持つ', () => {
     const g = makeGame();
-    const r = applyTrumpSkip(g, 'Alice');
+    const r = applyTrumpSkip(g, 'p1', 'Alice');
     expect(r).toHaveProperty('logMsg');
   });
 
   it('何度呼んでも phase は uno のまま（冪等性）', () => {
     const g = makeGame();
-    applyTrumpSkip(g, 'Alice');
-    applyTrumpSkip(g, 'Alice');
+    applyTrumpSkip(g, 'p1', 'Alice');
+    applyTrumpSkip(g, 'p1', 'Alice');
     expect(g.phase).toBe('uno');
   });
 });
@@ -261,7 +261,7 @@ describe('applyTrumpSkip — 追加（正常系）', () => {
 describe('applyTrumpSkip — 追加（異常系）', () => {
   it('playerName が空文字でもエラーにならず logMsg が生成される', () => {
     const g = makeGame();
-    const { logMsg } = applyTrumpSkip(g, '');
+    const { logMsg } = applyTrumpSkip(g, 'p1', '');
     expect(typeof logMsg).toBe('string');
   });
 });

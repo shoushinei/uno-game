@@ -116,6 +116,9 @@ export async function actionTrumpPass() {
 
 // ----------------------------------------
 // トランプ：スキップ（手札0枚）
+// ★バグ修正★ state.myId（playerId）を applyTrumpSkip に渡すよう変更。
+// applyTrumpSkip 内で「UNO手札も0枚か」を判定し、両方0枚なら
+// UNOフェイズへは進めずその場で上がり確定させる（isGameOver対応）。
 // ----------------------------------------
 export async function actionTrumpSkip() {
   const room = await fbGet('rooms/' + state.roomId);
@@ -126,19 +129,26 @@ export async function actionTrumpSkip() {
   }
 
   const pname = getPlayerName(room.players);
-  const { logMsg } = applyTrumpSkip(g, pname);
+  const { logMsg, isGameOver } = applyTrumpSkip(g, state.myId, pname);
+
+  if (isGameOver) resolveRankingNames(g.rankings, room.players);
 
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: appendLog(room, logMsg),
+    ...(isGameOver ? { state: 'ended' } : {}),
   });
-  return { ok: true };
+  return { ok: true, isGameOver };
 }
 
 // ----------------------------------------
 // UNO：スキップ（手札0枚）
 // ★バグ修正で追加★ トランプを出し切った時の actionTrumpSkip と対になる処理。
 // UNOを出し切ったプレイヤーが「引く」しかできず足止めされていたのを解消する。
+//
+// ★バグ修正★ applyUnoSkip 内で「トランプ手札も0枚か」を判定し、
+// 両方0枚ならその場で上がり確定させる（isGameOver対応）。ゲームが終了した
+// 場合は全員パス判定（checkAllPassed）をスキップする。
 // ----------------------------------------
 export async function actionUnoSkip() {
   const room = await fbGet('rooms/' + state.roomId);
@@ -154,19 +164,29 @@ export async function actionUnoSkip() {
 
   const pname = getPlayerName(room.players);
   const currentPassCount = room.trumpPassCount ?? 0;
-  const { logMsg } = applyUnoSkip(g, state.myId, pname);
+  const { logMsg, isGameOver } = applyUnoSkip(g, state.myId, pname);
   const logs = appendLog(room, logMsg);
 
+  if (isGameOver) resolveRankingNames(g.rankings, room.players);
+
   // スキップ後に全員パスが成立するか判定（場が流れる）
-  const passResult = checkAllPassed(g, currentPassCount, room.players);
-  if (passResult.cleared) logs.push(passResult.logMsg);
+  // ※ゲームが終了した場合は場が流れる意味がないのでスキップする
+  let passCleared = false;
+  if (!isGameOver) {
+    const passResult = checkAllPassed(g, currentPassCount, room.players);
+    if (passResult.cleared) {
+      logs.push(passResult.logMsg);
+      passCleared = true;
+    }
+  }
 
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: logs.slice(-8),
-    trumpPassCount: passResult.cleared ? 0 : currentPassCount,
+    trumpPassCount: passCleared ? 0 : currentPassCount,
+    ...(isGameOver ? { state: 'ended' } : {}),
   });
-  return { ok: true };
+  return { ok: true, isGameOver };
 }
 
 // ----------------------------------------

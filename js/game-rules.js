@@ -69,15 +69,86 @@ export function resolveRankingNames(rankings, players) {
 }
 
 /**
- * トランプ手番をスキップしてUNOフェイズへ進める（手札0枚の場合）。
+ * ★バグ修正で追加★
+ * トランプ・UNO両方の手札が0枚になったプレイヤーを「上がり」として確定させる。
+ *
+ * 通常はUNOカードを出した瞬間（uno-logic.js の applyUnoPlay 内）に上がり判定が
+ * 行われるが、以下のように「自動スキップ」を経由して両方0枚になるケースでは
+ * この判定が一度も行われず、
+ *   トランプ0枚 → 自動スキップでUNOフェイズへ
+ *   UNO0枚      → 自動スキップでトランプフェイズへ
+ * を無限に繰り返すバグ（ゲームが終了しない）が発生していた。
+ *
+ * このヘルパーを applyTrumpSkip / applyUnoSkip の先頭で必ず呼び出し、
+ * 「本当にスキップすべきか、それとも上がり確定すべきか」を先に判定する。
  *
  * @param {object} g          - ゲーム状態（破壊的変更あり）
+ * @param {string} playerId
  * @param {string} playerName
- * @returns {{ logMsg: string }}
+ * @returns {{ finished: boolean, isGameOver: boolean, logMsg: string|null }}
  */
-export function applyTrumpSkip(g, playerName) {
+export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
+  // ★バグ修正★ g.trumpHands / g.unoHands 自体が未定義のケース（単体テストの
+  // 最小構成オブジェクトなど）で TypeError を起こさないよう防御的にする。
+  // 手札データが存在しない（＝配列として渡されていない）場合は「まだ判定できない」
+  // として扱い、finished=false（＝通常のスキップ処理へフォールバック）とする。
+  const trumpHand = g.trumpHands ? g.trumpHands[playerId] : undefined;
+  const unoHand = g.unoHands ? g.unoHands[playerId] : undefined;
+  const trumpDone = Array.isArray(trumpHand) && trumpHand.length === 0;
+  const unoDone = Array.isArray(unoHand) && unoHand.length === 0;
+  if (!trumpDone || !unoDone) {
+    return { finished: false, isGameOver: false, logMsg: null };
+  }
+
+  if (!g.rankings) g.rankings = [];
+  if (!g.rankings.some(r => r.id === playerId)) {
+    g.rankings.push({ id: playerId, name: playerName });
+  }
+
+  // ★バグ1対策と同じ理由★ 親の権限を持ったまま上がった場合もここで確実に失効させる
+  if (g.hasParent === playerId) g.hasParent = null;
+
+  g.order = g.order.filter(id => id !== playerId);
+  const newLen = g.order.length;
+  const isGameOver = newLen <= 1;
+
+  if (isGameOver && newLen === 1) {
+    const lastId = g.order[0];
+    if (!g.rankings.some(r => r.id === lastId)) {
+      g.rankings.push({ id: lastId, name: '?' });
+    }
+  }
+
+  if (!isGameOver) {
+    g.phase = 'trump';
+    // 除外前の g.ci は「上がったプレイヤー自身のインデックス」に等しいため、
+    // 配列shift後の同じインデックスは自然と「次のプレイヤー」を指す
+    // （uno-logic.js の applyUnoPlay の isWinner 分岐と同じ手法）
+    g.ci = g.ci % newLen;
+  }
+
+  return { finished: true, isGameOver, logMsg: `${playerName}が上がりました！🎉` };
+}
+
+/**
+ * トランプ手番をスキップしてUNOフェイズへ進める（手札0枚の場合）。
+ *
+ * ★バグ修正★ playerId を受け取るようになった。スキップする前に
+ * finalizeIfBothHandsEmpty で「UNO手札も0枚か」を必ず確認し、
+ * 両方0枚ならUNOフェイズへは進めず、その場で上がり確定させる。
+ *
+ * @param {object} g          - ゲーム状態（破壊的変更あり）
+ * @param {string} playerId
+ * @param {string} playerName
+ * @returns {{ logMsg: string, isGameOver: boolean }}
+ */
+export function applyTrumpSkip(g, playerId, playerName) {
+  const finalize = finalizeIfBothHandsEmpty(g, playerId, playerName);
+  if (finalize.finished) {
+    return { logMsg: finalize.logMsg, isGameOver: finalize.isGameOver };
+  }
   g.phase = 'uno';
-  return { logMsg: `${playerName}のトランプは0枚（自動スキップ）→ UNOフェイズへ` };
+  return { logMsg: `${playerName}のトランプは0枚（自動スキップ）→ UNOフェイズへ`, isGameOver: false };
 }
 
 /**
@@ -89,12 +160,21 @@ export function applyTrumpSkip(g, playerName) {
  * 自分が親（g.hasParent === playerId）の場合、色変更の権限を使わずに
  * スキップしたとみなし、権限はここで消滅する（次のUNOフェイズへ持ち越さない）。
  *
+ * ★バグ修正★ スキップする前に finalizeIfBothHandsEmpty で
+ * 「トランプ手札も0枚か」を必ず確認し、両方0枚ならトランプフェイズへは進めず、
+ * その場で上がり確定させる（無限スキップループの解消）。
+ *
  * @param {object} g          - ゲーム状態（破壊的変更あり）
  * @param {string} playerId
  * @param {string} playerName
- * @returns {{ logMsg: string }}
+ * @returns {{ logMsg: string, isGameOver: boolean }}
  */
 export function applyUnoSkip(g, playerId, playerName) {
+  const finalize = finalizeIfBothHandsEmpty(g, playerId, playerName);
+  if (finalize.finished) {
+    return { logMsg: finalize.logMsg, isGameOver: finalize.isGameOver };
+  }
+
   const n = g.order.length;
   const wasParent = g.hasParent === playerId;
   if (wasParent) g.hasParent = null;
@@ -102,7 +182,7 @@ export function applyUnoSkip(g, playerId, playerName) {
   const myIdx = g.order.indexOf(playerId);
   if (myIdx !== -1 && n > 0) g.ci = (myIdx + g.dir + n) % n;
   const parentNote = wasParent ? '（親の色変更権限は行使せず終了）' : '';
-  return { logMsg: `${playerName}のUNOは0枚（自動スキップ）→ 次のトランプフェイズへ${parentNote}` };
+  return { logMsg: `${playerName}のUNOは0枚（自動スキップ）→ 次のトランプフェイズへ${parentNote}`, isGameOver: false };
 }
 
 /**
