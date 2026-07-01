@@ -7,6 +7,7 @@ import {
   resolveRankingNames,
   applyTrumpSkip,
   applyUnoSkip,
+  finalizeIfBothHandsEmpty,
   applyParentColorChange,
   applyUnoDeclaration,
 } from './game-rules.js';
@@ -523,5 +524,60 @@ describe('applyUnoSkip', () => {
     const g = makeGame({ phase: 'uno', ci: 0, dir: -1 });
     applyUnoSkip(g, 'p1', 'Alice');
     expect(g.ci).toBe(2); // 逆回りなので p3(Carol)へ
+  });
+});
+
+// ========================================
+// finalizeIfBothHandsEmpty のテスト
+// ★バグ修正で追加された関数★（Firebase互換性）
+// ========================================
+describe('finalizeIfBothHandsEmpty の Firebase互換性テスト', () => {
+  it('Firebaseの仕様で手札配列が undefined になった場合でも、正しく上がり（finished: true）と判定されること', () => {
+    // Firebaseに空配列を書き込むと、読み込み時にオブジェクトからキーごと消える状態をシミュレート
+    const g = {
+      order: ['p1', 'p2', 'p3'],
+      ci: 0,
+      phase: 'trump',
+      dir: 1,
+      // p1 の手札データをあえて定義しない（＝undefined）
+      trumpHands: {
+        p2: ['S3'],
+        p3: ['H5']
+      },
+      unoHands: {
+        p2: ['red-1'],
+        p3: ['blue-2']
+      },
+      rankings: []
+    };
+
+    // p1（手札が両方存在しない＝実質0枚）の上がりチェック
+    const result = finalizeIfBothHandsEmpty(g, 'p1', 'プレイヤー1');
+
+    expect(result.finished).toBe(true);
+    expect(g.rankings[0].id).toBe('p1');
+    expect(g.order).not.toContain('p1'); // プレイヤー1がゲームから除外されていること
+  });
+
+  it('手札が残っている場合は上がらず、通常の自動スキップが機能すること', () => {
+    const g = {
+      order: ['p1', 'p2'],
+      ci: 0,
+      phase: 'trump',
+      dir: 1,
+      trumpHands: {
+        p1: [] // トランプは0枚（Firebaseで消えた状態）
+      },
+      unoHands: {
+        p1: ['red-7'] // UNOはまだ残っている
+      },
+      rankings: []
+    };
+
+    // トランプ0枚による自動スキップを実行
+    const result = applyTrumpSkip(g, 'p1', 'プレイヤー1');
+
+    expect(result.isGameOver).toBe(false);
+    expect(g.phase).toBe('uno'); // 上がらずにUNOフェイズへ進むこと
   });
 });

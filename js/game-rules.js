@@ -75,8 +75,8 @@ export function resolveRankingNames(rankings, players) {
  * 通常はUNOカードを出した瞬間（uno-logic.js の applyUnoPlay 内）に上がり判定が
  * 行われるが、以下のように「自動スキップ」を経由して両方0枚になるケースでは
  * この判定が一度も行われず、
- *   トランプ0枚 → 自動スキップでUNOフェイズへ
- *   UNO0枚      → 自動スキップでトランプフェイズへ
+ * トランプ0枚 → 自動スキップでUNOフェイズへ
+ * UNO0枚      → 自動スキップでトランプフェイズへ
  * を無限に繰り返すバグ（ゲームが終了しない）が発生していた。
  *
  * このヘルパーを applyTrumpSkip / applyUnoSkip の先頭で必ず呼び出し、
@@ -88,14 +88,18 @@ export function resolveRankingNames(rankings, players) {
  * @returns {{ finished: boolean, isGameOver: boolean, logMsg: string|null }}
  */
 export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
-  // ★バグ修正★ g.trumpHands / g.unoHands 自体が未定義のケース（単体テストの
-  // 最小構成オブジェクトなど）で TypeError を起こさないよう防御的にする。
-  // 手札データが存在しない（＝配列として渡されていない）場合は「まだ判定できない」
-  // として扱い、finished=false（＝通常のスキップ処理へフォールバック）とする。
-  const trumpHand = g.trumpHands ? g.trumpHands[playerId] : undefined;
-  const unoHand = g.unoHands ? g.unoHands[playerId] : undefined;
-  const trumpDone = Array.isArray(trumpHand) && trumpHand.length === 0;
-  const unoDone = Array.isArray(unoHand) && unoHand.length === 0;
+  // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様）★
+  // g.trumpHands / g.unoHands オブジェクト自体の存在チェックをした上で、
+  // Firebaseで空配列が消去（undefined）されていても「空（0枚）」として扱えるように修正。
+  if (!g.trumpHands || !g.unoHands) {
+    return { finished: false, isGameOver: false, logMsg: null };
+  }
+
+  const trumpHand = g.trumpHands[playerId] || [];
+  const unoHand = g.unoHands[playerId] || [];
+  const trumpDone = trumpHand.length === 0;
+  const unoDone = unoHand.length === 0;
+
   if (!trumpDone || !unoDone) {
     return { finished: false, isGameOver: false, logMsg: null };
   }
