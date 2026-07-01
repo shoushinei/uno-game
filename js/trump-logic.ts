@@ -406,7 +406,11 @@ export interface TrumpPlayResult {
  *  1. 手札から選択カードを取り出す
  *  2. analyzeTrumpPlay で出せるか確認
  *  3. 特殊効果（8切り・革命・Jバック・しばり・スペ3）を適用
- *  4. phase を 'uno' に進める
+ *  4. phase を進める
+ *     - 通常時：UNOフェイズへ進む（従来通り）
+ *     - 8切り／ジョーカー単体／スペ3で場を流した場合：★バグ修正★
+ *       トランプフェイズに留まり、場を流した本人がもう一度トランプを
+ *       出せるようにする（UNOフェイズへは進めない）。
  */
 export function applyTrumpPlay(
   g: TrumpGameState,
@@ -479,7 +483,8 @@ export function applyTrumpPlay(
 
   // ---- 場流し処理 ----
   // 8切り・ジョーカー単体・スペ3は即座に場を流し、出したプレイヤーが「親」になる
-  if (has8Cut || isJokerSingle || playMeta.spadeThreeBreak) {
+  const clearsField = has8Cut || isJokerSingle || Boolean(playMeta.spadeThreeBreak);
+  if (clearsField) {
     g.trumpField = [];
     g.trumpFieldMeta = null;
     g.trumpFieldOwner = null;
@@ -510,7 +515,20 @@ export function applyTrumpPlay(
   };
   const effectText = effects.map(e => effectLabels[e]).join(' / ');
 
-  g.phase = 'uno';
+  // ★バグ修正★
+  // 以前はここで無条件に g.phase = 'uno' としていたため、8切り・ジョーカー単体・
+  // スペ3で場を流した直後に「場を流した本人がもう一度トランプを出す」フェーズが
+  // 丸ごとスキップされ、次のプレイヤーがいきなり空の場に何でも出せてしまっていた。
+  //
+  // 場を流した場合（clearsField === true）は phase を 'trump' のまま維持し、
+  // ci も変更しない（＝まだ同じプレイヤーの手番）ことで、出した本人がもう一度
+  // トランプを出せるようにする。本人の手札が0枚の場合は actionTrumpSkip 経由で
+  // applyTrumpSkip が呼ばれ、そちらで正しくUNOフェイズへ進む（または両手札0枚なら
+  // 上がり確定する）。
+  //
+  // 通常の場合（場を流していない）は従来通り、そのままUNOフェイズへ進む。
+  g.phase = clearsField ? 'trump' : 'uno';
+
   const cardNames = selectedCards.map(c => `${c.s}${c.v}`).join(',');
   return {
     g,
