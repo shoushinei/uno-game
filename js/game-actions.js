@@ -153,7 +153,7 @@ export async function actionTrumpSkip() {
 
   const pname = getPlayerName(room.players);
   const passCount = (room.trumpPassCount ?? 0) + 1;
-  const { logMsg, isGameOver } = applyTrumpSkip(g, state.myId, pname);
+  const { logMsg, isGameOver, finished } = applyTrumpSkip(g, state.myId, pname);
   const logs = appendLog(room, logMsg);
 
   if (isGameOver) {
@@ -165,6 +165,20 @@ export async function actionTrumpSkip() {
       state: 'ended',
     });
     return { ok: true, isGameOver };
+  }
+
+  // ★バグ修正★ このターンで誰かが「上がった」場合（finished:true）は、
+  // その上がりによって g.order.length が短くなった直後の状態で
+  // checkAllPassed を呼ぶと、パス数の閾値（g.order.length - 1）が
+  // 意図せずズレて「全員パス成立」を誤検知してしまうことがあった。
+  // 上がり確定の直後は「パスした」という意味合いではないため、
+  // checkAllPassed 自体を呼ばずに素直に書き込む。
+  if (finished) {
+    await fbUpdate('rooms/' + state.roomId, {
+      game: g,
+      log: logs.slice(-8),
+    });
+    return { ok: true, isGameOver: false };
   }
 
   // 強制スキップを「パス」として計上し、全員パスが成立するか判定する
@@ -202,15 +216,17 @@ export async function actionUnoSkip() {
 
   const pname = getPlayerName(room.players);
   const currentPassCount = room.trumpPassCount ?? 0;
-  const { logMsg, isGameOver } = applyUnoSkip(g, state.myId, pname);
+  const { logMsg, isGameOver, finished } = applyUnoSkip(g, state.myId, pname);
   const logs = appendLog(room, logMsg);
 
   if (isGameOver) resolveRankingNames(g.rankings, room.players);
 
-  // スキップ後に全員パスが成立するか判定（場が流れる）
-  // ※ゲームが終了した場合は場が流れる意味がないのでスキップする
+  // ★バグ修正★ このターンで誰かが「上がった」場合（finished:true）は、
+  // g.order.length が短くなった直後の状態のまま checkAllPassed を呼ぶと
+  // パス閾値が意図せずズレて誤検知することがあるため、
+  // 上がり確定時は checkAllPassed を呼ばずに書き込む。
   let passCleared = false;
-  if (!isGameOver) {
+  if (!isGameOver && !finished) {
     const passResult = checkAllPassed(g, currentPassCount, room.players);
     if (passResult.cleared) {
       logs.push(passResult.logMsg);

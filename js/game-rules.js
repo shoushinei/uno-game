@@ -112,7 +112,27 @@ export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
   // ★バグ1対策と同じ理由★ 親の権限を持ったまま上がった場合もここで確実に失効させる
   if (g.hasParent === playerId) g.hasParent = null;
 
-  g.order = g.order.filter(id => id !== playerId);
+  // ★バグ修正（dir=-1 で手番がおかしくなる問題）★
+  // 以前は「除外前の g.ci をそのまま新しい order の長さで割った余り」で
+  // 次の手番を求めていたが、これは dir=1（時計回り）の場合にしか正しく
+  // 動かないトリックだった。dir=-1（反時計回り、UNOのリバース後）だと
+  // 本来「前の人」に手番が渡るべきところ、別の人に飛んでしまっていた。
+  //
+  // 正しい手順：
+  //   1. 除外「前」の order 上で、dir 方向に本来次に来るはずだった
+  //      プレイヤーIDを特定する（自分の位置から dir 分だけ進めた位置）。
+  //   2. 除外「後」の新しい order からそのIDのインデックスを探し直す。
+  // こうすれば dir の向きに関わらず正しい次走者を指せる。
+  const oldOrder = g.order;
+  const oldLen = oldOrder.length;
+  const myOldIdx = oldOrder.indexOf(playerId);
+  let nextPlayerId = null;
+  if (myOldIdx !== -1 && oldLen > 1) {
+    const nextOldIdx = (myOldIdx + g.dir + oldLen) % oldLen;
+    nextPlayerId = oldOrder[nextOldIdx];
+  }
+
+  g.order = oldOrder.filter(id => id !== playerId);
   const newLen = g.order.length;
   const isGameOver = newLen <= 1;
 
@@ -125,10 +145,8 @@ export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
 
   if (!isGameOver) {
     g.phase = 'trump';
-    // 除外前の g.ci は「上がったプレイヤー自身のインデックス」に等しいため、
-    // 配列shift後の同じインデックスは自然と「次のプレイヤー」を指す
-    // （uno-logic.js の applyUnoPlay の isWinner 分岐と同じ手法）
-    g.ci = g.ci % newLen;
+    const nextIdx = nextPlayerId !== null ? g.order.indexOf(nextPlayerId) : -1;
+    g.ci = nextIdx !== -1 ? nextIdx : 0;
   }
 
   return { finished: true, isGameOver, logMsg: `${playerName}が上がりました！🎉` };
@@ -144,15 +162,15 @@ export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
  * @param {object} g          - ゲーム状態（破壊的変更あり）
  * @param {string} playerId
  * @param {string} playerName
- * @returns {{ logMsg: string, isGameOver: boolean }}
+ * @returns {{ logMsg: string, isGameOver: boolean, finished: boolean }}
  */
 export function applyTrumpSkip(g, playerId, playerName) {
   const finalize = finalizeIfBothHandsEmpty(g, playerId, playerName);
   if (finalize.finished) {
-    return { logMsg: finalize.logMsg, isGameOver: finalize.isGameOver };
+    return { logMsg: finalize.logMsg, isGameOver: finalize.isGameOver, finished: true };
   }
   g.phase = 'uno';
-  return { logMsg: `${playerName}のトランプは0枚（自動スキップ）→ UNOフェイズへ`, isGameOver: false };
+  return { logMsg: `${playerName}のトランプは0枚（自動スキップ）→ UNOフェイズへ`, isGameOver: false, finished: false };
 }
 
 /**
@@ -171,12 +189,12 @@ export function applyTrumpSkip(g, playerId, playerName) {
  * @param {object} g          - ゲーム状態（破壊的変更あり）
  * @param {string} playerId
  * @param {string} playerName
- * @returns {{ logMsg: string, isGameOver: boolean }}
+ * @returns {{ logMsg: string, isGameOver: boolean, finished: boolean }}
  */
 export function applyUnoSkip(g, playerId, playerName) {
   const finalize = finalizeIfBothHandsEmpty(g, playerId, playerName);
   if (finalize.finished) {
-    return { logMsg: finalize.logMsg, isGameOver: finalize.isGameOver };
+    return { logMsg: finalize.logMsg, isGameOver: finalize.isGameOver, finished: true };
   }
 
   const n = g.order.length;
@@ -186,7 +204,7 @@ export function applyUnoSkip(g, playerId, playerName) {
   const myIdx = g.order.indexOf(playerId);
   if (myIdx !== -1 && n > 0) g.ci = (myIdx + g.dir + n) % n;
   const parentNote = wasParent ? '（親の色変更権限は行使せず終了）' : '';
-  return { logMsg: `${playerName}のUNOは0枚（自動スキップ）→ 次のトランプフェイズへ${parentNote}`, isGameOver: false };
+  return { logMsg: `${playerName}のUNOは0枚（自動スキップ）→ 次のトランプフェイズへ${parentNote}`, isGameOver: false, finished: false };
 }
 
 /**
@@ -209,6 +227,23 @@ export function applyParentColorChange(g, playerId, color, playerName) {
   g.hasParent = null;
   const cname = { red: '赤', blue: '青', green: '緑', yellow: '黄' }[color] ?? color;
   let logMsg = `${playerName}が親の権限でUNOの色を【${cname}】に変更！`;
+
+  // ★バグ修正（親の権限行使タイミングで上がり判定が漏れる問題）★
+  // 色変更を行使する時点で、実はトランプ・UNOの両方がすでに0枚
+  // （＝本来は上がっているはず）というケースが考慮されていなかった。
+  // このままだと rankings にも order 除外にも一切反映されず、
+  // そのプレイヤーがゲームに永久に残り続けてしまう。
+  // 色変更そのものは有効な行為として先に確定させた上で、
+  // 直後に必ず上がり判定を行う。
+  const finalize = finalizeIfBothHandsEmpty(g, playerId, playerName);
+  if (finalize.finished) {
+    return {
+      logMsg: `${logMsg}\n${finalize.logMsg}`,
+      turnAdvanced: true,
+      finished: true,
+      isGameOver: finalize.isGameOver,
+    };
+  }
 
   const myUno = (g.unoHands && g.unoHands[playerId]) || [];
   const myUnoDone = myUno.length === 0;
