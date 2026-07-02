@@ -78,14 +78,16 @@ export async function actionTrumpPlay(selectedCardIds) {
   const result = applyTrumpPlay(g, state.myId, selectedCardIds, pname);
   if (!result) return { error: '選択したカードの組み合わせは出せません' };
 
-  // ★ゲーム終了（リザルト画面への遷移）バグ修正★
-  // applyTrumpPlay の戻り値から g, logMsg に加えて isGameOver を正しく分割代入で受け取ります。
   const { g: newG, logMsg, isGameOver } = result;
 
-  // ゲームが終了（残り1人以下）した場合は、ランキングの「?」を実名に解決します。
+  // ★バグ修正★ applyTrumpPlay は、このプレイでトランプ・UNO両方の手札が
+  // 0枚になった場合 isGameOver: true を返すようになった。以前はこの戻り値を
+  // 一切見ておらず、ランキング名の補完（resolveRankingNames）も
+  // Firebaseへの state: 'ended' 送信も行われていなかったため、
+  // 最後のプレイヤーがトランプを出し切ってもゲームが終了しない不具合があった。
+  // 他のアクション（actionUnoPlay 等）と同じ扱いに揃える。
   if (isGameOver) resolveRankingNames(newG.rankings, room.players);
 
-  // Firebase の更新データに、ゲーム終了時のみ { state: 'ended' } をマージして書き込みます。
   await fbUpdate('rooms/' + state.roomId, {
     game: newG,
     log: appendLog(room, logMsg),
@@ -128,6 +130,18 @@ export async function actionTrumpPass() {
 // ★バグ修正★ state.myId（playerId）を applyTrumpSkip に渡すよう変更。
 // applyTrumpSkip 内で「UNO手札も0枚か」を判定し、両方0枚なら
 // UNOフェイズへは進めずその場で上がり確定させる（isGameOver対応）。
+//
+// ★バグ修正（追加）★
+// 手札0枚による強制スキップは、実質的には「出せないのでパスした」のと
+// 同じ状態である。しかし従来はここで trumpPassCount を一切増やしておらず、
+// checkAllPassed（全員パス判定）も呼んでいなかった。
+// そのため、残り3人中2人がトランプを出し切って0枚になった場合、
+// その2人は毎ターン強制スキップされるだけでパスとしてカウントされず、
+// 唯一手札が残っているプレイヤーが何を出しても場が流れず「親」になれない
+// 不具合が発生していた。
+// ここで actionTrumpPass と同様に trumpPassCount をインクリメントし
+// checkAllPassed を呼ぶことで、手札0枚のプレイヤーの強制スキップも
+// 「パス」として正しく数えられるようにする。
 // ----------------------------------------
 export async function actionTrumpSkip() {
   const room = await fbGet('rooms/' + state.roomId);
@@ -138,16 +152,31 @@ export async function actionTrumpSkip() {
   }
 
   const pname = getPlayerName(room.players);
+  const passCount = (room.trumpPassCount ?? 0) + 1;
   const { logMsg, isGameOver } = applyTrumpSkip(g, state.myId, pname);
+  const logs = appendLog(room, logMsg);
 
-  if (isGameOver) resolveRankingNames(g.rankings, room.players);
+  if (isGameOver) {
+    // 上がり確定でゲームが終了した場合は、場流し判定は意味がないのでスキップする
+    resolveRankingNames(g.rankings, room.players);
+    await fbUpdate('rooms/' + state.roomId, {
+      game: g,
+      log: logs,
+      state: 'ended',
+    });
+    return { ok: true, isGameOver };
+  }
+
+  // 強制スキップを「パス」として計上し、全員パスが成立するか判定する
+  const passResult = checkAllPassed(g, passCount, room.players);
+  if (passResult.cleared) logs.push(passResult.logMsg);
 
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
-    log: appendLog(room, logMsg),
-    ...(isGameOver ? { state: 'ended' } : {}),
+    log: logs.slice(-8),
+    trumpPassCount: passResult.cleared ? 0 : passCount,
   });
-  return { ok: true, isGameOver };
+  return { ok: true, isGameOver: false };
 }
 
 // ----------------------------------------
