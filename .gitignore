@@ -1,1 +1,23 @@
 node_modules/
+.agents/
+# Firebase Emulator Suite ログ・キャッシュ
+firebase-debug.log
+firestore-debug.log
+database-debug.log
+ui-debug.log
+pubsub-debug.log
+storage-debug.log
+*-debug.log
+
+# エミュレータのキャッシュ・状態保存ディレクトリ
+.firebase/
+
+# --export-on-exit / --import で使うエミュレータのデータダンプを
+# プロジェクト内に保存している場合（例: emulator-data/ など）
+# 実際のフォルダ名に合わせて追記してください
+emulator-data/
+
+# 環境変数・秘密情報
+.env
+.env.local
+.runtimeconfig.json

@@ -2,7 +2,7 @@
 // Firebase 設定
 // ========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, connectDatabaseEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
@@ -19,5 +19,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
 
-export const auth = getAuth(app); 
+export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+
+// ========================================
+// ★デバッグ用★ ローカルで開いている時だけ Database Emulator に接続する
+// GitHub Pages（本番）にデプロイした際は location.hostname が
+// "localhost" にならないため、この分岐には入らず通常どおり本番Firebaseに繋がる。
+// ========================================
+if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+  connectDatabaseEmulator(db, "127.0.0.1", 9000);
+  console.log("🔧 Database Emulator に接続しました（本番データではありません）");
+}
