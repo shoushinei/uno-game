@@ -193,3 +193,125 @@ window.addEventListener('beforeunload', (event) => {
     return 'ゲーム中ですが、本当に離脱しますか？';
   }
 });
+
+// ========================================
+// デバッグ用：ランダム自動プレイ（モンキーテスト）
+// ========================================
+let monkeyTimer = null;
+
+window.toggleMonkeyPlay = () => {
+  const btn = document.getElementById('monkey-toggle-btn');
+  
+  if (monkeyTimer) {
+    // 停止処理
+    clearInterval(monkeyTimer);
+    monkeyTimer = null;
+    if (btn) {
+      btn.textContent = "🐒 自動ON";
+      btn.style.background = "#ff9800";
+    }
+    console.log("🐒 モンキープレイを停止しました");
+    return;
+  }
+
+  // 開始処理
+  if (btn) {
+    btn.textContent = "🐒 自動OFF";
+    btn.style.background = "#e74c3c"; // 稼働中は赤色に
+  }
+  console.log("🐒 モンキープレイを開始しました（1秒ごとに手番チェック）");
+
+  monkeyTimer = setInterval(() => {
+    const g = window._currentGame;
+    if (!g || g.state !== 'playing') return; // ゲーム中以外はスルー
+
+    // 自分の手番（ターン）かチェック
+    const isMyTurn = g.order[g.ci] === state.myId;
+    if (!isMyTurn) return;
+
+    // --- A. 特殊なポップアップ（色選択ピッカー）が出ている場合の処理 ---
+    // ワイルドカードの色選択ピッカーが出ている場合
+    const cpick = document.getElementById('cpick');
+    if (cpick && cpick.classList.contains('show')) {
+      const colorBtns = cpick.querySelectorAll('.cbtn');
+      if (colorBtns.length > 0) {
+        colorBtns[Math.floor(Math.random() * colorBtns.length)].click();
+        return;
+      }
+    }
+    // 親の強制色変更ピッカーが出ている場合
+    const parentCpick = document.getElementById('parent-cpick');
+    if (parentCpick && parentCpick.classList.contains('show')) {
+      const pColorBtns = parentCpick.querySelectorAll('.cbtn');
+      if (pColorBtns.length > 0) {
+        pColorBtns[Math.floor(Math.random() * pColorBtns.length)].click();
+        return;
+      }
+    }
+
+    // --- B. 通常の手番行動（表示されているボタンに応じてランダム行動） ---
+    if (g.phase === 'trump') {
+      // スキップボタンが出ているなら押す（手札0枚）
+      const skipBtn = document.getElementById('trump-skip-btn');
+      if (skipBtn && skipBtn.style.display !== 'none') {
+        window.trumpSkip();
+        return;
+      }
+
+      // 確率30%でパスを選択
+      const passBtn = document.getElementById('trump-pass-btn');
+      if (passBtn && passBtn.style.display !== 'none' && Math.random() < 0.3) {
+        window.trumpPass();
+        return;
+      }
+
+      // それ以外は手札をランダムに選んで出す
+      const checkboxes = document.querySelectorAll('#my-trump-hand input[type="checkbox"]');
+      if (checkboxes.length > 0) {
+        // すべてのチェックを一旦外す
+        checkboxes.forEach(cb => cb.checked = false);
+        // ランダムに1枚だけチェックを入れる（複数枚出しのバグ検証をしたい場合はここを調整）
+        const randomCb = checkboxes[Math.floor(Math.random() * checkboxes.length)];
+        randomCb.checked = true;
+        
+        window.submitTrumpPlay();
+      } else {
+        // 万が一チェックボックスがなければパス
+        if (passBtn && passBtn.style.display !== 'none') window.trumpPass();
+      }
+
+    } else if (g.phase === 'uno') {
+      // スキップボタンが出ているなら押す（手札0枚）
+      const skipBtn = document.getElementById('uno-skip-btn');
+      if (skipBtn && skipBtn.style.display !== 'none') {
+        window.unoSkip();
+        return;
+      }
+
+      // 残り手札1枚になりそうなら50%の確率で「UNO!」と叫ぶ
+      const unoBtn = document.getElementById('uno-btn');
+      if (unoBtn && unoBtn.style.display !== 'none' && Math.random() < 0.5) {
+        window.sayUno();
+        return;
+      }
+
+      // 確率70%で手札を出そうと試みる
+      if (Math.random() < 0.7) {
+        const unoCards = document.querySelectorAll('#my-uno-hand .uno-card, #my-uno-hand [data-idx]');
+        if (unoCards.length > 0) {
+          const randomCard = unoCards[Math.floor(Math.random() * unoCards.length)];
+          randomCard.click(); // 画面上の手札をクリック（選択状態にする）
+          window.submitUnoPlay();
+          return;
+        }
+      }
+
+      // 出さなかった、または出せなかった場合はドローボタンを押す
+      const drawBtn = document.getElementById('uno-draw-btn');
+      if (drawBtn && drawBtn.style.display !== 'none') {
+        window.unoDraw();
+      }
+    }
+
+  }, 1000); // 1秒ごとにチェック＆行動
+};
