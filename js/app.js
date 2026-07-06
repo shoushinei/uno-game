@@ -43,6 +43,8 @@ export function startListening() {
     'rooms/' + state.roomId,
     (room) => {
       if (!room) return;
+      state.isHost = (room.host === state.myId);
+      localStorage.setItem('savedIsHost', String(state.isHost));
       window._currentGame = room.game || null;
       if (room.game?.trumpHands) {
         window._currentTrumpHand = room.game.trumpHands[state.myId] ?? [];
