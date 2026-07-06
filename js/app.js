@@ -55,8 +55,7 @@ export function startListening() {
         if (!document.getElementById('s-game').classList.contains('active')) show('game');
         renderGame(room);
       } else if (room.state === 'ended') {
-        if (!document.getElementById('s-result').classList.contains('active')) {
-          stopListening();
+        if (!document.getElementById('s-game').classList.contains('active')) {
           show('result');
         }
         renderResult(room);

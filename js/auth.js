@@ -196,12 +196,18 @@ window.toggleReady = async function () {
 // ----------------------------------------
 window.backToLobby = async function () {
   try {
-    const room    = await fbGet('rooms/' + state.roomId);
+    const room = await fbGet('rooms/' + state.roomId);
     if (!room) return;
-    const players = (room.players || []).map(p => ({ ...p, ready: p.id === room.host }));
-    await fbUpdate('rooms/' + state.roomId, {
-      state: 'lobby', game: null, log: [], players, reactions: {}, trumpPassCount: 0,
-    });
+
+    // ★修正：まだ誰も部屋をリセットしていない場合のみ、Firebaseを初期化する
+    if (room.state !== 'lobby') {
+      const players = (room.players || []).map(p => ({ ...p, ready: p.id === room.host }));
+      await fbUpdate('rooms/' + state.roomId, {
+        state: 'lobby', game: null, log: [], players, reactions: {}, trumpPassCount: 0,
+      });
+    }
+
+    // 全員共通：自分の画面をロビーに切り替えて、リスナーを再始動する
     show('lobby');
     window._startListening?.();
   } catch (e) { dbg('backToLobby error: ' + e.message, true); }
