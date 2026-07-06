@@ -35,6 +35,26 @@ import {
 } from './ui-input.js';
 
 // ========================================
+// ★追加：状態スナップショット詳細ログ化関数
+// ========================================
+function logSnapshot(reason) {
+  console.error(`🚨 【ゲーム状態スナップショット】\n理由/エラー: ${reason}`);
+  console.log(`⏰ 時刻: ${new Date().toLocaleTimeString()}`);
+  console.log(`👤 プレイヤー: ${state.myName || '未設定'} (ID: ${state.myId || 'なし'}) / 部屋主: ${state.isHost}`);
+  
+  if (window._currentGame) {
+    console.log("▼ ─── 現在のゲームデータ (window._currentGame) ───");
+    console.dir(window._currentGame);
+  } else {
+    console.log("❌ ゲームデータ(window._currentGame)は null です");
+  }
+  
+  console.log("▼ ─── 自分のトランプ手札 (window._currentTrumpHand) ───");
+  console.dir(window._currentTrumpHand || []);
+  console.log("────────────────────────────────────────");
+}
+
+// ========================================
 // リアルタイムリスナー
 // ========================================
 export function startListening() {
@@ -61,7 +81,7 @@ export function startListening() {
         renderResult(room);
       }
     },
-    (err) => dbg('同期エラー: ' + err.message, true)
+    (err) => { dbg('同期エラー: ' + err.message, true); logSnapshot('同期エラー: ' + err.message); } // ★ログ追加
   );
 }
 
@@ -83,25 +103,25 @@ window._stopListening  = stopListening;
 
 window.startGame = async () => {
   const result = await actionStartGame();
-  if (result?.error) dbg(result.error, true);
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
 };
 
 // --- トランプ ---
 window.submitTrumpPlay = async () => {
   const ids = getSelectedTrumpIds();
   const result = await actionTrumpPlay(ids);
-  if (result?.error) { dbg(result.error, true); return; }
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); return; } // ★ログ追加
   resetTrumpSelection();
 };
 
 window.trumpPass = async () => {
   const result = await actionTrumpPass();
-  if (result?.error) dbg(result.error, true);
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
 };
 
 window.trumpSkip = async () => {
   const result = await actionTrumpSkip();
-  if (result?.error) dbg(result.error, true);
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
 };
 
 // --- UNO ---
@@ -116,6 +136,7 @@ window.submitUnoPlay = async () => {
   const isMyTurn = g && g.order[g.ci] === state.myId;
   if (!g || !isMyTurn || g.phase !== 'uno') {
     dbg('自分のターン（UNOフェイズ）ではありません', true);
+    logSnapshot('自分のターン（UNOフェイズ）ではありません'); // ★ログ追加
     resetUnoSelection();
     return;
   }
@@ -131,7 +152,7 @@ window.submitUnoPlay = async () => {
   }
 
   const result = await actionUnoPlay(idx, null);
-  if (result?.error) { dbg(result.error, true); resetUnoSelection(); return; }
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); resetUnoSelection(); return; } // ★ログ追加
   resetUnoSelection();
 };
 
@@ -141,22 +162,22 @@ window.pickColor = async (color) => {
   if (pendingIdx === null) return;
   setPendingUnoIdx(null);
   const result = await actionUnoPlay(pendingIdx, color);
-  if (result?.error) dbg(result.error, true);
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
 };
 
 window.unoDraw = async () => {
   const result = await actionUnoDraw();
-  if (result?.error) dbg(result.error, true);
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
 };
 
 window.unoSkip = async () => {
   const result = await actionUnoSkip();
-  if (result?.error) dbg(result.error, true);
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
 };
 
 window.sayUno = async () => {
   const result = await actionSayUno();
-  if (result?.error) dbg(result.error, true);
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
 };
 
 // --- 親の権限 ---
@@ -167,7 +188,7 @@ window.showParentColorPick = () => {
 window.pickParentColor = async (color) => {
   document.getElementById('parent-cpick')?.classList.remove('show');
   const result = await actionPickParentColor(color);
-  if (result?.error) dbg(result.error, true);
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
 };
 
 // --- リアクション ---
@@ -177,7 +198,7 @@ window.sendReaction = async (emoji) => {
   state.lastSentReaction = emoji;
   flashReactionBtn(emoji);
   const result = await actionSendReaction(emoji);
-  if (result?.error) dbg(result.error, true);
+  if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
   setTimeout(() => { state.reactionCooldown = false; }, 2000);
 };
 
@@ -198,6 +219,8 @@ window.addEventListener('beforeunload', (event) => {
 // デバッグ用：ランダム自動プレイ（モンキーテスト）
 // ========================================
 let monkeyTimer = null;
+let lastStateSignature = ""; // ★追加：立ち往生検知用
+let sameStateCount = 0;      // ★追加：立ち往生検知用
 
 window.toggleMonkeyPlay = () => {
   const btn = document.getElementById('monkey-toggle-btn');
@@ -206,6 +229,8 @@ window.toggleMonkeyPlay = () => {
     // 停止処理
     clearInterval(monkeyTimer);
     monkeyTimer = null;
+    lastStateSignature = ""; // ★追加
+    sameStateCount = 0;      // ★追加
     if (btn) {
       btn.textContent = "🐒 自動ON";
       btn.style.background = "#ff9800";
@@ -227,7 +252,27 @@ window.toggleMonkeyPlay = () => {
 
     // 自分の手番（ターン）かチェック
     const isMyTurn = g.order[g.ci] === state.myId;
-    if (!isMyTurn) return;
+    if (!isMyTurn) {
+      // 自分の番じゃない時は監視カウンターをリセット
+      lastStateSignature = ""; // ★追加
+      sameStateCount = 0;      // ★追加
+      return;
+    }
+
+    // ─── ★追加：スタック（立ち往生）の自動検知 ───
+    const currentSignature = `${g.phase}-${g.ci}-${(window._currentTrumpHand || []).length}-${(g.unoHands?.[state.myId] || []).length}`;
+    if (currentSignature === lastStateSignature) {
+      sameStateCount++;
+      if (sameStateCount >= 3) {
+        logSnapshot("自動プレイがエラー等により進行不能（スタック）になりました。");
+        window.toggleMonkeyPlay();
+        return;
+      }
+    } else {
+      lastStateSignature = currentSignature;
+      sameStateCount = 0;
+    }
+    // ───────────────────────────────────────────
 
     // --- A. 特殊なポップアップ（色選択ピッカー）が出ている場合の処理 ---
     // ワイルドカードの色選択ピッカーが出ている場合
