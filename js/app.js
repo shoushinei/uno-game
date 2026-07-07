@@ -12,6 +12,7 @@
 import './auth.js';
 import { state } from './state.js';
 import { fbListen } from './db.js';
+import './test-bot.ts';
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg } from './ui-render.js';
 import {
   actionStartGame,
