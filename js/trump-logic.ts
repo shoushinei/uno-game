@@ -430,7 +430,9 @@ export function applyTrumpPlay(
 ): TrumpPlayResult | null {
   if (!Array.isArray(cardIds) || cardIds.length === 0) return null;
 
-  const hand = [...(g.trumpHands[playerId] ?? [])];
+  // ★予防的修正（uno-logic.js の applyUnoPlay と同じFirebase空配列対策）★
+  // g.trumpHands 自体が undefined（=全員トランプ完了済み）の場合に備えてガードする。
+  const hand = [...((g.trumpHands && g.trumpHands[playerId]) ?? [])];
   const selectedCards: TrumpCard[] = [];
   for (const id of cardIds) {
     const card = hand.find(c => c.id === id);

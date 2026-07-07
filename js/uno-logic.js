@@ -128,7 +128,14 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
     logExtra += ` ワイルド！${UNO_COLOR_NAMES[chosenColor]}色に変更`;
   }
 
-  const trumpDone = (g.trumpHands[playerId] || []).length === 0;
+  // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様）★
+  // 全員のトランプ手札が0枚になると、Firebase側で trumpHands オブジェクトの
+  // 中身が全員分空になり、親キー trumpHands ごと丸ごと削除されて undefined に
+  // なる（RTDBは空配列/空オブジェクトを保存しない）。
+  // g.trumpHands 自体が undefined な場合は「全員トランプ完了済み」とみなし、
+  // このプレイヤーのトランプも完了扱いにする（game-rules.js の
+  // finalizeIfBothHandsEmpty と同じ対策）。
+  const trumpDone = !g.trumpHands || (g.trumpHands[playerId] || []).length === 0;
   const isWinner = trumpDone && myHand.length === 0;
   if (isWinner) {
     if (!g.rankings) g.rankings = [];
