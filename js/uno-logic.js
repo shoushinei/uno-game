@@ -66,11 +66,18 @@ export function reshuffleUno(g) {
 
 /**
  * プレイヤーにUNOのカードを引かせる（破壊的）
+ *
+ * ★バグ修正（Firebase Realtime Databaseの空配列対策仕様）★
+ * 山札を最後の1枚まで引き切ると g.unoDrawPile = [] になり、Firebaseに
+ * 保存する際にこの空配列ごとキーが削除されて undefined になる
+ * （RTDBは空配列/空オブジェクトを保存しない）。
+ * uno-logic.js の applyUnoPlay で g.trumpHands 丸ごと undefined 化に
+ * 対応したのと同じ理由・同じパターンの対策を、山札(unoDrawPile)にも入れる。
  */
 export function drawUnoCards(g, playerId, count) {
   for (let i = 0; i < count; i++) {
-    if (g.unoDrawPile.length === 0) reshuffleUno(g);
-    if (g.unoDrawPile.length > 0) {
+    if (!g.unoDrawPile || g.unoDrawPile.length === 0) reshuffleUno(g);
+    if (g.unoDrawPile && g.unoDrawPile.length > 0) {
       g.unoHands[playerId] = [...(g.unoHands[playerId] || []), g.unoDrawPile.pop()];
     }
   }

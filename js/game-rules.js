@@ -88,15 +88,23 @@ export function resolveRankingNames(rankings, players) {
  * @returns {{ finished: boolean, isGameOver: boolean, logMsg: string|null }}
  */
 export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
-  // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様）★
-  // g.trumpHands / g.unoHands オブジェクト自体の存在チェックをした上で、
-  // Firebaseで空配列が消去（undefined）されていても「空（0枚）」として扱えるように修正。
-  if (!g.trumpHands || !g.unoHands) {
-    return { finished: false, isGameOver: false, logMsg: null };
-  }
-
-  const trumpHand = g.trumpHands[playerId] || [];
-  const unoHand = g.unoHands[playerId] || [];
+  // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様・再修正）★
+  // 以前はここで「g.trumpHands / g.unoHands オブジェクト自体が無ければ
+  // finished:false で即return」としていたが、これは意図（コメント）と
+  // 実装が矛盾していた。「オブジェクト自体が消えている」のはまさに
+  // 「全員の手札が0枚になった」時にFirebaseが空配列ごとキーを削除する
+  // ケースであり、本来は「0枚として扱う」べきところを「判定不能として
+  // 諦める」実装になっていた。
+  // これにより、全員トランプ0枚（g.trumpHands が丸ごと undefined）に
+  // なった瞬間から、このプレイヤーのUNOも0枚になっても上がりが二度と
+  // 検出されなくなる（applyTrumpSkip / applyUnoSkip / applyParentColorChange
+  // 全てがこの関数に依存しているため影響大）という不具合があった。
+  //
+  // g.trumpHands[playerId] / g.unoHands[playerId] を直接読まず、
+  // オブジェクト自体が無い場合もオプショナルチェーン相当の書き方で
+  // 「0枚」として扱う。
+  const trumpHand = (g.trumpHands && g.trumpHands[playerId]) || [];
+  const unoHand = (g.unoHands && g.unoHands[playerId]) || [];
   const trumpDone = trumpHand.length === 0;
   const unoDone = unoHand.length === 0;
 
