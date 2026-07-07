@@ -1,5 +1,5 @@
 // ========================================
-// test-bot.js — テスト用自動プレイボット（開発・検証専用）
+// test-bot.ts — テスト用自動プレイボット（開発・検証専用）
 //
 // 責務：
 //   「出せるカードがあれば必ず出す」というシンプルな貪欲(greedy)ロジックで
@@ -16,11 +16,19 @@
 //     actionTrumpPlay(cardIds) / actionUnoPlay(idx, color) という
 //     1回の呼び出しに集約されるので、選択漏れが起こりようがない。
 //
+// ビルド：
+//   trump-logic.ts と同様、ブラウザでは動かせないため
+//   コンパイルして test-bot.js を生成し、index.html からは
+//   .js の方を読み込む（.ts をそのまま <script> で読み込まない）。
+//
 // このファイルは本番運用では不要。index.html から
 // <script type="module" src="js/test-bot.js"></script> の1行を
 // 削除するだけで完全に無効化できる（app.js には一切変更不要）。
 // ========================================
+
+// @ts-ignore -- state.js はプレーンJS（型定義なし）
 import { state } from './state.js';
+// @ts-ignore -- game-actions.js はプレーンJS（型定義なし）
 import {
   actionTrumpPlay,
   actionTrumpPass,
@@ -31,23 +39,65 @@ import {
   actionSayUno,
   actionPickParentColor,
 } from './game-actions.js';
-import { trumpCanPlay } from './trump-logic.js';
+import { trumpCanPlay, type TrumpCard, type PartialGameState } from './trump-logic.js';
+// @ts-ignore -- uno-logic.js はプレーンJS（型定義なし）
 import { unoCanPlay } from './uno-logic.js';
 
-const UNO_COLORS = ['red', 'blue', 'green', 'yellow'];
+// ----------------------------------------
+// 型定義（このファイル内で完結させる最小限の型）
+// ----------------------------------------
 
-let botTimer = null;
+type UnoColor = 'red' | 'blue' | 'green' | 'yellow';
+type UnoCardType = 'num' | 'skip' | 'rev' | 'd2' | 'w' | 'w4';
+
+interface UnoCard {
+  c: UnoColor | 'w';
+  t: UnoCardType;
+  v: string;
+}
+
+/** trump-logic.ts の TrumpGameState を、このファイルで実際に使うUNOフィールドまで拡張したもの */
+interface FusionGameState extends PartialGameState {
+  order: string[];
+  ci: number;
+  phase: 'trump' | 'uno';
+  trumpField: TrumpCard[];
+  hasParent?: string;
+  unoHands: Record<string, UnoCard[]>;
+  unoDiscardPile: UnoCard[];
+  unoCurrentColor: UnoColor;
+  unoPenaltyAccum?: number;
+}
+
+// window 拡張の型宣言（ビルド時にany扱いになるのを避けるため）
+declare global {
+  interface Window {
+    _currentGame: FusionGameState | null;
+    _currentTrumpHand: TrumpCard[];
+    _roomState: string | null;
+    toggleTestBot: () => void;
+    toggleMonkeyPlay: () => void;
+  }
+}
+
+const UNO_COLORS: UnoColor[] = ['red', 'blue', 'green', 'yellow'];
+
+let botTimer: ReturnType<typeof setInterval> | null = null;
 let lastSignature = '';
 let stuckCount = 0;
 
-function log(...args) {
+function log(...args: unknown[]): void {
   console.log('%c[TestBot]', 'color:#e67e22;font-weight:bold', ...args);
 }
 
 // ----------------------------------------
 // トランプ：出せる最初の1枚（単騎）を探す
 // ----------------------------------------
-function findPlayableTrumpSingle(hand, fieldCards, g) {
+function findPlayableTrumpSingle(
+  hand: TrumpCard[],
+  fieldCards: TrumpCard[],
+  g: FusionGameState
+): TrumpCard | null {
   for (const card of hand) {
     if (trumpCanPlay([card], fieldCards, g)) return card;
   }
@@ -57,9 +107,15 @@ function findPlayableTrumpSingle(hand, fieldCards, g) {
 // ----------------------------------------
 // UNO：出せる最初の1枚を探す（インデックスを返す）
 // ----------------------------------------
-function findPlayableUnoIdx(hand, top, currentColor, penaltyAccum) {
+function findPlayableUnoIdx(
+  hand: UnoCard[],
+  top: UnoCard,
+  currentColor: UnoColor,
+  penaltyAccum: number
+): number {
   for (let i = 0; i < hand.length; i++) {
-    if (unoCanPlay(hand[i], top, currentColor, penaltyAccum)) return i;
+    const card = hand[i];
+    if (card && unoCanPlay(card, top, currentColor, penaltyAccum)) return i;
   }
   return -1;
 }
@@ -67,10 +123,12 @@ function findPlayableUnoIdx(hand, top, currentColor, penaltyAccum) {
 // ----------------------------------------
 // 手札の中で一番枚数が多い色を選ぶ（親の権限・ワイルド用）
 // ----------------------------------------
-function pickBestColor(hand) {
-  const counts = { red: 0, blue: 0, green: 0, yellow: 0 };
-  hand.forEach(c => { if (counts[c.c] !== undefined) counts[c.c]++; });
-  let best = UNO_COLORS[0];
+function pickBestColor(hand: UnoCard[]): UnoColor {
+  const counts: Record<UnoColor, number> = { red: 0, blue: 0, green: 0, yellow: 0 };
+  hand.forEach(c => {
+    if (c.c !== 'w' && counts[c.c] !== undefined) counts[c.c]++;
+  });
+  let best: UnoColor = UNO_COLORS[0]!;
   UNO_COLORS.forEach(c => { if (counts[c] > counts[best]) best = c; });
   return best;
 }
@@ -78,7 +136,7 @@ function pickBestColor(hand) {
 // ----------------------------------------
 // 1手番分の思考・実行
 // ----------------------------------------
-async function step() {
+async function step(): Promise<void> {
   const g = window._currentGame;
   if (!g || window._roomState !== 'playing') return;
 
@@ -89,8 +147,8 @@ async function step() {
     return;
   }
 
-  const trumpHand = window._currentTrumpHand || [];
-  const unoHand = (g.unoHands && g.unoHands[state.myId]) || [];
+  const trumpHand: TrumpCard[] = window._currentTrumpHand || [];
+  const unoHand: UnoCard[] = (g.unoHands && g.unoHands[state.myId]) || [];
 
   // ─── 進行不能（スタック）の自動検知 ───
   const signature = `${g.phase}-${g.ci}-${trumpHand.length}-${unoHand.length}-${g.unoPenaltyAccum || 0}`;
@@ -112,7 +170,7 @@ async function step() {
       await actionTrumpSkip();
       return;
     }
-    const fieldCards = Array.isArray(g.trumpField) ? g.trumpField : [];
+    const fieldCards: TrumpCard[] = Array.isArray(g.trumpField) ? g.trumpField : [];
     const playable = findPlayableTrumpSingle(trumpHand, fieldCards, g);
     if (playable) {
       log('トランプを出す →', playable.id);
@@ -141,10 +199,11 @@ async function step() {
     }
 
     const top = g.unoDiscardPile[g.unoDiscardPile.length - 1];
+    if (!top) return;
     const idx = findPlayableUnoIdx(unoHand, top, g.unoCurrentColor, g.unoPenaltyAccum || 0);
 
     if (idx !== -1) {
-      const card = unoHand[idx];
+      const card = unoHand[idx]!;
       const isWild = card.t === 'w' || card.t === 'w4';
       const color = isWild ? pickBestColor(unoHand.filter((_, i) => i !== idx)) : null;
       log('UNOを出す →', card, isWild ? `(色: ${color})` : '');
@@ -164,7 +223,7 @@ async function step() {
 // ON/OFF切り替え（既存のボタン onclick="toggleMonkeyPlay()" からも
 // そのまま呼べるよう、旧名にもエイリアスしておく）
 // ----------------------------------------
-window.toggleTestBot = () => {
+window.toggleTestBot = (): void => {
   const btn = document.getElementById('monkey-toggle-btn');
   if (botTimer) {
     clearInterval(botTimer);
