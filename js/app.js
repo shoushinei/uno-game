@@ -66,6 +66,7 @@ export function startListening() {
       state.isHost = (room.host === state.myId);
       localStorage.setItem('savedIsHost', String(state.isHost));
       window._currentGame = room.game || null;
+      window._roomState = room.state || null; // ★追加：モンキープレイのstate参照用
       if (room.game?.trumpHands) {
         window._currentTrumpHand = room.game.trumpHands[state.myId] ?? [];
       }
@@ -248,7 +249,7 @@ window.toggleMonkeyPlay = () => {
 
   monkeyTimer = setInterval(() => {
     const g = window._currentGame;
-    if (!g || g.state !== 'playing') return; // ゲーム中以外はスルー
+    if (!g || window._roomState !== 'playing') return; // ゲーム中以外はスルー
 
     // 自分の手番（ターン）かチェック
     const isMyTurn = g.order[g.ci] === state.myId;
