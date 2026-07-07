@@ -167,36 +167,36 @@ async function step(): Promise<void> {
   // ─── トランプフェイズ ───
   if (g.phase === 'trump') {
     if (trumpHand.length === 0) {
-      const res = await actionTrumpSkip();
-      if (res?.error) log('❌ トランプスキップ失敗:', res.error); // ★エラーログ追加
+      await actionTrumpSkip();
       return;
     }
     const fieldCards: TrumpCard[] = Array.isArray(g.trumpField) ? g.trumpField : [];
     const playable = findPlayableTrumpSingle(trumpHand, fieldCards, g);
     if (playable) {
       log('トランプを出す →', playable.id);
-      const res = await actionTrumpPlay([playable.id]);
-      if (res?.error) log('❌ トランプ提出失敗:', res.error); // ★エラーログ追加
+      const result = await actionTrumpPlay([playable.id]);
+      if (result?.error) log('⚠️ actionTrumpPlay がエラーを返した →', result.error);
     } else {
       log('出せるトランプが無いためパス');
-      const res = await actionTrumpPass();
-      if (res?.error) log('❌ トランプパス失敗:', res.error); // ★エラーログ追加
+      const result = await actionTrumpPass();
+      if (result?.error) log('⚠️ actionTrumpPass がエラーを返した →', result.error);
     }
     return;
   }
 
   // ─── UNOフェイズ ───
   if (g.phase === 'uno') {
+    // 親の権限があり、まだUNOが残っているなら先に色を有利な色へ変更しておく
+    // （UNOを出し切り済みの場合は actionPickParentColor 自体がターンを
+    //   進めてしまうので、その場合は下の「0枚スキップ」に任せる）
     if (g.hasParent === state.myId && unoHand.length > 0) {
       const color = pickBestColor(unoHand);
       log('親の権限で色を変更 →', color);
-      const res = await actionPickParentColor(color);
-      if (res?.error) log('❌ 親の色変更失敗:', res.error); // ★エラーログ追加
+      await actionPickParentColor(color);
     }
 
     if (unoHand.length === 0) {
-      const res = await actionUnoSkip();
-      if (res?.error) log('❌ UNOスキップ失敗:', res.error); // ★エラーログ追加
+      await actionUnoSkip();
       return;
     }
 
@@ -209,15 +209,15 @@ async function step(): Promise<void> {
       const isWild = card.t === 'w' || card.t === 'w4';
       const color = isWild ? pickBestColor(unoHand.filter((_, i) => i !== idx)) : null;
       log('UNOを出す →', card, isWild ? `(色: ${color})` : '');
-      const res = await actionUnoPlay(idx, color);
-      if (res?.error) log('❌ UNO提出失敗:', res.error); // ★エラーログ追加
+      const result = await actionUnoPlay(idx, color);
+      if (result?.error) log('⚠️ actionUnoPlay がエラーを返した →', result.error);
       if (unoHand.length === 2) {
-        await actionSayUno(); 
+        await actionSayUno(); // 残り1枚になる前にUNO宣言
       }
     } else {
       log('出せるUNOが無いため引く');
-      const res = await actionUnoDraw();
-      if (res?.error) log('❌ UNOドロー失敗:', res.error); // ★エラーログ追加
+      const result = await actionUnoDraw();
+      if (result?.error) log('⚠️ actionUnoDraw がエラーを返した →', result.error);
     }
     return;
   }

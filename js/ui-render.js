@@ -118,9 +118,12 @@ export function renderGame(room) {
 
   // ui-input.js の判定関数が最新のゲーム状態を参照できるよう同期する
   window._currentGame = g;
-  if (g.trumpHands) {
-    window._currentTrumpHand = g.trumpHands[state.myId] ?? [];
-  }
+  // ★バグ修正（app.js の window._currentTrumpHand と同じ原因）★
+  // g.trumpHands が丸ごと undefined（全員トランプ0枚でFirebaseがノードごと
+  // 削除した状態）になると、この if の中身が実行されず
+  // window._currentTrumpHand が古い値のまま更新されなくなっていた。
+  // 常に（空配列も込みで）更新する。
+  window._currentTrumpHand = g.trumpHands?.[state.myId] ?? [];
 
   const players = room.players || [];
   const reactions = room.reactions || {};

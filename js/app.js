@@ -68,16 +68,35 @@ export function startListening() {
       localStorage.setItem('savedIsHost', String(state.isHost));
       window._currentGame = room.game || null;
       window._roomState = room.state || null; // ★追加：モンキープレイのstate参照用
-      if (room.game) {
-        window._currentTrumpHand = room.game.trumpHands?.[state.myId] ?? [];
-      }
+      // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様）★
+      // 全員のトランプ手札が0枚になると room.game.trumpHands ノード自体が
+      // 丸ごと削除されて undefined になる（前回までに直したゲームロジック側と
+      // 同じ現象）。以前は `if (room.game?.trumpHands)` の中でしか
+      // window._currentTrumpHand を更新していなかったため、この条件が
+      // falsy になった瞬間から更新が一切走らなくなり、最後にプレイした
+      // 直前の「まだ手札が残っている」という古い値が永久に固定されて
+      // しまっていた（テストボットがこれだけを見ているため、実際には
+      // 0枚になったカードを延々と出そうとして進行不能になっていた）。
+      // room.game?.trumpHands が無い場合も含めて、毎回必ず（空配列も込みで）
+      // 更新する。
+      window._currentTrumpHand = room.game?.trumpHands?.[state.myId] ?? [];
       if (room.state === 'lobby') {
         renderLobby(room);
       } else if (room.state === 'playing') {
         if (!document.getElementById('s-game').classList.contains('active')) show('game');
         renderGame(room);
       } else if (room.state === 'ended') {
-        if (!document.getElementById('s-game').classList.contains('active')) {
+        // ★バグ修正★ 条件が反転していた。以前は「s-game画面がアクティブ
+        // "ではない"時だけ結果画面に切り替える」になっており、実際には
+        // 一番切り替えが必要な「今まさにゲーム画面を見ている人」の場合に
+        // 限って show('result') がスキップされてしまっていた。
+        // サーバー側ではゲームが終了・順位も確定済みなのに、そのプレイヤー
+        // だけ画面がゲーム中のまま固定表示され続け（手札も最後に同期された
+        // 古い状態のまま）、カードを出そうとしても「ゲームは既に終了して
+        // いる」という理由でサーバーに拒否され続ける、という不具合の原因
+        // だった。正しくは「まだ結果画面がアクティブでない時だけ切り替える」
+        // （＝重複切り替えを避けるための判定）にする。
+        if (!document.getElementById('s-result').classList.contains('active')) {
           show('result');
         }
         renderResult(room);
