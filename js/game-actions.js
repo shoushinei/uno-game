@@ -338,11 +338,16 @@ export async function actionPickParentColor(color) {
   const result = applyParentColorChange(g, state.myId, color, pname);
   if (!result) return { error: '親の権限がありません' };
 
+  // ★バグ修正：親の権限行使によるゲーム終了（isGameOver）の判定を反映する
+  const isGameOver = !!result.isGameOver;
+  if (isGameOver) resolveRankingNames(g.rankings, room.players);
+
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: appendLog(room, result.logMsg),
+    ...(isGameOver ? { state: 'ended' } : {}), // ゲーム終了時は部屋のステートを ended に変更
   });
-  return { ok: true };
+  return { ok: true, isGameOver };
 }
 
 // ----------------------------------------
