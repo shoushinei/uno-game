@@ -68,8 +68,8 @@ export function startListening() {
       localStorage.setItem('savedIsHost', String(state.isHost));
       window._currentGame = room.game || null;
       window._roomState = room.state || null; // ★追加：モンキープレイのstate参照用
-      if (room.game?.trumpHands) {
-        window._currentTrumpHand = room.game.trumpHands[state.myId] ?? [];
+      if (room.game) {
+        window._currentTrumpHand = room.game.trumpHands?.[state.myId] ?? [];
       }
       if (room.state === 'lobby') {
         renderLobby(room);
