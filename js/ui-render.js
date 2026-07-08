@@ -576,16 +576,16 @@ export function renderResult(room) {
   else if (myRankIdx !== -1) { ric.textContent = '🏁'; rtit.textContent = `${myRankIdx + 1}位でゴール！`; }
   else { ric.textContent = '😅'; rtit.textContent = 'ゲーム終了！'; }
 
+  // ★バグ修正★ 以前はホスト以外だと disabled=true になり「ホストが
+  // 再開するのを待っています...」という文言で押せなくしていた。
+  // しかし backToLobby()（auth.js）は誰が呼んでもロビーへ戻れる実装に
+  // なっており、Firebase側の初期化も「まだ誰もリセットしていない場合のみ」
+  // 行う安全な作りになっている。そのため、ここでホストだけに限定する
+  // 必要はそもそも無い。全員が同じ「ロビーに戻る」ボタンを押せるようにする。
   const resBtn = document.getElementById('res-back-btn');
-  if (state.myId === room.host) {
-    resBtn.style.display = 'block';
-    resBtn.disabled = false;
-    resBtn.textContent = 'もう一度遊ぶ（ロビーへ）';
-  } else {
-    resBtn.style.display = 'block';
-    resBtn.disabled = true;
-    resBtn.textContent = 'ホストが再開するのを待っています...';
-  }
+  resBtn.style.display = 'block';
+  resBtn.disabled = false;
+  resBtn.textContent = 'ロビーに戻る';
 }
 
 // ----------------------------------------
