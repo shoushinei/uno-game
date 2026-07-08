@@ -103,10 +103,15 @@ export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
   // g.trumpHands[playerId] / g.unoHands[playerId] を直接読まず、
   // オブジェクト自体が無い場合もオプショナルチェーン相当の書き方で
   // 「0枚」として扱う。
-  const trumpHand = (g.trumpHands && g.trumpHands[playerId]) || [];
-  const unoHand = (g.unoHands && g.unoHands[playerId]) || [];
-  const trumpDone = trumpHand.length === 0;
-  const unoDone = unoHand.length === 0;
+  // ★バグ修正★ 「trumpHands/unoHands オブジェクト自体が丸ごと存在しない」場合と
+  // 「オブジェクトは存在するが、このプレイヤーのキーだけが無い（＝Firebaseが
+  // 空配列を書き込んだ結果キーごと消えた）」場合を区別する。
+  // 後者は「0枚」として扱ってよいが、前者（そもそも手札管理の対象外・未設定）を
+  // 0枚扱いにしてしまうと、まだ手札を配ってすらいない状況やテストのダミー状態
+  // でも即座に「上がり」判定されてしまう不具合があった。
+  // オブジェクト自体が存在しない場合は「判定不能（＝0枚ではない）」として扱う。
+  const trumpDone = g.trumpHands ? ((g.trumpHands[playerId] || []).length === 0) : false;
+  const unoDone = g.unoHands ? ((g.unoHands[playerId] || []).length === 0) : false;
 
   if (!trumpDone || !unoDone) {
     return { finished: false, isGameOver: false, logMsg: null };
