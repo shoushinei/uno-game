@@ -32,6 +32,17 @@ function makeGame(overrides = {}) {
     trumpEffect: null,
     hasParent: null,
     trumpHands: { p1: [], p2: [] },
+    // ★バグ修正★ このファイルは trump-logic.js 単体のテストであり、UNO側の
+    // 手札には一切関心が無いが、applyTrumpPlay は内部で
+    // finalizeIfBothHandsEmpty（トランプ・UNO両方が0枚なら上がり確定）を
+    // 呼び出す。unoHands を一切セットしないと「オブジェクトが丸ごと無い
+    // ＝0枚」として扱われ（本番のFirebase仕様に合わせた正しい挙動）、
+    // トランプ側の手札を出し切るテスト（＝このファイルのほぼ全部）で
+    // 意図せず「上がり確定」の分岐に入ってしまい、8切りや革命など
+    // 本来検証したい効果がテストできなくなっていた。
+    // 現実のプレイヤーは通常UNOの手札も持っているはずなので、デフォルトで
+    // ダミーのUNOカードを持たせておく（「まだ上がっていない」状態を表す）。
+    unoHands: { p1: ['dummy-uno-1'], p2: ['dummy-uno-2'] },
     ...overrides,
   };
 }

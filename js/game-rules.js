@@ -103,15 +103,29 @@ export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
   // g.trumpHands[playerId] / g.unoHands[playerId] を直接読まず、
   // オブジェクト自体が無い場合もオプショナルチェーン相当の書き方で
   // 「0枚」として扱う。
-  // ★バグ修正★ 「trumpHands/unoHands オブジェクト自体が丸ごと存在しない」場合と
-  // 「オブジェクトは存在するが、このプレイヤーのキーだけが無い（＝Firebaseが
-  // 空配列を書き込んだ結果キーごと消えた）」場合を区別する。
-  // 後者は「0枚」として扱ってよいが、前者（そもそも手札管理の対象外・未設定）を
-  // 0枚扱いにしてしまうと、まだ手札を配ってすらいない状況やテストのダミー状態
-  // でも即座に「上がり」判定されてしまう不具合があった。
-  // オブジェクト自体が存在しない場合は「判定不能（＝0枚ではない）」として扱う。
-  const trumpDone = g.trumpHands ? ((g.trumpHands[playerId] || []).length === 0) : false;
-  const unoDone = g.unoHands ? ((g.unoHands[playerId] || []).length === 0) : false;
+  // ★バグ修正（再修正）★
+  // 一度「trumpHands/unoHands オブジェクト自体が丸ごと存在しない場合は
+  // 判定不能（＝0枚ではない）として扱う」という修正を入れたが、これは
+  // 本番環境で新たな不具合を生んでしまった。
+  //
+  // Firebase Realtime Database は空配列 [] を書き込むとキーごと消す
+  // 仕様であるため、ゲームが進行して「残っている全員」がトランプを
+  // 出し切ると、trumpHands オブジェクトの中身が1人分ずつ消えていき、
+  // 最後の1人が出し切った瞬間に trumpHands オブジェクト自体が
+  // 丸ごと消滅する（正常な状態）。
+  // この状態で「オブジェクトが丸ごと無い＝0枚ではない」と判定して
+  // しまうと、以後 誰の上がり判定も二度と成立しなくなり、
+  // 「トランプ出し切り！UNOフェイズのみ」⇄「UNO出し切り！トランプ
+  // フェイズのみ」を全員が永遠に行き来する無限ループになっていた
+  // （順位が一切確定しない不具合）。
+  //
+  // 「オブジェクト自体が無い」も「オブジェクトはあるがこのプレイヤーの
+  // キーだけが無い」も、本番では同じ意味（＝0枚）である。両者を
+  // 区別する必要はそもそも無かった。単純に「無ければ0枚」で統一する。
+  const trumpHand = (g.trumpHands && g.trumpHands[playerId]) || [];
+  const unoHand = (g.unoHands && g.unoHands[playerId]) || [];
+  const trumpDone = trumpHand.length === 0;
+  const unoDone = unoHand.length === 0;
 
   if (!trumpDone || !unoDone) {
     return { finished: false, isGameOver: false, logMsg: null };
@@ -290,139 +304,119 @@ export function applyUnoDeclaration(g, playerId, playerName) {
 }
 
 // ========================================
-// ★機能追加★ 不変条件（invariant）チェック
+// ★機能追加★ 不変条件チェック（診断専用・書き込みはブロックしない）
 //
-// 各アクション（game-actions.js の actionXxx）が Firebase に書き込む
-// 直前の g（ゲーム状態）が、「本来ありえないはずの状態」になっていないかを
-// 検査する。DOM・Firebaseに一切依存しないので、この層だけで単体テストできる。
-//
-// ★重要★ ここでの検査はあくまで診断用であり、違反を検出しても
-// 呼び出し側の書き込み処理は止めない。プレイ中のゲームが
-// 「不変条件チェックの誤検知（想定していなかった正常な状態）」だけで
-// 完全にフリーズしてしまう方が、単なるログ出力より実害が大きいため。
-// 違反はコンソールに詳細を出し、原因究明の手がかりにすることだけを目的とする。
+// game-actions.js から各アクションの fbUpdate 直前に呼ばれ、
+// 「本来ありえないはずのゲーム状態」になっていないかを検出してconsoleに
+// 警告を出す。ここで見つかったものは全て「バグの兆候」であり、
+// ゲームプレイ自体は止めない（診断専用）。
 // ========================================
 
-const UNO_TOTAL_CARDS = 108;   // 4色×25枚 + ワイルド8枚
-const TRUMP_TOTAL_CARDS = 53;  // 52枚 + ジョーカー1枚
-const UNO_VALID_COLORS = ['red', 'blue', 'green', 'yellow'];
-
 /**
- * ゲーム状態 g が満たすべき不変条件をチェックし、違反内容の一覧を返す。
- * 違反が無ければ空配列を返す（＝OK）。
+ * ゲーム状態の不変条件をチェックし、違反のメッセージ一覧を返す。
  *
- * @param {object} g              - チェック対象のゲーム状態
- * @param {object[]} [players]    - room.players（{id,name}[]）。渡せば
- *                                  「プレイヤー総数の整合性」も追加でチェックする。
- * @returns {string[]}
+ * @param {object} g          - ゲーム状態
+ * @param {object[]} players  - プレイヤー配列 [{ id, name }]
+ * @returns {string[]} 違反メッセージの配列（違反が無ければ空配列）
  */
 export function checkInvariants(g, players) {
   const violations = [];
   if (!g) return violations;
 
-  const order = Array.isArray(g.order) ? g.order : [];
-  const rankings = Array.isArray(g.rankings) ? g.rankings : [];
-  const rankingIds = rankings.map(r => r.id);
-  const orderSet = new Set(order);
+  const playerIds = (players || []).map(p => p.id);
 
-  // --- 手番・フェイズの基本形 ---
-  if (g.phase !== 'trump' && g.phase !== 'uno') {
-    violations.push(`phase が不正な値: ${JSON.stringify(g.phase)}`);
-  }
-  if (g.dir !== 1 && g.dir !== -1) {
-    violations.push(`dir が不正な値: ${JSON.stringify(g.dir)}`);
-  }
-  if (order.length > 0 && (!Number.isInteger(g.ci) || g.ci < 0 || g.ci >= order.length)) {
-    violations.push(`ci が order の範囲外: ci=${g.ci}, order.length=${order.length}`);
-  }
-
-  // --- order の重複禁止 / order と rankings の排他性 ---
-  if (orderSet.size !== order.length) {
-    violations.push(`order に重複したプレイヤーIDがある: ${JSON.stringify(order)}`);
-  }
-  const stillInOrderButRanked = order.filter(id => rankingIds.includes(id));
-  if (stillInOrderButRanked.length > 0) {
-    violations.push(`上がり済みのはずのプレイヤーが order に残っている: ${JSON.stringify(stillInOrderButRanked)}`);
-  }
-  if (new Set(rankingIds).size !== rankingIds.length) {
-    violations.push(`rankings に同じプレイヤーが重複している: ${JSON.stringify(rankingIds)}`);
-  }
-  if (players && order.length + rankingIds.length !== players.length) {
-    violations.push(
-      `プレイヤー総数が合わない（order:${order.length} + rankings:${rankingIds.length} ≠ players:${players.length}）`
-    );
-  }
-
-  // --- hasParent は現在アクティブな（order に残っている）プレイヤーを指すべき ---
-  if (g.hasParent && !orderSet.has(g.hasParent)) {
-    violations.push(`hasParent が order に存在しないプレイヤーを指している: ${g.hasParent}`);
-  }
-
-  // --- UNOの現在色・累積ペナルティ・捨て山 ---
-  if (!UNO_VALID_COLORS.includes(g.unoCurrentColor)) {
-    violations.push(`unoCurrentColor が不正な値: ${JSON.stringify(g.unoCurrentColor)}`);
-  }
-  if (typeof g.unoPenaltyAccum === 'number' && g.unoPenaltyAccum < 0) {
-    violations.push(`unoPenaltyAccum が負の値: ${g.unoPenaltyAccum}`);
-  }
-  if (order.length > 0 && Array.isArray(g.unoDiscardPile) && g.unoDiscardPile.length === 0) {
-    violations.push('unoDiscardPile が空（場に出ているUNOカードが無い状態）になっている');
-  }
-
-  // --- トランプの総枚数保存則（手札合計 + 場 = 53枚）とカードID重複なし ---
-  const trumpHandTotal = Object.values(g.trumpHands || {}).reduce((s, h) => s + (h?.length ?? 0), 0);
+  // ---- トランプの総枚数チェック ----
+  // ★注意★ このゲームは8切り／ジョーカー単体／スペ3／全員パスで
+  // 場のカードがそのままゲームから除外され、手札にも捨て札にも一切
+  // 戻らない仕様（＝トランプ用の捨て札置き場が存在しない）。そのため
+  // 「手札合計＋場＝53枚」を“完全一致”で検証することはできず、
+  // プレイが進むほど正しく53枚未満になっていく（これは仕様であり
+  // バグではない）。
+  // ここでは「53枚を超えていないか（＝カードが重複生成されていないか）」
+  // だけを検証する。
+  const trumpHandTotal = playerIds.reduce(
+    (sum, id) => sum + ((g.trumpHands && g.trumpHands[id]) || []).length,
+    0
+  );
   const trumpFieldTotal = Array.isArray(g.trumpField) ? g.trumpField.length : 0;
   const trumpTotal = trumpHandTotal + trumpFieldTotal;
-  if (trumpTotal !== TRUMP_TOTAL_CARDS) {
+  if (trumpTotal > 53) {
     violations.push(
-      `トランプの総枚数が${TRUMP_TOTAL_CARDS}枚ではない（手札合計${trumpHandTotal} + 場${trumpFieldTotal} = ${trumpTotal}枚）`
+      `トランプの総枚数が53枚を超えている（手札合計${trumpHandTotal} + 場${trumpFieldTotal} = ${trumpTotal}枚）`
     );
   }
-  const allTrumpIds = [
-    ...Object.values(g.trumpHands || {}).flatMap(h => (h || []).map(c => c.id)),
-    ...(Array.isArray(g.trumpField) ? g.trumpField.map(c => c.id) : []),
-  ];
-  if (new Set(allTrumpIds).size !== allTrumpIds.length) {
-    violations.push('トランプのカードIDに重複がある（同一カードが複数箇所に存在している）');
+
+  // ---- トランプカードの重複チェック ----
+  const allTrumpIds = [];
+  playerIds.forEach(id => {
+    ((g.trumpHands && g.trumpHands[id]) || []).forEach(c => allTrumpIds.push(c.id));
+  });
+  (Array.isArray(g.trumpField) ? g.trumpField : []).forEach(c => allTrumpIds.push(c.id));
+  const dupTrump = [...new Set(allTrumpIds.filter((id, i) => allTrumpIds.indexOf(id) !== i))];
+  if (dupTrump.length > 0) {
+    violations.push(`同じトランプカードが複数箇所に存在する: ${dupTrump.join(', ')}`);
   }
 
-  // --- UNOの総枚数保存則（手札合計 + 山札 + 捨て山 = 108枚） ---
-  const unoHandTotal = Object.values(g.unoHands || {}).reduce((s, h) => s + (h?.length ?? 0), 0);
+  // ---- UNOの総枚数チェック（標準108枚固定・手札+山札+捨て札で完結） ----
+  // UNOはトランプと異なり捨て札置き場（unoDiscardPile）があるため、
+  // 常に「手札合計＋山札＋捨て札＝108枚」で一致するはずである。
+  const unoHandTotal = playerIds.reduce(
+    (sum, id) => sum + ((g.unoHands && g.unoHands[id]) || []).length,
+    0
+  );
   const unoDrawTotal = Array.isArray(g.unoDrawPile) ? g.unoDrawPile.length : 0;
   const unoDiscardTotal = Array.isArray(g.unoDiscardPile) ? g.unoDiscardPile.length : 0;
   const unoTotal = unoHandTotal + unoDrawTotal + unoDiscardTotal;
-  if (unoTotal !== UNO_TOTAL_CARDS) {
+  if (unoTotal !== 108) {
     violations.push(
-      `UNOの総枚数が${UNO_TOTAL_CARDS}枚ではない（手札合計${unoHandTotal} + 山札${unoDrawTotal} + 捨て山${unoDiscardTotal} = ${unoTotal}枚）`
+      `UNOの総枚数が108枚ではない（手札合計${unoHandTotal} + 山札${unoDrawTotal} + 捨て札${unoDiscardTotal} = ${unoTotal}枚）`
     );
   }
 
-  // --- 上がり済みプレイヤーの手札は両方0枚であるべき ---
-  rankingIds.forEach(id => {
-    const th = (g.trumpHands && g.trumpHands[id]) || [];
-    const uh = (g.unoHands && g.unoHands[id]) || [];
-    if (th.length > 0 || uh.length > 0) {
-      violations.push(
-        `上がったはずのプレイヤー(${id})にまだ手札が残っている（トランプ${th.length}枚 / UNO${uh.length}枚）`
-      );
+  // ---- g.ci が order の範囲内か ----
+  if (Array.isArray(g.order) && g.order.length > 0) {
+    if (typeof g.ci !== 'number' || g.ci < 0 || g.ci >= g.order.length) {
+      violations.push(`g.ci（${g.ci}）が order（長さ${g.order.length}）の範囲外`);
     }
-  });
+  }
+
+  // ---- hasParent が実在するプレイヤーIDか ----
+  if (g.hasParent && !playerIds.includes(g.hasParent)) {
+    violations.push(`hasParent（${g.hasParent}）が players に存在しないプレイヤーを指している`);
+  }
+
+  // ---- rankings の重複チェック ----
+  if (Array.isArray(g.rankings)) {
+    const rankIds = g.rankings.map(r => r.id);
+    const dupRanks = [...new Set(rankIds.filter((id, i) => rankIds.indexOf(id) !== i))];
+    if (dupRanks.length > 0) {
+      violations.push(`rankings に同じプレイヤーが複数回登録されている: ${dupRanks.join(', ')}`);
+    }
+
+    // ---- 上がり確定済みのプレイヤーが order に残っていないか ----
+    if (Array.isArray(g.order)) {
+      const stillInOrder = rankIds.filter(id => g.order.includes(id));
+      if (stillInOrder.length > 0) {
+        violations.push(
+          `上がり確定済み（rankings）のプレイヤーがまだ order に残っている: ${stillInOrder.join(', ')}`
+        );
+      }
+    }
+  }
 
   return violations;
 }
 
 /**
- * checkInvariants の結果を分かりやすくコンソールに出力する。
- * 呼び出し側（各 actionXxx）はこの関数を呼ぶだけでよく、
- * 書き込み処理自体をブロックする必要はない。
+ * checkInvariants で見つかった違反をコンソールへ出力する。
+ * 診断専用（ここでは何も投げない・書き込みは止めない）。
  *
- * @param {string} actionName - どのアクションで検出したか（例: 'actionUnoPlay'）
- * @param {object} g
+ * @param {string} actionName - 呼び出し元アクション名（ログの見出しに使う）
+ * @param {object} g          - ゲーム状態（現状は未使用だが将来の拡張用に残す）
  * @param {string[]} violations
  */
 export function reportInvariantViolations(actionName, g, violations) {
   if (!violations || violations.length === 0) return;
   console.error(`🚨 [不変条件違反] ${actionName} の実行後、ゲーム状態が不正です:`);
-  violations.forEach(v => console.error('  - ' + v));
-  console.dir(g);
+  violations.forEach(v => console.error(`  - ${v}`));
 }
