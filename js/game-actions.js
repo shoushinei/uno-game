@@ -21,7 +21,20 @@ import {
   applyUnoSkip,
   applyParentColorChange,
   applyUnoDeclaration,
+  checkInvariants,
+  reportInvariantViolations,
 } from './game-rules.js';
+
+// ----------------------------------------
+// ヘルパー：Firebaseへ書き込む直前に不変条件をチェックする
+// ★機能追加★ 各アクションの最後（fbUpdate直前）でこれを呼ぶことで、
+// 「本来ありえないはずのゲーム状態」を書き込んでしまう前にコンソールへ
+// 検出ログを出す。書き込み自体はブロックしない（診断専用）。
+// ----------------------------------------
+function assertInvariants(actionName, g, players) {
+  const violations = checkInvariants(g, players);
+  reportInvariantViolations(actionName, g, violations);
+}
 
 // ----------------------------------------
 // ヘルパー：プレイヤー名取得
@@ -47,6 +60,7 @@ export async function actionStartGame() {
   if (players.length < 3) return { error: '3人以上必要です' };
 
   const game = initFusionGame(players);
+  assertInvariants('actionStartGame', game, players);
   await fbUpdate('rooms/' + state.roomId, {
     state: 'playing',
     game,
@@ -88,6 +102,7 @@ export async function actionTrumpPlay(selectedCardIds) {
   // 他のアクション（actionUnoPlay 等）と同じ扱いに揃える。
   if (isGameOver) resolveRankingNames(newG.rankings, room.players);
 
+  assertInvariants('actionTrumpPlay', newG, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: newG,
     log: appendLog(room, logMsg),
@@ -117,6 +132,7 @@ export async function actionTrumpPass() {
   const passResult = checkAllPassed(newG, passCount, room.players);
   if (passResult.cleared) logs.push(passResult.logMsg);
 
+  assertInvariants('actionTrumpPass', newG, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: newG,
     log: logs.slice(-8),
@@ -159,6 +175,7 @@ export async function actionTrumpSkip() {
   if (isGameOver) {
     // 上がり確定でゲームが終了した場合は、場流し判定は意味がないのでスキップする
     resolveRankingNames(g.rankings, room.players);
+    assertInvariants('actionTrumpSkip(isGameOver)', g, room.players);
     await fbUpdate('rooms/' + state.roomId, {
       game: g,
       log: logs,
@@ -174,6 +191,7 @@ export async function actionTrumpSkip() {
   // 上がり確定の直後は「パスした」という意味合いではないため、
   // checkAllPassed 自体を呼ばずに素直に書き込む。
   if (finished) {
+    assertInvariants('actionTrumpSkip(finished)', g, room.players);
     await fbUpdate('rooms/' + state.roomId, {
       game: g,
       log: logs.slice(-8),
@@ -185,6 +203,7 @@ export async function actionTrumpSkip() {
   const passResult = checkAllPassed(g, passCount, room.players);
   if (passResult.cleared) logs.push(passResult.logMsg);
 
+  assertInvariants('actionTrumpSkip', g, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: logs.slice(-8),
@@ -234,6 +253,7 @@ export async function actionUnoSkip() {
     }
   }
 
+  assertInvariants('actionUnoSkip', g, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: logs.slice(-8),
@@ -270,6 +290,7 @@ export async function actionUnoPlay(cardIdx, chosenColor) {
   const passResult = checkAllPassed(newG, currentPassCount, room.players);
   if (passResult.cleared) logs.push(passResult.logMsg);
 
+  assertInvariants('actionUnoPlay', newG, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: newG,
     log: logs.slice(-8),
@@ -298,6 +319,7 @@ export async function actionUnoDraw() {
   const passResult = checkAllPassed(newG, currentPassCount, room.players);
   if (passResult.cleared) logs.push(passResult.logMsg);
 
+  assertInvariants('actionUnoDraw', newG, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: newG,
     log: logs.slice(-8),
@@ -318,6 +340,7 @@ export async function actionSayUno() {
   const pname = getPlayerName(room.players);
   const { logMsg } = applyUnoDeclaration(g, state.myId, pname);
 
+  assertInvariants('actionSayUno', g, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: appendLog(room, logMsg),
@@ -342,6 +365,7 @@ export async function actionPickParentColor(color) {
   const isGameOver = !!result.isGameOver;
   if (isGameOver) resolveRankingNames(g.rankings, room.players);
 
+  assertInvariants('actionPickParentColor', g, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: appendLog(room, result.logMsg),
