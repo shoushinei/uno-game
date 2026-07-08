@@ -23,7 +23,8 @@
   </div>
   <h1 class="home-title">大富豪 × UNO</h1>
   <p class="home-sub">トランプとUNOを同時に使う融合カードゲーム（3〜8人）</p>
-  
+
+  <!-- ルール概要（ホーム画面からも確認できるように） -->
   <button class="btn" onclick="openRuleModal()" style="margin-bottom:12px;max-width:320px;background:#34495e;color:#fff;">
     📖 ゲームのルールを見る
   </button>
@@ -255,34 +256,102 @@
     </div>
     
     <div class="modal-body">
-      <p>このゲームは<b>大富豪（トランプ）</b>と<b>UNO</b>を同時進行させる融合ルールです。<br>
-      毎ターン、次の①②の順で手番が進みます。</p>
+      <p style="margin-bottom:6px">
+        <b>大富豪（トランプ）</b>と<b>UNO</b>を同時に進行させる融合ルールです。
+      </p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;
+                  font-weight:700;font-size:13px;background:#f5f5f7;border-radius:8px;
+                  padding:8px;margin:8px 0 4px">
+        <span>① 🃏 トランプ</span><span style="color:#999">→</span><span>② 🎴 UNO</span>
+        <span style="color:#999">→</span><span style="color:#999">（次の人へ）</span>
+      </div>
 
       <hr class="modal-hr">
 
       <h4>① 🃏 トランプフェイズ</h4>
       <ul>
-        <li>場に出ているカードより強い組み合わせ（同枚数・同ランク）を出すか、パスします。</li>
-        <li>出せるカードが無ければ自動的にパス扱い（スキップ）になります。</li>
-        <li>全員がパスすると場が流れ、最後にカードを出した人が「親」になります。</li>
-        <li><b>8切り</b>（8を含む出し方）や<b>ジョーカー</b>を使うと、その場でも親になり、次に訪れる自分のUNOフェイズで色を強制的に変更できる権利がもらえます。</li>
+        <li>場が空なら何でも出せます。場にあるときは<b>同じ枚数・より強いランク</b>のみ出せます（同じ数字なら複数枚同時出しも可）。</li>
+        <li>出せなければ<b>パス</b>（脱落はせず、次のターンも参加できます）。</li>
+        <li>手札が0枚になった人は、以降のトランプフェイズを自動でスキップします。</li>
       </ul>
+      <p style="font-size:12px;text-align:center;background:#f5f5f7;border-radius:6px;
+                padding:6px;margin:8px 0;letter-spacing:0.3px">
+        強さ：3 ＜ 4 ＜ … ＜ K ＜ A ＜ 2 ＜ 🃏ジョーカー
+      </p>
+
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0 4px">
+        <tr style="background:#34495e;color:#fff">
+          <th style="padding:5px 6px;text-align:left;border-radius:6px 0 0 0">場が流れて「👑親」になる条件</th>
+        </tr>
+        <tr><td style="padding:5px 6px;border-bottom:1px solid #eee">🎯 <b>8切り</b> — 8を含む出し方をする（何枚出しでも可）</td></tr>
+        <tr><td style="padding:5px 6px;border-bottom:1px solid #eee">🃏 <b>ジョーカー単体</b> — ジョーカー1枚だけを出す</td></tr>
+        <tr><td style="padding:5px 6px">🙌 <b>全員パス</b> — 自分以外の全員がパスする</td></tr>
+      </table>
+
+      <hr class="modal-hr">
 
       <h4>② 🎴 UNOフェイズ</h4>
       <ul>
-        <li>場のカードと同じ色・数字・記号、またはワイルドを出せるなら出す、出せなければ1枚引きます。</li>
-        <li>残り手札が1枚になる<b>前</b>に「UNO！」を宣言しないと、ペナルティで2枚引かされます。</li>
-        <li>親の権限がある場合は、UNOフェイズの最初に色を好きな色へ変更できます（UNOを出し切っている場合は色変更だけ行って手番終了）。</li>
+        <li>場の一番上のカードと<b>同じ色</b>または<b>同じ数字・記号</b>のカードを1枚出します。出せなければ1枚引きます。</li>
       </ul>
+
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin:8px 0 4px">
+        <tr style="background:#34495e;color:#fff">
+          <th style="padding:5px 6px;text-align:left">カード</th>
+          <th style="padding:5px 6px;text-align:left">UNOへの効果</th>
+          <th style="padding:5px 6px;text-align:left">大富豪への波及</th>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">⊘ スキップ</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">次の人のUNOを飛ばす</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee;color:#c0392b;font-weight:600">1ターン丸ごと休み</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">⇄ リバース</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">手番の順番を逆転</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee;color:#c0392b;font-weight:600">手番順も逆転</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">+2 ドロー2</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">次の人が2枚引く（+2で返せば累積）</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee;color:#999">影響なし</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">🌈 ワイルド</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">色を変更</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee;color:#999">影響なし</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px">+4 ワイルド4</td>
+          <td style="padding:5px 6px">色変更＋次の人が4枚引く（+4で返せば累積）</td>
+          <td style="padding:5px 6px;color:#999">影響なし</td>
+        </tr>
+      </table>
+      <p style="font-size:11.5px;color:#888;margin:2px 0 8px">
+        ※ スキップ・リバースは<b>大富豪側の手番にも影響</b>します。+2/+4は<b>同種のみ</b>積み増しでき、+2と+4は混ぜて返せません。
+      </p>
+
+      <p style="font-size:12.5px;background:#fdecec;border-left:3px solid #c0392b;
+                border-radius:4px;padding:6px 8px;margin:8px 0">
+        📢 手札が<b>残り1枚になった瞬間</b>に「UNO！」を宣言してください。宣言し忘れて次の人の手番が来ると、ペナルティで2枚引かされます。
+      </p>
+
+      <hr class="modal-hr">
+
+      <h4>👑 親の権限</h4>
+      <p>場を流して親になったプレイヤーは、次に訪れる<b>自分のUNOフェイズ中に1回だけ</b>、色を好きな色に強制変更できます。使っても使わなくても、そのターンが終わると権限は消滅します。</p>
 
       <hr class="modal-hr">
 
       <h4>🏁 上がり・勝敗</h4>
       <ul>
-        <li>トランプと<b>UNOの両方</b>を出し切ったプレイヤーから順に「上がり」が確定します。</li>
-        <li>片方だけ出し切った場合、その手番は自動でスキップされ、もう片方が残っている限りゲームは続きます。</li>
-        <li>最後まで残った1人が最下位となり、上がった順に順位が決まります。</li>
+        <li>トランプと<b>UNOの両方</b>を0枚にしたプレイヤーから順に「上がり」が確定します。</li>
+        <li>片方だけ0枚の場合は、もう片方が残っている限りゲームに留まります。</li>
+        <li>上がった順番がそのまま最終順位。最後まで残った1人が最下位です。</li>
       </ul>
+      <p style="font-size:11.5px;color:#999;margin:4px 0 0">
+        ※ シンプルさを重視し、都落ち・あがり禁止札・革命（8枚出し）は採用していません。
+      </p>
 
       <div class="modal-link">
         さらに詳しい実装・ソースコードは<br>
