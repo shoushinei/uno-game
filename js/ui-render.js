@@ -127,6 +127,7 @@ export function renderGame(room) {
 
   const players = room.players || [];
   const reactions = room.reactions || {};
+  const autoPlayers = room.autoPlayers || {};
   const curId = g.order[g.ci];
   const isMyTurn = curId === state.myId;
   const phase = g.phase || 'trump';
@@ -141,7 +142,7 @@ export function renderGame(room) {
   _renderTurnBanner(g, players, isMyTurn, phase, iFinished);
   _renderPhaseIndicator(phase);
   _renderTurnOrder(g, players, curId);
-  _renderOtherPlayers(g, players, reactions, curId);
+  _renderOtherPlayers(g, players, reactions, curId, autoPlayers);
   _renderTrumpField(g);
   _renderTrumpStatus(g);
   _renderTrumpEffect(g, players);
@@ -236,7 +237,7 @@ function _renderTurnOrder(g, players, curId) {
   `;
 }
 
-function _renderOtherPlayers(g, players, reactions, curId) {
+function _renderOtherPlayers(g, players, reactions, curId, autoPlayers) {
   const opl = document.getElementById('opl');
   opl.innerHTML = '';
   players.filter(p => p.id !== state.myId).forEach(p => {
@@ -247,11 +248,17 @@ function _renderOtherPlayers(g, players, reactions, curId) {
     const react = reactions[p.id];
     const reactHtml = (react && Date.now() - react.ts < 4000)
       ? `<div class="react-badge">${react.emoji}</div>` : '';
+    // ★機能追加★ 他プレイヤーが自動プレイ（テストボット）中かどうかを表示する
+    const isAuto = !!(autoPlayers && autoPlayers[p.id]);
+    const autoHtml = isAuto
+      ? `<div class="auto-badge" style="font-size:11px;background:#8e44ad;color:#fff;border-radius:8px;padding:1px 6px;display:inline-block;margin-top:2px">🐒 自動プレイ中</div>`
+      : '';
     const el = document.createElement('div');
     el.className = 'op' + (active ? ' cur' : '');
     el.innerHTML = `
       ${reactHtml}
       <div class="on">${p.name}</div>
+      ${autoHtml}
       ${rIdx !== -1
         ? `<div class="oc finish-badge">🏁${rIdx + 1}位</div>`
         : `<div class="oc"><div class="trump-cnt">🃏${tc}枚</div><div class="uno-cnt">🎴${uc}枚</div></div>`

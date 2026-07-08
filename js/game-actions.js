@@ -357,3 +357,20 @@ export async function actionSendReaction(emoji) {
   await fbSet(`rooms/${state.roomId}/reactions/${state.myId}`, { emoji, ts: Date.now() });
   return { ok: true };
 }
+
+// ----------------------------------------
+// ★機能追加★ 自動プレイ（テストボット）ON/OFFの共有
+//
+// これまで test-bot.js のON/OFFは自分のブラウザのボタン表示が
+// 変わるだけで、Firebaseには一切書き込まれていなかった。そのため
+// 他のプレイヤーからは「誰かが自動プレイ中かどうか」が全く分からなかった。
+//
+// rooms/{roomId}/autoPlayers/{playerId} に真偽値を書き込み、
+// 全プレイヤーがルームを購読していれば自動的に反映されるようにする。
+// OFFにする際は false ではなく null を書き込み、Firebaseからキーごと
+// 消す（他の場所で使っている「空＝キーが無い」という規約に合わせる）。
+// ----------------------------------------
+export async function actionSetAutoPlay(isOn) {
+  await fbSet(`rooms/${state.roomId}/autoPlayers/${state.myId}`, isOn ? true : null);
+  return { ok: true };
+}
