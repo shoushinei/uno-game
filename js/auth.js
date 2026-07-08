@@ -68,6 +68,11 @@ onAuthStateChanged(auth, async (user) => {
             
             window._startListening?.();
             dbg('セッション復帰成功: ' + state.roomId);
+            // ★バグ修正：ここで「前のルームに復帰中...」のまま
+            // ステータス表示が固定されてしまい、後で leaveGame() 等で
+            // ホーム画面に戻った際にそのまま表示され続けてしまっていた。
+            // 復帰成功後は通常のログイン成功メッセージに更新する。
+            setStatus(`ログイン中: ${user.displayName} ✓`, 'ok');
             if (gameMenuArea) gameMenuArea.style.display = 'none';
             return; // 復帰した場合は通常のホームメニュー表示をスキップ
           } else {
