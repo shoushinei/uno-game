@@ -237,3 +237,17 @@ window.addEventListener('beforeunload', (event) => {
     return 'ゲーム中ですが、本当に離脱しますか？';
   }
 });
+
+// ========================================
+// ルール説明モーダル（ポップアップ）開閉
+// ========================================
+window.openRuleModal = () => {
+  const modal = document.getElementById('rule-modal');
+  if (modal) modal.style.display = 'flex';
+};
+
+window.closeRuleModal = (event) => {
+  // 背景クリックまたはボタンクリックで閉じる
+  const modal = document.getElementById('rule-modal');
+  if (modal) modal.style.display = 'none';
+};

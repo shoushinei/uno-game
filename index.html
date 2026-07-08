@@ -61,35 +61,9 @@
   </div>
 
   <!-- ルール概要 -->
-  <div class="box" style="text-align:left;font-size:11px;color:var(--color-text-secondary);line-height:1.7;max-width:320px">
-    <b style="font-size:12px;color:var(--color-text-primary)">📖 ゲームの流れ</b><br>
-    このゲームは<b>大富豪（トランプ）</b>と<b>UNO</b>を同時進行させる融合ルールです。<br>
-    毎ターン、次の①②の順で手番が進みます。<br><br>
-
-    <b>① 🃏 トランプフェイズ</b><br>
-    ・場に出ているカードより強い組み合わせ（同枚数・同ランク）を出すか、パスします。<br>
-    ・出せるカードが無ければ自動的にパス扱い（スキップ）になります。<br>
-    ・全員がパスすると場が流れ、最後にカードを出した人が「親」になります。<br>
-    ・<b>8切り</b>（8を含む出し方）や<b>ジョーカー</b>を使うと、その場でも親になり、
-    次に訪れる自分のUNOフェイズで色を強制的に変更できる権利がもらえます。<br><br>
-
-    <b>② 🎴 UNOフェイズ</b><br>
-    ・場のカードと同じ色・数字・記号、またはワイルドを出せるなら出す、出せなければ1枚引きます。<br>
-    ・残り手札が1枚になる<b>前</b>に「UNO！」を宣言しないと、ペナルティで2枚引かされます。<br>
-    ・親の権限がある場合は、UNOフェイズの最初に色を好きな色へ変更できます
-    （UNOを出し切っている場合は色変更だけ行って手番終了）。<br><br>
-
-    <b>🏁 上がり・勝敗</b><br>
-    ・トランプと<b>UNOの両方</b>を出し切ったプレイヤーから順に「上がり」が確定します。<br>
-    ・片方だけ出し切った場合、その手番は自動でスキップされ、もう片方が残っている限りゲームは続きます。<br>
-    ・最後まで残った1人が最下位となり、上がった順に順位が決まります。<br><br>
-
-    <span style="color:var(--color-text-tertiary)">
-      さらに詳しいルール・実装の解説は
-      <a href="https://github.com/shoushinei/uno-game" target="_blank" rel="noopener noreferrer">github.com/shoushinei/uno-game</a>
-      をご覧ください。
-    </span>
-  </div>
+  <button class="btn" onclick="openRuleModal()" style="margin-bottom:12px; background:#34495e; color:#fff;">
+    📖 ゲームのルールを見る
+  </button>
 
   <p class="sec">参加中のプレイヤー</p>
   <div class="plist" id="lpl"></div>
@@ -269,7 +243,54 @@
     <button class="btn" onclick="leaveGame()" style="max-width:280px">ホームに戻る</button>
   </div>
 </div>
+<div id="rule-modal" class="modal-overlay" onclick="closeRuleModal(event)" style="display:none;">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3>📖 大富豪 × UNO 融合ルール</h3>
+      <button class="modal-close-x" onclick="closeRuleModal()">&times;</button>
+    </div>
+    
+    <div class="modal-body">
+      <p>このゲームは<b>大富豪（トランプ）</b>と<b>UNO</b>を同時進行させる融合ルールです。<br>
+      毎ターン、次の①②の順で手番が進みます。</p>
 
+      <hr class="modal-hr">
+
+      <h4>① 🃏 トランプフェイズ</h4>
+      <ul>
+        <li>場に出ているカードより強い組み合わせ（同枚数・同ランク）を出すか、パスします。</li>
+        <li>出せるカードが無ければ自動的にパス扱い（スキップ）になります。</li>
+        <li>全員がパスすると場が流れ、最後にカードを出した人が「親」になります。</li>
+        <li><b>8切り</b>（8を含む出し方）や<b>ジョーカー</b>を使うと、その場でも親になり、次に訪れる自分のUNOフェイズで色を強制的に変更できる権利がもらえます。</li>
+      </ul>
+
+      <h4>② 🎴 UNOフェイズ</h4>
+      <ul>
+        <li>場のカードと同じ色・数字・記号、またはワイルドを出せるなら出す、出せなければ1枚引きます。</li>
+        <li>残り手札が1枚になる<b>前</b>に「UNO！」を宣言しないと、ペナルティで2枚引かされます。</li>
+        <li>親の権限がある場合は、UNOフェイズの最初に色を好きな色へ変更できます（UNOを出し切っている場合は色変更だけ行って手番終了）。</li>
+      </ul>
+
+      <hr class="modal-hr">
+
+      <h4>🏁 上がり・勝敗</h4>
+      <ul>
+        <li>トランプと<b>UNOの両方</b>を出し切ったプレイヤーから順に「上がり」が確定します。</li>
+        <li>片方だけ出し切った場合、その手番は自動でスキップされ、もう片方が残っている限りゲームは続きます。</li>
+        <li>最後まで残った1人が最下位となり、上がった順に順位が決まります。</li>
+      </ul>
+
+      <div class="modal-link">
+        さらに詳しい実装・ソースコードは<br>
+        <a href="https://github.com/shoushinei/uno-game" target="_blank" rel="noopener noreferrer">github.com/shoushinei/uno-game</a> をご覧ください。
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn red" onclick="closeRuleModal()">閉じる</button>
+    </div>
+  </div>
+</div>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
