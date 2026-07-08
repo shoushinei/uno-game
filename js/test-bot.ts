@@ -251,12 +251,22 @@ async function step(): Promise<void> {
         const card = unoHand[idx]!;
         const isWild = card.t === 'w' || card.t === 'w4';
         const color = isWild ? pickBestColor(unoHand.filter((_, i) => i !== idx)) : null;
+        // ★バグ修正★ 以前は actionUnoPlay の「後」に actionSayUno を呼んでいたため、
+        // actionUnoPlay が手札を1枚にした時点でサーバー側が即座に
+        // 「UNO未宣言」と判定してペナルティ（2枚ドロー）を確定させてしまい、
+        // その後に届く actionSayUno は常に手遅れになっていた
+        // （ログで「UNO忘れ！2枚引き」の直後に「UNO！と叫んだ」が
+        //   続けて出ていたのはこれが原因）。
+        // これを出すと残り1枚になる場合は、actionUnoPlay を呼ぶ前に
+        // 先に actionSayUno を送っておく。
+        if (unoHand.length === 2) {
+          log('残り1枚になるため先にUNO宣言 →');
+          const unoResult = await actionSayUno();
+          if (unoResult?.error) log('⚠️ actionSayUno がエラーを返した →', unoResult.error);
+        }
         log('UNOを出す →', card, isWild ? `(色: ${color})` : '');
         const result = await actionUnoPlay(idx, color);
         if (result?.error) log('⚠️ actionUnoPlay がエラーを返した →', result.error);
-        if (unoHand.length === 2) {
-          await actionSayUno(); // 残り1枚になる前にUNO宣言
-        }
       } else {
         log('出せるUNOが無いため引く');
         const result = await actionUnoDraw();
