@@ -55,6 +55,8 @@ declare global {
     pickParentColor: (color: string) => Promise<void>;
     sendReaction: (emoji: string) => Promise<void>;
     saveReplay: () => Promise<void>;
+    openReplayScreen: () => void;
+    closeReplayScreen: () => void;
     openRuleModal: () => void;
     closeRuleModal: (event?: Event) => void;
   }
@@ -260,6 +262,20 @@ window.saveReplay = async () => {
   }
   downloadReplayFile(replay);
   dbg('リプレイを保存しました');
+};
+
+// ========================================
+// ★リプレイ機能で追加★ リプレイ再生画面の開閉
+// （show() は ES モジュール内の関数で HTML の onclick からは直接呼べないため、
+//   ここで window に橋渡しする。ホーム画面の「📼 保存したリプレイを見る」
+//   ボタンとリプレイ画面の「← ホームへ戻る」ボタンから呼ばれる）
+// ========================================
+window.openReplayScreen = () => {
+  show('replay');
+};
+
+window.closeReplayScreen = () => {
+  show('home');
 };
 
 // ========================================

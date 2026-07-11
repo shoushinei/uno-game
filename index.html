@@ -29,6 +29,11 @@
     📖 ゲームのルールを見る
   </button>
 
+  <!-- リプレイ再生（保存した .json ファイルをローカルから読み込んで再生する） -->
+  <button class="btn" onclick="openReplayScreen()" style="margin-bottom:12px;max-width:320px;background:#8e44ad;color:#fff;">
+    📼 保存したリプレイを見る
+  </button>
+
   <div id="login-area" style="width:100%;max-width:320px;margin-bottom:12px;text-align:center;">
     <button class="btn" id="login-btn"
       style="background:#fff;color:#757575;border:1px solid #ddd;font-weight:600;
@@ -241,6 +246,10 @@
     <div class="box"
       style="text-align:left;max-width:300px;display:flex;flex-direction:column;gap:4px"
       id="rlist"></div>
+    <button class="btn" onclick="saveReplay()"
+      style="max-width:280px;background:#8e44ad;color:#fff;">
+      📼 リプレイを保存
+    </button>
     <button class="btn red" id="res-back-btn" onclick="backToLobby()"
       style="max-width:280px">
       ロビーに戻る
@@ -248,6 +257,63 @@
     <button class="btn" onclick="leaveGame()" style="max-width:280px">ホームに戻る</button>
   </div>
 </div>
+<!-- =====================================================
+     リプレイ再生画面
+     リザルト画面の「📼 リプレイを保存」でダウンロードした
+     .json ファイルを読み込み、1手ずつ／自動で再生する。
+     （必要な要素ID: replay-status / replay-controls / replay-play-btn /
+       replay-scrubber / replay-progress / replay-view は
+       src/replay/app.ts・render.ts が参照している）
+     ===================================================== -->
+<div id="s-replay" class="screen" style="padding:10px 8px">
+  <div class="ga">
+
+    <!-- ヘッダー -->
+    <div class="gh">
+      <div class="tb wait" style="flex:1">📼 リプレイ再生</div>
+      <button class="btn sm" onclick="closeReplayScreen()">← ホームへ戻る</button>
+    </div>
+
+    <!-- ファイル選択 -->
+    <div class="box" style="text-align:left;width:100%;max-width:560px">
+      <p style="font-size:12px;margin-bottom:6px">
+        リザルト画面の「📼 リプレイを保存」でダウンロードしたファイル（.json）を選択してください
+      </p>
+      <input type="file" accept=".json,application/json" onchange="loadReplayFile(event)"
+        style="font-size:12px;max-width:100%">
+      <p class="msg" id="replay-status" style="margin-top:6px">ファイル未選択</p>
+    </div>
+
+    <!-- 再生コントロール（ファイル読み込み成功後に表示される） -->
+    <div id="replay-controls" style="display:none;width:100%;max-width:560px">
+      <div class="phase-btns" style="justify-content:center;margin:8px 0">
+        <button class="btn sm" onclick="replayStepBack()">⏪ 1手戻る</button>
+        <button class="btn sm red" id="replay-play-btn" onclick="replayTogglePlay()">▶ 再生</button>
+        <button class="btn sm" onclick="replayStepForward()">1手進む ⏩</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0">
+        <input type="range" id="replay-scrubber" min="0" max="0" value="0"
+          style="flex:1" oninput="replaySeek(this.value)">
+        <span id="replay-progress" style="font-size:12px;white-space:nowrap">0 / 0 手</span>
+      </div>
+      <div style="text-align:center;margin:4px 0">
+        <label style="font-size:12px">再生速度：
+          <select onchange="replaySetSpeed(this.value)" style="font-size:12px;padding:2px 4px">
+            <option value="2000">ゆっくり（2秒/手）</option>
+            <option value="1000" selected>ふつう（1秒/手）</option>
+            <option value="500">はやい（0.5秒/手）</option>
+            <option value="200">最速（0.2秒/手）</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- 再生ビュー（場・全員の手札・ログが描画される） -->
+    <div id="replay-view" style="width:100%;max-width:560px"></div>
+
+  </div>
+</div>
+
 <div id="rule-modal" class="modal-overlay" onclick="closeRuleModal(event)" style="display:none;">
   <div class="modal-content" onclick="event.stopPropagation()">
     <div class="modal-header">
