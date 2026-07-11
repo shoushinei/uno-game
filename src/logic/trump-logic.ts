@@ -10,6 +10,7 @@
 // -------------------------------------------------------------------------
 // @ts-ignore
 import { finalizeIfBothHandsEmpty } from './game-rules';
+import type { GameState } from './types';
 
 // ----------------------------------------
 // 型定義
@@ -459,7 +460,9 @@ export function applyTrumpPlay(
   // 引数に playerName を追加し、戻り値オブジェクトの .finished を確認します。
   // -------------------------------------------------------------------------
   if (typeof finalizeIfBothHandsEmpty === 'function') {
-    const finishResult = finalizeIfBothHandsEmpty(g, playerId, playerName);
+    // TrumpGameState は GameState の実行時サブセット（実体は常に完全な融合状態）のため、
+    // ここでは型のみ GameState として渡す。
+    const finishResult = finalizeIfBothHandsEmpty(g as unknown as GameState, playerId, playerName);
     if (finishResult && finishResult.finished) {
       const cardNames = selectedCards.map(c => `${c.s}${c.v}`).join(',');
       // game-rules.js側で構築されたログ（〇〇が上がりました等）があれば優先し、無ければフォールバックメッセージを使用

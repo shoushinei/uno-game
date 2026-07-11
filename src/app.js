@@ -14,7 +14,7 @@ import { state } from './state.js';
 import { fbListen } from './db.js';
 import './bot/test-bot.ts';
 import './replay/app.js'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
-import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg } from './ui-render.js';
+import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg } from './ui/ui-render.js';
 import {
   actionStartGame,
   actionTrumpPlay,
