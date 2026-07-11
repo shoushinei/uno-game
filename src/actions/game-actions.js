@@ -13,7 +13,7 @@ import { state } from '../state.js';
 import { fbGet, fbUpdate, fbSet } from '../db.js';
 import { initFusionGame } from '../logic/game-init.js';
 import { applyTrumpPlay, applyTrumpPass } from '../logic/trump-logic.ts';
-import { applyUnoPlay, applyUnoDraw } from '../logic/uno-logic.js';
+import { applyUnoPlay, applyUnoDraw } from '../logic/uno-logic.ts';
 import {
   checkAllPassed,
   resolveRankingNames,

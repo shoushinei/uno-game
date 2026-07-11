@@ -1,15 +1,16 @@
-// ========================================
+/// ========================================
 // UNO ロジック
 // ========================================
+import type { GameState, UnoCard } from './types';
 
-export const UNO_COLORS = ['red', 'blue', 'green', 'yellow'];
-export const UNO_COLOR_NAMES = { red: '赤', blue: '青', green: '緑', yellow: '黄' };
+export const UNO_COLORS: string[] = ['red', 'blue', 'green', 'yellow'];
+export const UNO_COLOR_NAMES: Record<string, string> = { red: '赤', blue: '青', green: '緑', yellow: '黄' };
 
 /**
  * UNOデッキを生成する
  */
-export function buildUnoDeck() {
-  const d = [];
+export function buildUnoDeck(): UnoCard[] {
+  const d: UnoCard[] = [];
   UNO_COLORS.forEach(c => {
     d.push({ c, t: 'num', v: '0' });
     for (let i = 1; i <= 9; i++) {
@@ -30,13 +31,8 @@ export function buildUnoDeck() {
 
 /**
  * カードが出せるかどうか判定する
- * @param {object} card - 出したいカード
- * @param {object} top - 捨て山の一番上
- * @param {string} currentColor - 現在の有効な色
- * @param {number} penaltyAccum - 累積ペナルティ枚数
- * @returns {boolean}
  */
-export function unoCanPlay(card, top, currentColor, penaltyAccum) {
+export function unoCanPlay(card: UnoCard, top: UnoCard, currentColor: string, penaltyAccum: number): boolean {
   if (penaltyAccum > 0) {
     return (top.t === 'd2' && card.t === 'd2') || (top.t === 'w4' && card.t === 'w4');
   }
@@ -50,16 +46,16 @@ export function unoCanPlay(card, top, currentColor, penaltyAccum) {
 /**
  * カードのCSSカラークラス名を返す
  */
-export function unoCardColorClass(card) {
-  return (card.t === 'w' || card.t === 'w4') ? 'w' : card.c[0];
+export function unoCardColorClass(card: UnoCard): string {
+  return (card.t === 'w' || card.t === 'w4') ? 'w' : card.c[0]!;
 }
 
 /**
  * 山札が切れた場合に捨て山をシャッフルして補充する（破壊的）
  */
-export function reshuffleUno(g) {
+export function reshuffleUno(g: GameState): void {
   if (!g.unoDiscardPile || g.unoDiscardPile.length === 0) return; // 捨て山が空なら何もしない
-  const top = g.unoDiscardPile[g.unoDiscardPile.length - 1];
+  const top = g.unoDiscardPile[g.unoDiscardPile.length - 1]!;
   g.unoDrawPile = shuffle(g.unoDiscardPile.slice(0, g.unoDiscardPile.length - 1));
   g.unoDiscardPile = [top];
 }
@@ -71,28 +67,44 @@ export function reshuffleUno(g) {
  * 山札を最後の1枚まで引き切ると g.unoDrawPile = [] になり、Firebaseに
  * 保存する際にこの空配列ごとキーが削除されて undefined になる
  * （RTDBは空配列/空オブジェクトを保存しない）。
- * uno-logic.js の applyUnoPlay で g.trumpHands 丸ごと undefined 化に
+ * uno-logic.ts の applyUnoPlay で g.trumpHands 丸ごと undefined 化に
  * 対応したのと同じ理由・同じパターンの対策を、山札(unoDrawPile)にも入れる。
  */
-export function drawUnoCards(g, playerId, count) {
+export function drawUnoCards(g: GameState, playerId: string, count: number): void {
   for (let i = 0; i < count; i++) {
     if (!g.unoDrawPile || g.unoDrawPile.length === 0) reshuffleUno(g);
     if (g.unoDrawPile && g.unoDrawPile.length > 0) {
-      g.unoHands[playerId] = [...(g.unoHands[playerId] || []), g.unoDrawPile.pop()];
+      const card = g.unoDrawPile.pop();
+      if (card) {
+        g.unoHands[playerId] = [...(g.unoHands[playerId] || []), card];
+      }
     }
   }
 }
 
+export interface UnoPlayResult {
+  g: GameState;
+  logMsg: string;
+  isGameOver: boolean;
+}
+
 /**
  * UNOカードを出す処理（破壊的）
- * @returns {{ g, logMsg: string, isGameOver: boolean } | null}
  */
-export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
+export function applyUnoPlay(
+  g: GameState,
+  playerId: string,
+  cardIdx: number | null,
+  chosenColor: string | null,
+  playerName: string
+): UnoPlayResult | null {
+  if (cardIdx === null) return null;
+
   const myHand = [...(g.unoHands[playerId] || [])];
   const card = myHand[cardIdx];
   if (!card) return null;
 
-  const topUno = g.unoDiscardPile[g.unoDiscardPile.length - 1];
+  const topUno = g.unoDiscardPile[g.unoDiscardPile.length - 1]!;
   if (!unoCanPlay(card, topUno, g.unoCurrentColor, g.unoPenaltyAccum)) return null;
 
   myHand.splice(cardIdx, 1);
@@ -132,7 +144,7 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
     g.unoPenaltyAccum = (g.unoPenaltyAccum || 0) + 4;
     logExtra += ` +4（累積${g.unoPenaltyAccum}枚）`;
   } else if (card.t === 'w') {
-    logExtra += ` ワイルド！${UNO_COLOR_NAMES[chosenColor]}色に変更`;
+    logExtra += ` ワイルド！${UNO_COLOR_NAMES[chosenColor ?? '']}色に変更`;
   }
 
   // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様）★
@@ -140,7 +152,7 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
   // 中身が全員分空になり、親キー trumpHands ごと丸ごと削除されて undefined に
   // なる（RTDBは空配列/空オブジェクトを保存しない）。
   // g.trumpHands 自体が undefined な場合は「全員トランプ完了済み」とみなし、
-  // このプレイヤーのトランプも完了扱いにする（game-rules.js の
+  // このプレイヤーのトランプも完了扱いにする（game-rules.ts の
   // finalizeIfBothHandsEmpty と同じ対策）。
   const trumpDone = !g.trumpHands || (g.trumpHands[playerId] || []).length === 0;
   const isWinner = trumpDone && myHand.length === 0;
@@ -173,7 +185,7 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
 
   const isGameOver = g.order.length <= 1;
   if (isGameOver && g.order.length === 1) {
-    const lastId = g.order[0];
+    const lastId = g.order[0]!;
     if (!g.rankings.some(r => r.id === lastId)) {
       g.rankings.push({ id: lastId, name: '?' });
     }
@@ -186,10 +198,15 @@ export function applyUnoPlay(g, playerId, cardIdx, chosenColor, playerName) {
   };
 }
 
+export interface UnoDrawResult {
+  g: GameState;
+  logMsg: string;
+}
+
 /**
  * UNOカードを引く処理（破壊的）
  */
-export function applyUnoDraw(g, playerId, playerName) {
+export function applyUnoDraw(g: GameState, playerId: string, playerName: string): UnoDrawResult {
   const n = g.order.length;
   let logMsg = '';
 
@@ -216,11 +233,11 @@ export function applyUnoDraw(g, playerId, playerName) {
 }
 
 // shuffle は game-init.js から再エクスポートされるが、内部でも使用するため定義する
-function shuffle(a) {
+function shuffle<T>(a: T[]): T[] {
   const arr = [...a];
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
   }
   return arr;
 }
