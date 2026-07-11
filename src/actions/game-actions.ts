@@ -3,7 +3,7 @@
 //
 // 責務：
 //   1. Firebaseから最新のgameを読む
-//   2. ゲームロジック関数（*-logic.js / game-rules.js）を呼ぶ
+//   2. ゲームロジック関数（*-logic.ts / game-rules.ts）を呼ぶ
 //   3. 結果をFirebaseに書き戻す
 //
 // この層はDOMに直接触れない。
@@ -12,8 +12,11 @@
 import { state } from '../state.js';
 import { fbGet, fbUpdate, fbSet } from '../db.js';
 import { initFusionGame } from '../logic/game-init.js';
-import { applyTrumpPlay, applyTrumpPass } from '../logic/trump-logic.ts';
-import { applyUnoPlay, applyUnoDraw } from '../logic/uno-logic.ts';
+// ※ .ts 拡張子での import は allowImportingTsExtensions が無効のため
+// TSファイルからはエラーになる。プロジェクト標準の .js 拡張子表記に統一
+// （Vite/tsc が実体の .ts を解決してくれる）。
+import { applyTrumpPlay, applyTrumpPass } from '../logic/trump-logic.js';
+import { applyUnoPlay, applyUnoDraw } from '../logic/uno-logic.js';
 import {
   checkAllPassed,
   resolveRankingNames,
@@ -23,11 +26,19 @@ import {
   applyUnoDeclaration,
   checkInvariants,
   reportInvariantViolations,
-} from '../logic/game-rules.ts';
+} from '../logic/game-rules.js';
 // ★リプレイ機能で追加★
 // actionLog（操作の履歴）を組み立てて room.actionLog に追記するためのヘルパー。
 // assertInvariants と全く同じパターンで、既存の fbUpdate 呼び出しに乗せて使う。
 import { makeActionLogEntry, appendActionLog } from '../replay/log.js';
+import type { GameState, Player } from '../logic/types';
+
+/** 各アクションの戻り値（成功時は ok、失敗時は error にメッセージ） */
+export interface ActionResult {
+  ok?: boolean;
+  error?: string;
+  isGameOver?: boolean;
+}
 
 // ----------------------------------------
 // ヘルパー：Firebaseへ書き込む直前に不変条件をチェックする
@@ -35,7 +46,7 @@ import { makeActionLogEntry, appendActionLog } from '../replay/log.js';
 // 「本来ありえないはずのゲーム状態」を書き込んでしまう前にコンソールへ
 // 検出ログを出す。書き込み自体はブロックしない（診断専用）。
 // ----------------------------------------
-function assertInvariants(actionName, g, players) {
+function assertInvariants(actionName: string, g: GameState, players: Player[]): void {
   const violations = checkInvariants(g, players);
   reportInvariantViolations(actionName, g, violations);
 }
@@ -43,24 +54,24 @@ function assertInvariants(actionName, g, players) {
 // ----------------------------------------
 // ヘルパー：プレイヤー名取得
 // ----------------------------------------
-function getPlayerName(players) {
+function getPlayerName(players: Player[]): string {
   return players.find(p => p.id === state.myId)?.name ?? state.myName;
 }
 
 // ----------------------------------------
 // ヘルパー：ログ追記（末尾8件を維持）
 // ----------------------------------------
-function appendLog(room, msg) {
+function appendLog(room: any, msg: string): string[] {
   return [...(room.log ?? []), msg].slice(-8);
 }
 
 // ----------------------------------------
 // ゲーム開始
 // ----------------------------------------
-export async function actionStartGame() {
+export async function actionStartGame(): Promise<ActionResult | undefined> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room || state.myId !== room.host) return;
-  const players = room.players ?? [];
+  const players: Player[] = room.players ?? [];
   if (players.length < 3) return { error: '3人以上必要です' };
 
   const game = initFusionGame(players);
@@ -84,7 +95,7 @@ export async function actionStartGame() {
 // ----------------------------------------
 // トランプ：カードを出す
 // ----------------------------------------
-export async function actionTrumpPlay(selectedCardIds) {
+export async function actionTrumpPlay(selectedCardIds: string[]): Promise<ActionResult> {
   if (!selectedCardIds.length) return { error: 'カードが選択されていません' };
 
   const room = await fbGet('rooms/' + state.roomId);
@@ -103,7 +114,10 @@ export async function actionTrumpPlay(selectedCardIds) {
   const result = applyTrumpPlay(g, state.myId, selectedCardIds, pname);
   if (!result) return { error: '選択したカードの組み合わせは出せません' };
 
-  const { g: newG, logMsg, isGameOver } = result;
+  // TrumpGameState は GameState の実行時サブセット（実体は常に完全な融合状態）
+  // のため型のみ GameState として扱う（trump-logic.ts 内の同様のケースと同じ理由）
+  const newG = result.g as unknown as GameState;
+  const { logMsg, isGameOver } = result;
 
   // ★バグ修正★ applyTrumpPlay は、このプレイでトランプ・UNO両方の手札が
   // 0枚になった場合 isGameOver: true を返すようになった。以前はこの戻り値を
@@ -136,7 +150,7 @@ export async function actionTrumpPlay(selectedCardIds) {
 // ----------------------------------------
 // トランプ：パス
 // ----------------------------------------
-export async function actionTrumpPass() {
+export async function actionTrumpPass(): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
@@ -146,12 +160,14 @@ export async function actionTrumpPass() {
 
   const pname = getPlayerName(room.players);
   const passCount = (room.trumpPassCount ?? 0) + 1;
-  const { g: newG, logMsg } = applyTrumpPass(g, state.myId, pname);
-  const logs = appendLog(room, logMsg);
+  const passRes = applyTrumpPass(g, state.myId, pname);
+  // TrumpGameState → GameState（actionTrumpPlay と同じ理由の型合わせ）
+  const newG = passRes.g as unknown as GameState;
+  const logs = appendLog(room, passRes.logMsg);
 
   // パス後に全員パスが成立するか判定
   const passResult = checkAllPassed(newG, passCount, room.players);
-  if (passResult.cleared) logs.push(passResult.logMsg);
+  if (passResult.cleared && passResult.logMsg) logs.push(passResult.logMsg);
 
   // ★リプレイ機能で追加★
   const nextActionLog = appendActionLog(
@@ -193,7 +209,7 @@ export async function actionTrumpPass() {
 // 3箇所すべてに反映させる必要がある（1箇所でも忘れるとリプレイが
 // その手数だけ再現できなくなる）。
 // ----------------------------------------
-export async function actionTrumpSkip() {
+export async function actionTrumpSkip(): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
@@ -247,7 +263,7 @@ export async function actionTrumpSkip() {
 
   // 強制スキップを「パス」として計上し、全員パスが成立するか判定する
   const passResult = checkAllPassed(g, passCount, room.players);
-  if (passResult.cleared) logs.push(passResult.logMsg);
+  if (passResult.cleared && passResult.logMsg) logs.push(passResult.logMsg);
 
   assertInvariants('actionTrumpSkip', g, room.players);
   await fbUpdate('rooms/' + state.roomId, {
@@ -268,7 +284,7 @@ export async function actionTrumpSkip() {
 // 両方0枚ならその場で上がり確定させる（isGameOver対応）。ゲームが終了した
 // 場合は全員パス判定（checkAllPassed）をスキップする。
 // ----------------------------------------
-export async function actionUnoSkip() {
+export async function actionUnoSkip(): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
@@ -295,7 +311,7 @@ export async function actionUnoSkip() {
   if (!isGameOver && !finished) {
     const passResult = checkAllPassed(g, currentPassCount, room.players);
     if (passResult.cleared) {
-      logs.push(passResult.logMsg);
+      if (passResult.logMsg) logs.push(passResult.logMsg);
       passCleared = true;
     }
   }
@@ -320,7 +336,7 @@ export async function actionUnoSkip() {
 // ----------------------------------------
 // UNO：カードを出す（共通処理）
 // ----------------------------------------
-export async function actionUnoPlay(cardIdx, chosenColor) {
+export async function actionUnoPlay(cardIdx: number | null, chosenColor?: string | null): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
@@ -331,7 +347,7 @@ export async function actionUnoPlay(cardIdx, chosenColor) {
   const pname = getPlayerName(room.players);
   const currentPassCount = room.trumpPassCount ?? 0;
 
-  const result = applyUnoPlay(g, state.myId, cardIdx, chosenColor, pname);
+  const result = applyUnoPlay(g, state.myId, cardIdx, chosenColor ?? null, pname);
   if (!result) return { error: 'そのカードは出せません' };
 
   const { g: newG, logMsg, isGameOver } = result;
@@ -342,14 +358,16 @@ export async function actionUnoPlay(cardIdx, chosenColor) {
 
   // UNO後に全員パスが成立するか判定（場が流れる）
   const passResult = checkAllPassed(newG, currentPassCount, room.players);
-  if (passResult.cleared) logs.push(passResult.logMsg);
+  if (passResult.cleared && passResult.logMsg) logs.push(passResult.logMsg);
 
   // ★リプレイ機能で追加★
   // chosenColor は null の場合もそのまま null として記録する
   // （ワイルドではない通常カードでは常に null になる想定）。
+  // ※ result が non-null ＝ カードは実際に出せた＝ cardIdx は必ず有効な数値
+  //   （null なら applyUnoPlay が null を返して上で早期リターン済み）。
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('unoPlay', state.myId, { cardIdx, chosenColor: chosenColor ?? null })
+    makeActionLogEntry('unoPlay', state.myId, { cardIdx: cardIdx!, chosenColor: chosenColor ?? null })
   );
 
   assertInvariants('actionUnoPlay', newG, room.players);
@@ -366,7 +384,7 @@ export async function actionUnoPlay(cardIdx, chosenColor) {
 // ----------------------------------------
 // UNO：カードを引く
 // ----------------------------------------
-export async function actionUnoDraw() {
+export async function actionUnoDraw(): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
@@ -380,7 +398,7 @@ export async function actionUnoDraw() {
   const logs = appendLog(room, logMsg);
 
   const passResult = checkAllPassed(newG, currentPassCount, room.players);
-  if (passResult.cleared) logs.push(passResult.logMsg);
+  if (passResult.cleared && passResult.logMsg) logs.push(passResult.logMsg);
 
   // ★リプレイ機能で追加★
   const nextActionLog = appendActionLog(
@@ -401,7 +419,7 @@ export async function actionUnoDraw() {
 // ----------------------------------------
 // UNO宣言
 // ----------------------------------------
-export async function actionSayUno() {
+export async function actionSayUno(): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
@@ -428,7 +446,7 @@ export async function actionSayUno() {
 // ----------------------------------------
 // 親の色変更
 // ----------------------------------------
-export async function actionPickParentColor(color) {
+export async function actionPickParentColor(color: string): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
@@ -461,7 +479,7 @@ export async function actionPickParentColor(color) {
 // ----------------------------------------
 // リアクション送信
 // ----------------------------------------
-export async function actionSendReaction(emoji) {
+export async function actionSendReaction(emoji: string): Promise<ActionResult> {
   await fbSet(`rooms/${state.roomId}/reactions/${state.myId}`, { emoji, ts: Date.now() });
   return { ok: true };
 }
@@ -480,7 +498,7 @@ export async function actionSendReaction(emoji) {
 //
 // ※この関数はリプレイには関係しないため、actionLogへの記録は行わない。
 // ----------------------------------------
-export async function actionSetAutoPlay(isOn) {
+export async function actionSetAutoPlay(isOn: boolean): Promise<ActionResult> {
   await fbSet(`rooms/${state.roomId}/autoPlayers/${state.myId}`, isOn ? true : null);
   return { ok: true };
 }
