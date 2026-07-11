@@ -209,6 +209,13 @@ window.backToLobby = async function () {
       const players = (room.players || []).map(p => ({ ...p, ready: p.id === room.host }));
       await fbUpdate('rooms/' + state.roomId, {
         state: 'lobby', game: null, log: [], players, reactions: {}, trumpPassCount: 0,
+        // ★リプレイ機能で追加★
+        // ロビーに戻るタイミングで、前のゲームのリプレイ用データ（配り終わった
+        // 直後の状態・操作履歴）は不要になるので、放置してストレージに
+        // 残り続けないよう明示的に消す（保存したい場合は事前にリザルト画面の
+        // 「📼 リプレイを保存」ボタンでダウンロードしておく必要がある）。
+        actionLog: null,
+        replayInitialState: null,
       });
     }
 

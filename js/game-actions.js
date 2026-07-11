@@ -24,6 +24,10 @@ import {
   checkInvariants,
   reportInvariantViolations,
 } from './game-rules.js';
+// ★リプレイ機能で追加★
+// actionLog（操作の履歴）を組み立てて room.actionLog に追記するためのヘルパー。
+// assertInvariants と全く同じパターンで、既存の fbUpdate 呼び出しに乗せて使う。
+import { makeActionLogEntry, appendActionLog } from './replay-log.ts';
 
 // ----------------------------------------
 // ヘルパー：Firebaseへ書き込む直前に不変条件をチェックする
@@ -66,6 +70,13 @@ export async function actionStartGame() {
     game,
     log: ['🎮 大富豪×UNO 融合ゲーム開始！'],
     trumpPassCount: 0,
+    // ★リプレイ機能で追加★
+    // actionLog: このゲーム中の全操作をこれから1件ずつ追記していく配列。ここで空配列に初期化する。
+    // replayInitialState: 配り終わった直後（乱数が確定した直後）の game をそのまま複製して保存する。
+    // これは game 自体（毎アクションで上書きされる「現在値」）とは別に、
+    // リプレイ再生の起点として1回だけ保存すれば十分な値。
+    actionLog: [],
+    replayInitialState: game,
   });
   return { ok: true };
 }
@@ -102,12 +113,22 @@ export async function actionTrumpPlay(selectedCardIds) {
   // 他のアクション（actionUnoPlay 等）と同じ扱いに揃える。
   if (isGameOver) resolveRankingNames(newG.rankings, room.players);
 
+  // ★リプレイ機能で追加★
+  // room.actionLog が既に配列として存在するルーム（＝actionStartGameで初期化済み）
+  // でのみ追記される。古いルーム（actionLog未対応）では null が返り、
+  // 下の fbUpdate では actionLog キー自体を送らないようにする。
+  const nextActionLog = appendActionLog(
+    room,
+    makeActionLogEntry('trumpPlay', state.myId, { cardIds: selectedCardIds })
+  );
+
   assertInvariants('actionTrumpPlay', newG, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: newG,
     log: appendLog(room, logMsg),
     trumpPassCount: 0,
     ...(isGameOver ? { state: 'ended' } : {}),
+    ...(nextActionLog ? { actionLog: nextActionLog } : {}), // ★リプレイ機能で追加
   });
   return { ok: true, isGameOver };
 }
@@ -132,11 +153,18 @@ export async function actionTrumpPass() {
   const passResult = checkAllPassed(newG, passCount, room.players);
   if (passResult.cleared) logs.push(passResult.logMsg);
 
+  // ★リプレイ機能で追加★
+  const nextActionLog = appendActionLog(
+    room,
+    makeActionLogEntry('trumpPass', state.myId, {})
+  );
+
   assertInvariants('actionTrumpPass', newG, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: newG,
     log: logs.slice(-8),
     trumpPassCount: passResult.cleared ? 0 : passCount,
+    ...(nextActionLog ? { actionLog: nextActionLog } : {}), // ★リプレイ機能で追加
   });
   return { ok: true };
 }
@@ -158,6 +186,12 @@ export async function actionTrumpPass() {
 // ここで actionTrumpPass と同様に trumpPassCount をインクリメントし
 // checkAllPassed を呼ぶことで、手札0枚のプレイヤーの強制スキップも
 // 「パス」として正しく数えられるようにする。
+//
+// ★リプレイ機能で追加★
+// この関数は isGameOver / finished / 通常時の3つの経路で
+// それぞれ別に fbUpdate を呼んでいるため、actionLog への追記も
+// 3箇所すべてに反映させる必要がある（1箇所でも忘れるとリプレイが
+// その手数だけ再現できなくなる）。
 // ----------------------------------------
 export async function actionTrumpSkip() {
   const room = await fbGet('rooms/' + state.roomId);
@@ -172,6 +206,16 @@ export async function actionTrumpSkip() {
   const { logMsg, isGameOver, finished } = applyTrumpSkip(g, state.myId, pname);
   const logs = appendLog(room, logMsg);
 
+  // ★リプレイ機能で追加★
+  // 手札0枚による自動スキップも「アクション」として記録する
+  // （再生時に applyTrumpSkip を同じ手順で呼び直せるようにするため）。
+  // このオブジェクトを3つの fbUpdate すべてに共通して使い回す。
+  const nextActionLog = appendActionLog(
+    room,
+    makeActionLogEntry('trumpSkip', state.myId, {})
+  );
+  const actionLogPatch = nextActionLog ? { actionLog: nextActionLog } : {};
+
   if (isGameOver) {
     // 上がり確定でゲームが終了した場合は、場流し判定は意味がないのでスキップする
     resolveRankingNames(g.rankings, room.players);
@@ -180,6 +224,7 @@ export async function actionTrumpSkip() {
       game: g,
       log: logs,
       state: 'ended',
+      ...actionLogPatch, // ★リプレイ機能で追加
     });
     return { ok: true, isGameOver };
   }
@@ -195,6 +240,7 @@ export async function actionTrumpSkip() {
     await fbUpdate('rooms/' + state.roomId, {
       game: g,
       log: logs.slice(-8),
+      ...actionLogPatch, // ★リプレイ機能で追加
     });
     return { ok: true, isGameOver: false };
   }
@@ -208,6 +254,7 @@ export async function actionTrumpSkip() {
     game: g,
     log: logs.slice(-8),
     trumpPassCount: passResult.cleared ? 0 : passCount,
+    ...actionLogPatch, // ★リプレイ機能で追加
   });
   return { ok: true, isGameOver: false };
 }
@@ -253,12 +300,19 @@ export async function actionUnoSkip() {
     }
   }
 
+  // ★リプレイ機能で追加★
+  const nextActionLog = appendActionLog(
+    room,
+    makeActionLogEntry('unoSkip', state.myId, {})
+  );
+
   assertInvariants('actionUnoSkip', g, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: logs.slice(-8),
     trumpPassCount: passCleared ? 0 : currentPassCount,
     ...(isGameOver ? { state: 'ended' } : {}),
+    ...(nextActionLog ? { actionLog: nextActionLog } : {}), // ★リプレイ機能で追加
   });
   return { ok: true, isGameOver };
 }
@@ -290,12 +344,21 @@ export async function actionUnoPlay(cardIdx, chosenColor) {
   const passResult = checkAllPassed(newG, currentPassCount, room.players);
   if (passResult.cleared) logs.push(passResult.logMsg);
 
+  // ★リプレイ機能で追加★
+  // chosenColor は null の場合もそのまま null として記録する
+  // （ワイルドではない通常カードでは常に null になる想定）。
+  const nextActionLog = appendActionLog(
+    room,
+    makeActionLogEntry('unoPlay', state.myId, { cardIdx, chosenColor: chosenColor ?? null })
+  );
+
   assertInvariants('actionUnoPlay', newG, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: newG,
     log: logs.slice(-8),
     trumpPassCount: passResult.cleared ? 0 : currentPassCount,
     ...(isGameOver ? { state: 'ended' } : {}),
+    ...(nextActionLog ? { actionLog: nextActionLog } : {}), // ★リプレイ機能で追加
   });
   return { ok: true, isGameOver };
 }
@@ -319,11 +382,18 @@ export async function actionUnoDraw() {
   const passResult = checkAllPassed(newG, currentPassCount, room.players);
   if (passResult.cleared) logs.push(passResult.logMsg);
 
+  // ★リプレイ機能で追加★
+  const nextActionLog = appendActionLog(
+    room,
+    makeActionLogEntry('unoDraw', state.myId, {})
+  );
+
   assertInvariants('actionUnoDraw', newG, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: newG,
     log: logs.slice(-8),
     trumpPassCount: passResult.cleared ? 0 : currentPassCount,
+    ...(nextActionLog ? { actionLog: nextActionLog } : {}), // ★リプレイ機能で追加
   });
   return { ok: true };
 }
@@ -340,10 +410,17 @@ export async function actionSayUno() {
   const pname = getPlayerName(room.players);
   const { logMsg } = applyUnoDeclaration(g, state.myId, pname);
 
+  // ★リプレイ機能で追加★
+  const nextActionLog = appendActionLog(
+    room,
+    makeActionLogEntry('sayUno', state.myId, {})
+  );
+
   assertInvariants('actionSayUno', g, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: appendLog(room, logMsg),
+    ...(nextActionLog ? { actionLog: nextActionLog } : {}), // ★リプレイ機能で追加
   });
   return { ok: true };
 }
@@ -365,11 +442,18 @@ export async function actionPickParentColor(color) {
   const isGameOver = !!result.isGameOver;
   if (isGameOver) resolveRankingNames(g.rankings, room.players);
 
+  // ★リプレイ機能で追加★
+  const nextActionLog = appendActionLog(
+    room,
+    makeActionLogEntry('pickParentColor', state.myId, { color })
+  );
+
   assertInvariants('actionPickParentColor', g, room.players);
   await fbUpdate('rooms/' + state.roomId, {
     game: g,
     log: appendLog(room, result.logMsg),
     ...(isGameOver ? { state: 'ended' } : {}), // ゲーム終了時は部屋のステートを ended に変更
+    ...(nextActionLog ? { actionLog: nextActionLog } : {}), // ★リプレイ機能で追加
   });
   return { ok: true, isGameOver };
 }
@@ -393,6 +477,8 @@ export async function actionSendReaction(emoji) {
 // 全プレイヤーがルームを購読していれば自動的に反映されるようにする。
 // OFFにする際は false ではなく null を書き込み、Firebaseからキーごと
 // 消す（他の場所で使っている「空＝キーが無い」という規約に合わせる）。
+//
+// ※この関数はリプレイには関係しないため、actionLogへの記録は行わない。
 // ----------------------------------------
 export async function actionSetAutoPlay(isOn) {
   await fbSet(`rooms/${state.roomId}/autoPlayers/${state.myId}`, isOn ? true : null);

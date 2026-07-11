@@ -13,6 +13,7 @@ import './auth.js';
 import { state } from './state.js';
 import { fbListen } from './db.js';
 import './test-bot.ts';
+import './replay-app.ts'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg } from './ui-render.js';
 import {
   actionStartGame,
@@ -221,6 +222,20 @@ window.sendReaction = async (emoji) => {
   const result = await actionSendReaction(emoji);
   if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
   setTimeout(() => { state.reactionCooldown = false; }, 2000);
+};
+
+// ========================================
+// ★リプレイ機能で追加★ リプレイ保存（リザルト画面の「📼 リプレイを保存」ボタン用）
+// ========================================
+window.saveReplay = async () => {
+  const { buildReplayFile, downloadReplayFile } = await import('./replay-io.ts');
+  const replay = await buildReplayFile(state.roomId);
+  if (!replay) {
+    dbg('リプレイデータが見つかりません（このゲームはリプレイ非対応です）', true);
+    return;
+  }
+  downloadReplayFile(replay);
+  dbg('リプレイを保存しました');
 };
 
 // ========================================
