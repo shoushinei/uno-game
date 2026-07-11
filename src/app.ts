@@ -1,18 +1,18 @@
 // ========================================
-// app.js — エントリポイント
+// app.ts — エントリポイント
 //
 // 責務：
-//   1. auth.js を副作用としてロード（認証・ルーム管理の起動）
+//   1. auth.ts を副作用としてロード（認証・ルーム管理の起動）
 //   2. Firebaseリスナーの開始・停止
 //   3. HTMLの onclick="..." から呼ばれる window.* 関数の登録
-//      ※ 実際の処理は game-actions.js / ui-input.js に委譲する
+//      ※ 実際の処理は game-actions.ts / ui-input.ts に委譲する
 //
 // この層に「ゲームルール」や「Firebase書き込みロジック」を書かない。
 // ========================================
 import './auth.js';
 import { state } from './state.js';
 import { fbListen } from './db.js';
-import './bot/test-bot.ts';
+import './bot/test-bot.js';
 import './replay/app.js'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg } from './ui/ui-render.js';
 import {
@@ -36,21 +36,45 @@ import {
   resetUnoSelection,
 } from './ui/ui-input.js';
 
+// window オブジェクトに生やす関数の型宣言
+// （index.html の onclick="..." から呼ばれるため window に公開する必要がある。
+//   _currentGame / _currentTrumpHand / _roomState は test-bot.ts、
+//   _startListening / _stopListening は auth.ts で宣言済み）
+declare global {
+  interface Window {
+    startGame: () => Promise<void>;
+    submitTrumpPlay: () => Promise<void>;
+    trumpPass: () => Promise<void>;
+    trumpSkip: () => Promise<void>;
+    submitUnoPlay: () => Promise<void>;
+    pickColor: (color: string) => Promise<void>;
+    unoDraw: () => Promise<void>;
+    unoSkip: () => Promise<void>;
+    sayUno: () => Promise<void>;
+    showParentColorPick: () => void;
+    pickParentColor: (color: string) => Promise<void>;
+    sendReaction: (emoji: string) => Promise<void>;
+    saveReplay: () => Promise<void>;
+    openRuleModal: () => void;
+    closeRuleModal: (event?: Event) => void;
+  }
+}
+
 // ========================================
 // ★追加：状態スナップショット詳細ログ化関数
 // ========================================
-function logSnapshot(reason) {
+function logSnapshot(reason: string): void {
   console.error(`🚨 【ゲーム状態スナップショット】\n理由/エラー: ${reason}`);
   console.log(`⏰ 時刻: ${new Date().toLocaleTimeString()}`);
   console.log(`👤 プレイヤー: ${state.myName || '未設定'} (ID: ${state.myId || 'なし'}) / 部屋主: ${state.isHost}`);
-  
+
   if (window._currentGame) {
     console.log("▼ ─── 現在のゲームデータ (window._currentGame) ───");
     console.dir(window._currentGame);
   } else {
     console.log("❌ ゲームデータ(window._currentGame)は null です");
   }
-  
+
   console.log("▼ ─── 自分のトランプ手札 (window._currentTrumpHand) ───");
   console.dir(window._currentTrumpHand || []);
   console.log("────────────────────────────────────────");
@@ -59,7 +83,7 @@ function logSnapshot(reason) {
 // ========================================
 // リアルタイムリスナー
 // ========================================
-export function startListening() {
+export function startListening(): void {
   if (state.unsubscribeRoom) state.unsubscribeRoom();
   state.unsubscribeRoom = fbListen(
     'rooms/' + state.roomId,
@@ -84,7 +108,7 @@ export function startListening() {
       if (room.state === 'lobby') {
         renderLobby(room);
       } else if (room.state === 'playing') {
-        if (!document.getElementById('s-game').classList.contains('active')) show('game');
+        if (!document.getElementById('s-game')!.classList.contains('active')) show('game');
         renderGame(room);
       } else if (room.state === 'ended') {
         // ★バグ修正★ 条件が反転していた。以前は「s-game画面がアクティブ
@@ -97,7 +121,7 @@ export function startListening() {
         // いる」という理由でサーバーに拒否され続ける、という不具合の原因
         // だった。正しくは「まだ結果画面がアクティブでない時だけ切り替える」
         // （＝重複切り替えを避けるための判定）にする。
-        if (!document.getElementById('s-result').classList.contains('active')) {
+        if (!document.getElementById('s-result')!.classList.contains('active')) {
           show('result');
         }
         renderResult(room);
@@ -107,20 +131,20 @@ export function startListening() {
   );
 }
 
-export function stopListening() {
+export function stopListening(): void {
   if (state.unsubscribeRoom) {
     state.unsubscribeRoom();
     state.unsubscribeRoom = null;
   }
 }
 
-// auth.js から循環参照なしで参照できるよう公開
+// auth.ts から循環参照なしで参照できるよう公開
 window._startListening = startListening;
 window._stopListening  = stopListening;
 
 // ========================================
 // window.* 登録（HTML onclick から呼ばれる）
-// すべて game-actions.js に委譲し、エラーは dbg に流す
+// すべて game-actions.ts に委譲し、エラーは dbg に流す
 // ========================================
 
 window.startGame = async () => {
