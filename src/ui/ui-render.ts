@@ -1,7 +1,7 @@
 // ========================================
 // UI 描画モジュール
 // ゲームロジックへの依存はなし。
-// カード判定に必要な関数は ui-input.js 経由でwindowに公開済みのものを使用する。
+// カード判定に必要な関数は ui-input.ts 経由でwindowに公開済みのものを使用する。
 // ========================================
 import { state } from '../state.js';
 import { AVATAR_COLORS } from '../logic/game-init.js';
@@ -12,30 +12,41 @@ import {
   isTrumpCardVisiblySelected,
   isUnoCardVisiblySelected,
 } from './ui-input.js';
+import type { GameState, Player, UnoCard } from '../logic/types';
+import type { TrumpCard, TrumpEffect } from '../logic/trump-logic.js';
+
+/** 他プレイヤーのリアクション表示（Firebaseの rooms/{id}/reactions/{playerId}） */
+interface Reaction {
+  emoji: string;
+  ts: number;
+}
+
+// room はFirebaseから取得する生データのため any のまま扱う
+// （players / game 等の各フィールドを使う箇所で必要な型に絞り込む）
 
 // ----------------------------------------
 // 画面切り替え
 // ----------------------------------------
-export function show(id) {
+export function show(id: string): void {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('s-' + id).classList.add('active');
+  document.getElementById('s-' + id)!.classList.add('active');
 }
 
 // ----------------------------------------
 // メッセージ表示
 // ----------------------------------------
-export function setHomeMsg(text) {
-  document.getElementById('hm').textContent = text;
+export function setHomeMsg(text: string): void {
+  document.getElementById('hm')!.textContent = text;
 }
-export function setLobbyMsg(text) {
-  document.getElementById('lm').textContent = text;
+export function setLobbyMsg(text: string): void {
+  document.getElementById('lm')!.textContent = text;
 }
-export function setStatus(msg, type) {
-  const el = document.getElementById('fb-status');
+export function setStatus(msg: string, type?: string): void {
+  const el = document.getElementById('fb-status')!;
   el.textContent = msg;
   el.className = 'msg' + (type ? ' ' + type : '');
 }
-export function dbg(msg, isErr = false) {
+export function dbg(msg: string, isErr = false): void {
   const el = document.getElementById('dbg-log');
   if (!el) return;
   const d = new Date();
@@ -43,8 +54,8 @@ export function dbg(msg, isErr = false) {
   el.innerHTML += `<div style="color:${isErr ? '#e74c3c' : 'inherit'}">[${t}] ${msg}</div>`;
   el.scrollTop = el.scrollHeight;
 }
-export function setLoading(btnId, loading, text) {
-  const b = document.getElementById(btnId);
+export function setLoading(btnId: string, loading: boolean, text: string): void {
+  const b = document.getElementById(btnId) as HTMLButtonElement | null;
   if (!b) return;
   b.disabled = loading;
   b.textContent = loading ? text + '...' : text;
@@ -53,9 +64,9 @@ export function setLoading(btnId, loading, text) {
 // ----------------------------------------
 // ロビー画面の描画
 // ----------------------------------------
-export function renderLobby(room) {
-  const players = room.players || [];
-  const pl = document.getElementById('lpl');
+export function renderLobby(room: any): void {
+  const players: any[] = room.players || [];
+  const pl = document.getElementById('lpl')!;
   pl.innerHTML = '';
 
   let allReady = true;
@@ -77,8 +88,8 @@ export function renderLobby(room) {
     pl.appendChild(el);
   });
 
-  const sb = document.getElementById('sbtn');
-  const rb = document.getElementById('rbtn');
+  const sb = document.getElementById('sbtn') as HTMLButtonElement;
+  const rb = document.getElementById('rbtn') as HTMLButtonElement;
 
   if (state.myId === room.host) {
     sb.style.display = 'block';
@@ -112,12 +123,16 @@ export function renderLobby(room) {
 // ----------------------------------------
 // ゲーム画面の描画
 // ----------------------------------------
-export function renderGame(room) {
-  const g = room.game;
+export function renderGame(room: any): void {
+  const g: GameState = room.game;
   if (!g) return;
 
-  // ui-input.js の判定関数が最新のゲーム状態を参照できるよう同期する
-  window._currentGame = g;
+  // ui-input.ts の判定関数が最新のゲーム状態を参照できるよう同期する
+  // ※ test-bot.ts が window._currentGame 用に独自定義した FusionGameState は、
+  // types.ts の GameState とは別々に定義された「同じ実体を指す別の型」
+  // （UnoCard/hasParent の型が微妙に異なる）のため、直接代入すると型エラーになる。
+  // 実行時には同じオブジェクトなので、ここでは型だけ合わせる。
+  window._currentGame = g as unknown as typeof window._currentGame;
   // ★バグ修正（app.js の window._currentTrumpHand と同じ原因）★
   // g.trumpHands が丸ごと undefined（全員トランプ0枚でFirebaseがノードごと
   // 削除した状態）になると、この if の中身が実行されず
@@ -125,10 +140,10 @@ export function renderGame(room) {
   // 常に（空配列も込みで）更新する。
   window._currentTrumpHand = g.trumpHands?.[state.myId] ?? [];
 
-  const players = room.players || [];
-  const reactions = room.reactions || {};
-  const autoPlayers = room.autoPlayers || {};
-  const curId = g.order[g.ci];
+  const players: Player[] = room.players || [];
+  const reactions: Record<string, Reaction | undefined> = room.reactions || {};
+  const autoPlayers: Record<string, boolean> = room.autoPlayers || {};
+  const curId = g.order[g.ci]!;
   const isMyTurn = curId === state.myId;
   const phase = g.phase || 'trump';
   const myRankIdx = (g.rankings || []).findIndex(r => r.id === state.myId);
@@ -178,8 +193,8 @@ export function renderGame(room) {
   _renderLog(room);
 }
 
-function _renderTurnBanner(g, players, isMyTurn, phase, iFinished) {
-  const tb = document.getElementById('tbnr');
+function _renderTurnBanner(g: GameState, players: Player[], isMyTurn: boolean, phase: string, iFinished: boolean): void {
+  const tb = document.getElementById('tbnr')!;
   if (iFinished) {
     const myRankIdx = (g.rankings || []).findIndex(r => r.id === state.myId);
     tb.textContent = `🏁 上がり確定（${myRankIdx + 1}位・観戦中）`;
@@ -197,7 +212,7 @@ function _renderTurnBanner(g, players, isMyTurn, phase, iFinished) {
   }
 }
 
-function _renderPhaseIndicator(phase) {
+function _renderPhaseIndicator(phase: string): void {
   const pi = document.getElementById('phase-indicator');
   if (!pi) return;
   pi.innerHTML = `
@@ -214,7 +229,7 @@ function _renderPhaseIndicator(phase) {
 // 画面上ではっきり分かるようにする追加機能。
 // g.order（現在アクティブなプレイヤーのみ、上がった人は除外済み）を
 // g.dir の向きに沿って一列に並べ、現在の手番プレイヤーをハイライトする。
-function _renderTurnOrder(g, players, curId) {
+function _renderTurnOrder(g: GameState, players: Player[], curId: string): void {
   const el = document.getElementById('turn-order');
   if (!el) return;
   const order = Array.isArray(g.order) ? g.order : [];
@@ -237,12 +252,18 @@ function _renderTurnOrder(g, players, curId) {
   `;
 }
 
-function _renderOtherPlayers(g, players, reactions, curId, autoPlayers) {
-  const opl = document.getElementById('opl');
+function _renderOtherPlayers(
+  g: GameState,
+  players: Player[],
+  reactions: Record<string, Reaction | undefined>,
+  curId: string,
+  autoPlayers: Record<string, boolean>
+): void {
+  const opl = document.getElementById('opl')!;
   opl.innerHTML = '';
   players.filter(p => p.id !== state.myId).forEach(p => {
-    const tc = (g.trumpHands && g.trumpHands[p.id]) ? g.trumpHands[p.id].length : 0;
-    const uc = (g.unoHands && g.unoHands[p.id]) ? g.unoHands[p.id].length : 0;
+    const tc = (g.trumpHands && g.trumpHands[p.id]) ? g.trumpHands[p.id]!.length : 0;
+    const uc = (g.unoHands && g.unoHands[p.id]) ? g.unoHands[p.id]!.length : 0;
     const active = p.id === curId && g.order.includes(p.id);
     const rIdx = (g.rankings || []).findIndex(r => r.id === p.id);
     const react = reactions[p.id];
@@ -268,10 +289,10 @@ function _renderOtherPlayers(g, players, reactions, curId, autoPlayers) {
   });
 }
 
-function _renderTrumpField(g) {
+function _renderTrumpField(g: GameState): void {
   const tfEl = document.getElementById('trump-field');
   if (!tfEl) return;
-  const fCards = Array.isArray(g.trumpField) ? g.trumpField : (g.trumpField ? [g.trumpField] : []);
+  const fCards: TrumpCard[] = Array.isArray(g.trumpField) ? g.trumpField : (g.trumpField ? [g.trumpField] : []);
   if (fCards.length > 0) {
     tfEl.innerHTML = fCards.map(c => {
       const isRed = c.s === '♥' || c.s === '♦';
@@ -284,7 +305,7 @@ function _renderTrumpField(g) {
   }
 }
 
-function _renderTrumpStatus(g) {
+function _renderTrumpStatus(g: GameState): void {
   const tfEl = document.getElementById('trump-field');
   if (!tfEl) return;
   let status = document.getElementById('trump-rule-status');
@@ -295,7 +316,7 @@ function _renderTrumpStatus(g) {
     tfEl.insertAdjacentElement('afterend', status);
   }
 
-  const badges = [];
+  const badges: [string, string][] = [];
   if (g.trumpRevolution) badges.push(['revolution', '革命']);
   if (g.trumpElevenBack) badges.push(['eleven', 'Jバック']);
   if (Array.isArray(g.trumpSuitLock) && g.trumpSuitLock.length > 0) {
@@ -309,9 +330,9 @@ function _renderTrumpStatus(g) {
 }
 
 // 演出オーバーレイの自動クリア用タイマー
-let _effectClearTimer = null;
+let _effectClearTimer: ReturnType<typeof setTimeout> | null = null;
 
-function _renderTrumpEffect(g, players) {
+function _renderTrumpEffect(g: GameState, players: Player[]): void {
   let el = document.getElementById('trump-effect');
   if (!el) {
     el = document.createElement('div');
@@ -320,7 +341,9 @@ function _renderTrumpEffect(g, players) {
     document.body.appendChild(el);
   }
 
-  const effect = g.trumpEffect;
+  // types.ts では trumpEffect は unknown（Firebase由来の生データ）として
+  // 定義されているため、実際の形である TrumpEffect に絞り込んで扱う
+  const effect = g.trumpEffect as TrumpEffect | null | undefined;
   if (!effect || !effect.ts || Date.now() - effect.ts > 2800) {
     el.className = 'trump-effect';
     el.innerHTML = '';
@@ -331,7 +354,7 @@ function _renderTrumpEffect(g, players) {
   if (el.dataset.effectTs === String(effect.ts)) return;
   el.dataset.effectTs = String(effect.ts);
 
-  const names = {
+  const names: Record<string, string> = {
     eightCut: '✂️ 8切り',
     revolution: g.trumpRevolution ? '🌀 革命！' : '🌀 革命返し',
     elevenBack: '🔄 イレブンバック',
@@ -339,7 +362,7 @@ function _renderTrumpEffect(g, players) {
     jokerSingle: '🃏 ジョーカー！',
     spadeThree: '♠ スペード3',
   };
-  const messages = {
+  const messages: Record<string, string> = {
     eightCut: '場が流れた 👑 親になった',
     revolution: g.trumpRevolution ? '強さが全て逆転！' : '革命解除！通常の強さに戻った',
     elevenBack: 'この場だけ強さが逆転',
@@ -376,7 +399,7 @@ function _renderTrumpEffect(g, players) {
   }, 2900);
 }
 
-function _renderParentBadge(g, players) {
+function _renderParentBadge(g: GameState, players: Player[]): void {
   const parentBadge = document.getElementById('parent-badge');
   if (!parentBadge) return;
   if (g.hasParent) {
@@ -389,28 +412,28 @@ function _renderParentBadge(g, players) {
   }
 }
 
-function _renderUnoField(g) {
+function _renderUnoField(g: GameState): void {
   const topUno = g.unoDiscardPile && g.unoDiscardPile.length > 0
-    ? g.unoDiscardPile[g.unoDiscardPile.length - 1] : null;
+    ? g.unoDiscardPile[g.unoDiscardPile.length - 1]! : null;
   if (!topUno) return;
   const ufEl = document.getElementById('uno-field');
   if (ufEl) {
     ufEl.className = 'uno-field-card tc ' + unoCardColorClass(topUno);
-    document.getElementById('uf-val').textContent = topUno.v;
-    document.getElementById('uf-sym').textContent = topUno.v;
-    document.getElementById('uf-sym2').textContent = topUno.v;
+    document.getElementById('uf-val')!.textContent = topUno.v;
+    document.getElementById('uf-sym')!.textContent = topUno.v;
+    document.getElementById('uf-sym2')!.textContent = topUno.v;
   }
 }
 
-function _renderCurrentColor(g) {
+function _renderCurrentColor(g: GameState): void {
   const ccEl = document.getElementById('current-color');
   if (!ccEl) return;
-  const colorMap = { red: '🔴 赤', blue: '🔵 青', green: '🟢 緑', yellow: '🟡 黄' };
+  const colorMap: Record<string, string> = { red: '🔴 赤', blue: '🔵 青', green: '🟢 緑', yellow: '🟡 黄' };
   ccEl.textContent = '現在の色: ' + (colorMap[g.unoCurrentColor] || g.unoCurrentColor);
   ccEl.className = 'current-color-badge cc-' + g.unoCurrentColor;
 }
 
-function _renderPenaltyWarning(g) {
+function _renderPenaltyWarning(g: GameState): void {
   const penEl = document.getElementById('penalty-warn');
   if (!penEl) return;
   if (g.unoPenaltyAccum > 0) {
@@ -421,7 +444,14 @@ function _renderPenaltyWarning(g) {
   }
 }
 
-function _renderActionButtons(g, isMyTurn, phase, iFinished, myTrumpDone, myUnoDone) {
+function _renderActionButtons(
+  g: GameState,
+  isMyTurn: boolean,
+  phase: string,
+  iFinished: boolean,
+  myTrumpDone: boolean,
+  myUnoDone: boolean
+): void {
   const myUno = (g.unoHands && g.unoHands[state.myId]) || [];
   const isMyUnoTurn = isMyTurn && phase === 'uno' && !iFinished;
 
@@ -482,9 +512,9 @@ function _renderActionButtons(g, isMyTurn, phase, iFinished, myTrumpDone, myUnoD
   }
 }
 
-function _renderLog(room) {
-  const logEl = document.getElementById('glog');
-  const logs = room.log || [];
+function _renderLog(room: any): void {
+  const logEl = document.getElementById('glog')!;
+  const logs: string[] = room.log || [];
   logEl.innerHTML = logs.slice(-6).map(l => `<div class="log-entry">${l}</div>`).join('');
   logEl.scrollTop = logEl.scrollHeight;
 }
@@ -492,9 +522,9 @@ function _renderLog(room) {
 // ----------------------------------------
 // トランプ手札の描画
 // ----------------------------------------
-export function renderTrumpHand(hand, canAct, g, iFinished, myTrumpDone) {
+export function renderTrumpHand(hand: TrumpCard[], canAct: boolean, g: GameState, iFinished: boolean, myTrumpDone: boolean): void {
   const el = document.getElementById('my-trump-hand'); if (!el) return;
-  const cntEl = document.getElementById('trump-cnt'); if (cntEl) cntEl.textContent = hand.length;
+  const cntEl = document.getElementById('trump-cnt'); if (cntEl) cntEl.textContent = String(hand.length);
 
   if (iFinished) { el.innerHTML = `<div class="hand-done">🏁 上がり（観戦中）</div>`; return; }
   if (myTrumpDone) { el.innerHTML = `<div class="hand-done">✅ トランプ出し切り！UNOフェイズのみ</div>`; return; }
@@ -521,20 +551,20 @@ export function renderTrumpHand(hand, canAct, g, iFinished, myTrumpDone) {
 // ----------------------------------------
 // UNO手札の描画
 // ----------------------------------------
-export function renderUnoHand(hand, canAct, g, iFinished, myUnoDone) {
+export function renderUnoHand(hand: UnoCard[], canAct: boolean, g: GameState, iFinished: boolean, myUnoDone: boolean): void {
   const el = document.getElementById('my-uno-hand'); if (!el) return;
-  const cntEl = document.getElementById('uno-cnt-my'); if (cntEl) cntEl.textContent = hand.length;
+  const cntEl = document.getElementById('uno-cnt-my'); if (cntEl) cntEl.textContent = String(hand.length);
 
   if (iFinished) { el.innerHTML = `<div class="hand-done">🏁 上がり（観戦中）</div>`; return; }
   if (myUnoDone) { el.innerHTML = `<div class="hand-done">✅ UNO出し切り！トランプフェイズのみ</div>`; return; }
 
   const selectedIdx = window._selectedUnoIdx;
   const topUno = g.unoDiscardPile && g.unoDiscardPile.length > 0
-    ? g.unoDiscardPile[g.unoDiscardPile.length - 1] : null;
+    ? g.unoDiscardPile[g.unoDiscardPile.length - 1]! : null;
 
   el.innerHTML = '';
   hand.forEach((card, idx) => {
-    // unoCanPlay の判定は ui-input.js が window.unoCanPlayCard として公開する
+    // unoCanPlay の判定は ui-input.ts が window.unoCanPlayCard として公開する
     const canPlay = canAct && topUno && typeof window.unoCanPlayCard === 'function'
       ? window.unoCanPlayCard(card, topUno, g.unoCurrentColor, g.unoPenaltyAccum)
       : false;
@@ -543,7 +573,7 @@ export function renderUnoHand(hand, canAct, g, iFinished, myUnoDone) {
     const isSelected = isUnoCardVisiblySelected(idx, selectedIdx, canAct);
     const div = document.createElement('div');
     div.className = `hcd ${unoCardColorClass(card)}${!canPlay && !isSelected ? ' off' : ''}${isSelected ? ' selected' : ''}`;
-    div.dataset.cardIdx = idx;
+    div.dataset.cardIdx = String(idx);
     div.innerHTML = `<span class="hs">${card.v}</span>${card.v}<span class="hs br">${card.v}</span>`;
     if (canPlay || isSelected) div.onclick = () => window.selectUnoCard(idx);
     el.appendChild(div);
@@ -553,10 +583,10 @@ export function renderUnoHand(hand, canAct, g, iFinished, myUnoDone) {
 // ----------------------------------------
 // リザルト画面の描画
 // ----------------------------------------
-export function renderResult(room) {
+export function renderResult(room: any): void {
   const g = room.game;
-  const rankings = (g && g.rankings) || [];
-  const rlist = document.getElementById('rlist');
+  const rankings: { id: string; name: string }[] = (g && g.rankings) || [];
+  const rlist = document.getElementById('rlist')!;
   rlist.innerHTML = '';
 
   rankings.forEach((r, idx) => {
@@ -570,8 +600,8 @@ export function renderResult(room) {
   });
 
   const myRankIdx = rankings.findIndex(r => r.id === state.myId);
-  const ric = document.getElementById('ric');
-  const rtit = document.getElementById('rtit');
+  const ric = document.getElementById('ric')!;
+  const rtit = document.getElementById('rtit')!;
   if (myRankIdx === 0) { ric.textContent = '👑'; rtit.textContent = 'あなたが1位！'; }
   else if (myRankIdx !== -1) { ric.textContent = '🏁'; rtit.textContent = `${myRankIdx + 1}位でゴール！`; }
   else { ric.textContent = '😅'; rtit.textContent = 'ゲーム終了！'; }
@@ -582,7 +612,7 @@ export function renderResult(room) {
   // なっており、Firebase側の初期化も「まだ誰もリセットしていない場合のみ」
   // 行う安全な作りになっている。そのため、ここでホストだけに限定する
   // 必要はそもそも無い。全員が同じ「ロビーに戻る」ボタンを押せるようにする。
-  const resBtn = document.getElementById('res-back-btn');
+  const resBtn = document.getElementById('res-back-btn') as HTMLButtonElement;
   resBtn.style.display = 'block';
   resBtn.disabled = false;
   resBtn.textContent = 'ロビーに戻る';
@@ -591,8 +621,8 @@ export function renderResult(room) {
 // ----------------------------------------
 // リアクションフィードバック
 // ----------------------------------------
-export function flashReactionBtn(emoji) {
-  document.querySelectorAll('.react-btn').forEach(b => {
+export function flashReactionBtn(emoji: string): void {
+  document.querySelectorAll<HTMLElement>('.react-btn').forEach(b => {
     if (b.dataset.emoji === emoji) {
       b.classList.add('reacted');
       showSelfReaction(emoji);
@@ -601,7 +631,7 @@ export function flashReactionBtn(emoji) {
   });
 }
 
-export function showSelfReaction(emoji) {
+export function showSelfReaction(emoji: string): void {
   let popup = document.getElementById('self-react-popup');
   if (!popup) {
     popup = document.createElement('div');
