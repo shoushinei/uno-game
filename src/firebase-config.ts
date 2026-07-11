@@ -17,7 +17,7 @@ interface FirebaseConfig {
 }
 
 const firebaseConfig: FirebaseConfig = {
-  apiKey: "AIzaSyA8•••••••••••••••••••••••••••••••",
+  apiKey: "AIzaSyA8J6e3FVKQHQ8hzmr0vSyUDJmn2N6QOHo",
   authDomain: "uno-game-b6d37.firebaseapp.com",
   databaseURL: "https://uno-game-b6d37-default-rtdb.firebaseio.com",
   projectId: "uno-game-b6d37",
