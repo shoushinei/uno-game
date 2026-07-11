@@ -18,7 +18,12 @@ import type { ReplayFile } from './types.js';
  */
 export async function buildReplayFile(roomId: string): Promise<ReplayFile | null> {
   const room = await fbGet('rooms/' + roomId);
-  if (!room || !room.replayInitialState || !Array.isArray(room.actionLog)) return null;
+  // ★バグ修正★ Firebase RTDB は空配列を保存しないため、actionLog が
+  // undefined でも「リプレイ非対応」とは限らない（log.ts の appendActionLog
+  // と同じ理由）。リプレイ対応かどうかは replayInitialState の有無だけで
+  // 判定し、actionLog が無い場合は空配列として扱う。
+  if (!room || !room.replayInitialState) return null;
+  const actionLog = Array.isArray(room.actionLog) ? room.actionLog : [];
 
   const players = (room.players || []).map((p: { id: string; name: string }) => ({
     id: p.id,
@@ -30,7 +35,7 @@ export async function buildReplayFile(roomId: string): Promise<ReplayFile | null
     roomId,
     players,
     initialState: room.replayInitialState,
-    actionLog: room.actionLog,
+    actionLog,
     savedAt: Date.now(),
   };
 }

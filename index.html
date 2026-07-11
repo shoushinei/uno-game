@@ -95,7 +95,7 @@
     <div class="gh">
       <div id="tbnr" class="tb wait">読み込み中...</div>
       <button class="btn sm" id="monkey-toggle-btn" onclick="toggleMonkeyPlay()" style="background:#ff9800; margin-right:6px;">🐒 自動ON</button>
-      <button class="btn sm" onclick="leaveGame()">退出</button>
+      <button class="btn sm" onclick="leaveGame()">退室</button>
     </div>
 
     <!-- フェイズインジケーター -->
@@ -250,6 +250,8 @@
       style="max-width:280px;background:#8e44ad;color:#fff;">
       📼 リプレイを保存
     </button>
+    <!-- リプレイ保存の成否メッセージ（app.ts の saveReplay が書き込む） -->
+    <p class="msg" id="replay-save-msg"></p>
     <button class="btn red" id="res-back-btn" onclick="backToLobby()"
       style="max-width:280px">
       ロビーに戻る

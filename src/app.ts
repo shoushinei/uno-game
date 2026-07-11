@@ -254,14 +254,33 @@ window.sendReaction = async (emoji) => {
 // ★リプレイ機能で追加★ リプレイ保存（リザルト画面の「📼 リプレイを保存」ボタン用）
 // ========================================
 window.saveReplay = async () => {
-  const { buildReplayFile, downloadReplayFile } = await import('./replay/io.js');
-  const replay = await buildReplayFile(state.roomId);
-  if (!replay) {
-    dbg('リプレイデータが見つかりません（このゲームはリプレイ非対応です）', true);
-    return;
+  // ★バグ修正★ 以前は結果を dbg()（ホーム画面のデバッグログ欄）にしか
+  // 出力しておらず、リザルト画面からはエラーが一切見えなかった
+  // （＝ボタンを押しても「無反応」に見えていた）。
+  // リザルト画面内の #replay-save-msg に成否を表示する。
+  const msgEl = document.getElementById('replay-save-msg');
+  const setMsg = (text: string, isErr: boolean) => {
+    if (msgEl) {
+      msgEl.textContent = text;
+      msgEl.className = 'msg' + (isErr ? ' err' : ' ok');
+    }
+  };
+  try {
+    setMsg('リプレイデータを取得中...', false);
+    const { buildReplayFile, downloadReplayFile } = await import('./replay/io.js');
+    const replay = await buildReplayFile(state.roomId);
+    if (!replay) {
+      setMsg('リプレイデータが見つかりません（このゲームはリプレイ非対応です）', true);
+      dbg('リプレイデータが見つかりません（このゲームはリプレイ非対応です）', true);
+      return;
+    }
+    downloadReplayFile(replay);
+    setMsg(`✓ リプレイを保存しました（${replay.actionLog.length}手）`, false);
+    dbg('リプレイを保存しました');
+  } catch (e: any) {
+    setMsg('保存に失敗しました: ' + e.message, true);
+    dbg('saveReplay error: ' + e.message, true);
   }
-  downloadReplayFile(replay);
-  dbg('リプレイを保存しました');
 };
 
 // ========================================

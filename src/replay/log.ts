@@ -38,13 +38,26 @@ export function makeActionLogEntry(
  * こうすることで、古いルームのデータ構造を壊さずに済む。
  */
 export function appendActionLog(
-  room: { actionLog?: ReplayActionLogEntry[] | null },
+  room: { actionLog?: ReplayActionLogEntry[] | null; replayInitialState?: unknown },
   entry: ReplayActionLogEntry
 ): ReplayActionLogEntry[] | null {
-  if (!Array.isArray(room.actionLog)) return null;
-  if (room.actionLog.length >= MAX_ACTION_LOG_LENGTH) {
+  // ★バグ修正（リプレイが1手も記録されない）★
+  // Firebase RTDB は空配列を保存しない（キーごと消える）仕様のため、
+  // actionStartGame で actionLog: [] と初期化しても、最初のアクションの
+  // 時点では room.actionLog は undefined になっている。
+  // 以前は「配列でなければ古いルーム（リプレイ非対応）」とみなして
+  // null を返していたため、アクションが永遠に1件も記録されず、
+  // リザルト画面の「📼 リプレイを保存」が常に失敗していた。
+  // 「リプレイ対応ルームかどうか」は、同じく actionStartGame で保存され
+  // 空になることがなく Firebase 上に必ず残る replayInitialState の有無で
+  // 判定し、actionLog が無い場合は空配列として扱う。
+  const isReplayCapable = Array.isArray(room.actionLog) || room.replayInitialState != null;
+  if (!isReplayCapable) return null;
+
+  const current = Array.isArray(room.actionLog) ? room.actionLog : [];
+  if (current.length >= MAX_ACTION_LOG_LENGTH) {
     // 安全弁が働いた場合は、それ以上追記せず現状の配列をそのまま返す
-    return room.actionLog;
+    return current;
   }
-  return [...room.actionLog, entry];
+  return [...current, entry];
 }

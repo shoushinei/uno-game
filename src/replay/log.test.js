@@ -65,3 +65,31 @@ describe('appendActionLog', () => {
     expect(result).toBe(bigLog); // 同じ参照（新しい配列を作らなかった）であること
   });
 });
+
+// ========================================
+// ★バグ修正回帰テスト★ リプレイが1手も記録されないバグ
+//
+// Firebase RTDB は空配列を保存しない（キーごと消える）ため、
+// actionStartGame で actionLog: [] と初期化しても、最初のアクションの
+// 時点では room.actionLog は undefined になっている。
+// 以前は「配列でなければ古いルーム」とみなして null を返していたため、
+// アクションが永遠に1件も記録されず「📼 リプレイを保存」が常に失敗していた。
+// リプレイ対応判定は replayInitialState の有無（Firebase上に必ず残る）で行う。
+// ========================================
+describe('appendActionLog — Firebase空配列対策（リプレイ未記録バグの回帰）', () => {
+  it('actionLog が undefined でも replayInitialState があれば1件目を追記できる', () => {
+    const room = { replayInitialState: { order: ['p1', 'p2', 'p3'] } };
+    const entry = makeActionLogEntry('trumpPlay', 'p1', { cardIds: ['♠5'] });
+    expect(appendActionLog(room, entry)).toEqual([entry]);
+  });
+
+  it('actionLog が null でも replayInitialState があれば1件目を追記できる', () => {
+    const room = { actionLog: null, replayInitialState: { order: ['p1'] } };
+    const entry = makeActionLogEntry('unoDraw', 'p2', {});
+    expect(appendActionLog(room, entry)).toEqual([entry]);
+  });
+
+  it('replayInitialState も actionLog も無いルーム（真のリプレイ非対応）は従来通り null', () => {
+    expect(appendActionLog({}, makeActionLogEntry('trumpPass', 'p1', {}))).toBeNull();
+  });
+});
