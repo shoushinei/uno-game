@@ -2,18 +2,19 @@
 // ゲーム初期化・ターン制御
 // ========================================
 import { buildUnoDeck, drawUnoCards } from './uno-logic.js';
-import { buildTrumpDeck, sortTrumpHand } from './trump-logic.js';
+import { buildTrumpDeck, sortTrumpHand, type TrumpCard } from './trump-logic.js';
+import type { Player, GameState, UnoCard } from './types';
 
-export const AVATAR_COLORS = ['#e74c3c', '#2980b9', '#27ae60', '#f39c12', '#8e44ad'];
+export const AVATAR_COLORS: string[] = ['#e74c3c', '#2980b9', '#27ae60', '#f39c12', '#8e44ad'];
 
 /**
  * 配列をシャッフルして返す（非破壊的）
  */
-export function shuffle(a) {
+export function shuffle<T>(a: T[]): T[] {
   const arr = [...a];
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
   }
   return arr;
 }
@@ -21,22 +22,20 @@ export function shuffle(a) {
 /**
  * 次のプレイヤーのインデックスを計算する
  */
-export function nextPlayerIndex(ci, dir, n) {
+export function nextPlayerIndex(ci: number, dir: number, n: number): number {
   return (ci + dir + n) % n;
 }
 
 /**
  * 融合ゲームの初期状態を生成する
- * @param {{ id: string, name: string }[]} players
- * @returns {object} ゲーム状態
  */
-export function initFusionGame(players) {
+export function initFusionGame(players: Player[]): GameState {
   const trumpDeck = shuffle(buildTrumpDeck());
   const unoDeck = shuffle(buildUnoDeck());
 
   // トランプを全員に均等配布
-  const trumpHands = {};
-  const unoHands = {};
+  const trumpHands: Record<string, TrumpCard[]> = {};
+  const unoHands: Record<string, UnoCard[]> = {};
   players.forEach(p => { trumpHands[p.id] = []; unoHands[p.id] = []; });
 
   let di = 0;
@@ -53,11 +52,12 @@ export function initFusionGame(players) {
   const unoDrawPile = unoDeck.slice(unoPerPlayer * players.length);
 
   // 山札の先頭をフィールドカードにする（ワイルドは除く）
-  let unoFieldCard;
+  let unoFieldCard: UnoCard | undefined;
   const remaining = [...unoDrawPile];
-  const extraDiscard = [];
+  const extraDiscard: UnoCard[] = [];
   while (remaining.length > 0) {
     const card = remaining.pop();
+    if (!card) break;
     if (card.t !== 'w' && card.t !== 'w4') { unoFieldCard = card; break; }
     extraDiscard.push(card);
   }
