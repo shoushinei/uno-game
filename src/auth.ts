@@ -9,6 +9,21 @@ import { auth, googleProvider } from './firebase-config.js';
 import { signInWithPopup, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { show, setHomeMsg, setLobbyMsg, setStatus, dbg, setLoading } from './ui/ui-render.js';
 
+// window オブジェクトに生やす関数の型宣言
+// （index.html の onclick="..." から呼ばれるため window に公開する必要がある。
+//   _startListening / _stopListening は app.js 側が登録するので optional にする）
+declare global {
+  interface Window {
+    createRoom: () => Promise<void>;
+    joinRoom: () => Promise<void>;
+    toggleReady: () => Promise<void>;
+    backToLobby: () => Promise<void>;
+    leaveGame: () => Promise<void>;
+    _startListening?: () => void;
+    _stopListening?: () => void;
+  }
+}
+
 // ----------------------------------------
 // Google ログイン
 // ----------------------------------------
@@ -18,7 +33,7 @@ if (loginButton) {
     try {
       setStatus('Google ログイン画面を起動中...');
       await signInWithPopup(auth, googleProvider);
-    } catch (e) {
+    } catch (e: any) {
       setHomeMsg('ログイン失敗: ' + e.message);
       setStatus('ログインエラー', 'err');
       dbg('Googleログイン失敗: ' + e.message, true);
@@ -26,10 +41,10 @@ if (loginButton) {
   });
 }
 
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async (user: any) => {
   const loginArea    = document.getElementById('login-area');
   const gameMenuArea = document.getElementById('game-menu-area');
-  const niInput      = document.getElementById('ni');
+  const niInput      = document.getElementById('ni') as HTMLInputElement | null;
   if (user) {
     dbg('Google ログイン成功: ' + user.displayName);
     if (loginArea)    loginArea.style.display    = 'none';
@@ -49,14 +64,14 @@ onAuthStateChanged(auth, async (user) => {
           setStatus('前のルームに復帰中...');
           const room = await fbGet('rooms/' + savedRoomId);
           // ルームが存在し、自分がまだプレイヤーリストに残っていれば復帰
-          if (room && room.players && room.players.some(p => p.id === savedMyId)) {
+          if (room && room.players && room.players.some((p: any) => p.id === savedMyId)) {
             state.roomId = savedRoomId;
             state.myId   = savedMyId;
             state.myName = localStorage.getItem('savedMyName') || 'ゲスト';
             state.isHost = localStorage.getItem('savedIsHost') === 'true';
 
-            document.getElementById('lrid').textContent = state.roomId;
-            
+            document.getElementById('lrid')!.textContent = state.roomId;
+
             // 部屋の状態に合わせて直接画面を切り替える
             if (room.state === 'lobby') {
               show('lobby');
@@ -65,7 +80,7 @@ onAuthStateChanged(auth, async (user) => {
             } else if (room.state === 'ended') {
               show('result');
             }
-            
+
             window._startListening?.();
             dbg('セッション復帰成功: ' + state.roomId);
             // ★バグ修正：ここで「前のルームに復帰中...」のまま
@@ -82,7 +97,7 @@ onAuthStateChanged(auth, async (user) => {
             localStorage.removeItem('savedMyName');
             localStorage.removeItem('savedIsHost');
           }
-        } catch (e) {
+        } catch (e: any) {
           dbg('自動復帰エラー: ' + e.message, true);
         }
       }
@@ -102,7 +117,7 @@ onAuthStateChanged(auth, async (user) => {
 // ルーム作成
 // ----------------------------------------
 window.createRoom = async function () {
-  const nm = document.getElementById('ni').value.trim();
+  const nm = (document.getElementById('ni') as HTMLInputElement).value.trim();
   if (!nm) { setHomeMsg('名前を入力してください'); return; }
   setHomeMsg('');
   setLoading('create-btn', true, '作成中');
@@ -126,11 +141,11 @@ window.createRoom = async function () {
     localStorage.setItem('savedMyName', state.myName);
     localStorage.setItem('savedIsHost', String(state.isHost));
 
-    document.getElementById('lrid').textContent = state.roomId;
+    document.getElementById('lrid')!.textContent = state.roomId;
     show('lobby');
     window._startListening?.();
     dbg('ルーム作成: ' + state.roomId);
-  } catch (e) {
+  } catch (e: any) {
     setHomeMsg('エラー: ' + e.message);
     dbg('createRoom error: ' + e.message, true);
   } finally {
@@ -142,8 +157,8 @@ window.createRoom = async function () {
 // ルーム参加
 // ----------------------------------------
 window.joinRoom = async function () {
-  const nm  = document.getElementById('ni').value.trim();
-  const rid = document.getElementById('ri').value.trim().toUpperCase();
+  const nm  = (document.getElementById('ni') as HTMLInputElement).value.trim();
+  const rid = (document.getElementById('ri') as HTMLInputElement).value.trim().toUpperCase();
   if (!nm)              { setHomeMsg('名前を入力してください'); return; }
   if (rid.length !== 4) { setHomeMsg('4文字のルームIDを入力してください'); return; }
   setHomeMsg('');
@@ -152,7 +167,7 @@ window.joinRoom = async function () {
     const room = await fbGet('rooms/' + rid);
     if (!room)                  { setHomeMsg('ルームが見つかりません'); return; }
     if (room.state !== 'lobby') { setHomeMsg('ゲームはすでに始まっています'); return; }
-    const players = room.players || [];
+    const players: any[] = room.players || [];
     if (players.length >= 8)              { setHomeMsg('このルームは満員です（最大8人）'); return; }
     if (players.find(p => p.name === nm)) { setHomeMsg('この名前はすでに使われています'); return; }
     state.myName = nm;
@@ -168,11 +183,11 @@ window.joinRoom = async function () {
     localStorage.setItem('savedMyName', state.myName);
     localStorage.setItem('savedIsHost', String(state.isHost));
 
-    document.getElementById('lrid').textContent = state.roomId;
+    document.getElementById('lrid')!.textContent = state.roomId;
     show('lobby');
     window._startListening?.();
     dbg('参加完了: ' + rid);
-  } catch (e) {
+  } catch (e: any) {
     setHomeMsg('エラー: ' + e.message);
     dbg('joinRoom error: ' + e.message, true);
   } finally {
@@ -187,13 +202,13 @@ window.toggleReady = async function () {
   try {
     const room    = await fbGet('rooms/' + state.roomId);
     if (!room) return;
-    const players = room.players || [];
+    const players: any[] = room.players || [];
     const me      = players.find(p => p.id === state.myId);
     if (me) {
       me.ready = !me.ready;
       await fbUpdate('rooms/' + state.roomId, { players });
     }
-  } catch (e) { dbg('toggleReady error: ' + e.message, true); }
+  } catch (e: any) { dbg('toggleReady error: ' + e.message, true); }
 };
 
 // ----------------------------------------
@@ -206,7 +221,7 @@ window.backToLobby = async function () {
 
     // ★修正：まだ誰も部屋をリセットしていない場合のみ、Firebaseを初期化する
     if (room.state !== 'lobby') {
-      const players = (room.players || []).map(p => ({ ...p, ready: p.id === room.host }));
+      const players = (room.players || []).map((p: any) => ({ ...p, ready: p.id === room.host }));
       await fbUpdate('rooms/' + state.roomId, {
         state: 'lobby', game: null, log: [], players, reactions: {}, trumpPassCount: 0,
         // ★リプレイ機能で追加★
@@ -222,7 +237,7 @@ window.backToLobby = async function () {
     // 全員共通：自分の画面をロビーに切り替えて、リスナーを再始動する
     show('lobby');
     window._startListening?.();
-  } catch (e) { dbg('backToLobby error: ' + e.message, true); }
+  } catch (e: any) { dbg('backToLobby error: ' + e.message, true); }
 };
 
 // ----------------------------------------
@@ -236,12 +251,12 @@ window.leaveGame = async function () {
     try {
       const room = await fbGet('rooms/' + rid);
       if (room && room.players) {
-        const remainingPlayers = room.players.filter(p => p.id !== myId);
+        const remainingPlayers = room.players.filter((p: any) => p.id !== myId);
         if (remainingPlayers.length === 0) {
           await fbSet('rooms/' + rid, null);
           dbg('無人になったためルームを削除しました: ' + rid);
         } else {
-          const updates = { players: remainingPlayers };
+          const updates: { players: any[]; host?: string; log?: string[] } = { players: remainingPlayers };
           if (room.host === myId) {
             updates.host = remainingPlayers[0].id;
             const logs = [...(room.log || []), `${remainingPlayers[0].name} が新しいホストになりました`];
@@ -251,14 +266,14 @@ window.leaveGame = async function () {
           dbg('ルームから退出しました: ' + rid);
         }
       }
-    } catch (e) { dbg('退出処理でエラーが発生しました: ' + e.message, true); }
+    } catch (e: any) { dbg('退出処理でエラーが発生しました: ' + e.message, true); }
   }
   // LocalStorageからセッション情報をクリア
   localStorage.removeItem('savedRoomId');
   localStorage.removeItem('savedMyId');
   localStorage.removeItem('savedMyName');
   localStorage.removeItem('savedIsHost');
-  
+
   state.roomId = '';
   state.myId   = '';
   state.myName = '';
@@ -269,6 +284,6 @@ window.leaveGame = async function () {
 // ----------------------------------------
 // inputオートフォーマット
 // ----------------------------------------
-document.getElementById('ri').addEventListener('input', function () {
+(document.getElementById('ri') as HTMLInputElement).addEventListener('input', function () {
   this.value = this.value.toUpperCase();
 });
