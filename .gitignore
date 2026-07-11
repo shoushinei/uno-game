@@ -22,3 +22,5 @@ emulator-data/
 .env
 .env.local
 .runtimeconfig.json
+# Claude Code のローカル作業用設定
+.claude/
