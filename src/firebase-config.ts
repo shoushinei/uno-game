@@ -5,8 +5,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getDatabase, connectDatabaseEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyA8J6e3FVKQHQ8hzmr0vSyUDJmn2N6QOHo",
+interface FirebaseConfig {
+  apiKey: string;
+  authDomain: string;
+  databaseURL: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+  measurementId: string;
+}
+
+const firebaseConfig: FirebaseConfig = {
+  apiKey: "AIzaSyA8•••••••••••••••••••••••••••••••",
   authDomain: "uno-game-b6d37.firebaseapp.com",
   databaseURL: "https://uno-game-b6d37-default-rtdb.firebaseio.com",
   projectId: "uno-game-b6d37",
