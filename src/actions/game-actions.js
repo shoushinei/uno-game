@@ -9,11 +9,11 @@
 // この層はDOMに直接触れない。
 // UIイベント（選択状態、ピッカー表示）は app.js が処理してからここを呼ぶ。
 // ========================================
-import { state } from './state.js';
-import { fbGet, fbUpdate, fbSet } from './db.js';
-import { initFusionGame } from './game-init.js';
-import { applyTrumpPlay, applyTrumpPass } from './trump-logic.ts';
-import { applyUnoPlay, applyUnoDraw } from './uno-logic.js';
+import { state } from '../state.js';
+import { fbGet, fbUpdate, fbSet } from '../db.js';
+import { initFusionGame } from '../logic/game-init.js';
+import { applyTrumpPlay, applyTrumpPass } from '../logic/trump-logic.ts';
+import { applyUnoPlay, applyUnoDraw } from '../logic/uno-logic.js';
 import {
   checkAllPassed,
   resolveRankingNames,
@@ -23,11 +23,11 @@ import {
   applyUnoDeclaration,
   checkInvariants,
   reportInvariantViolations,
-} from './game-rules.js';
+} from '../logic/game-rules.ts';
 // ★リプレイ機能で追加★
 // actionLog（操作の履歴）を組み立てて room.actionLog に追記するためのヘルパー。
 // assertInvariants と全く同じパターンで、既存の fbUpdate 呼び出しに乗せて使う。
-import { makeActionLogEntry, appendActionLog } from './replay-log.ts';
+import { makeActionLogEntry, appendActionLog } from '../replay/log.js';
 
 // ----------------------------------------
 // ヘルパー：Firebaseへ書き込む直前に不変条件をチェックする

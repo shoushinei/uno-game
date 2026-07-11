@@ -2,7 +2,7 @@
 // replay-log.ts 単体テスト
 // ========================================
 import { describe, it, expect } from 'vitest';
-import { makeActionLogEntry, appendActionLog } from './replay-log.ts';
+import { makeActionLogEntry, appendActionLog } from './log.js';
 
 describe('makeActionLogEntry', () => {
   it('type / playerId / args をそのまま保持する', () => {

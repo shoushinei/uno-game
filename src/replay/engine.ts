@@ -12,9 +12,9 @@
 // こうすることで、将来ゲームルールが変わっても（バグ修正・仕様変更など）
 // リプレイの再生結果が自動的に追従し、二重メンテナンスにならない。
 // ========================================
-import { applyTrumpPlay, applyTrumpPass } from './trump-logic';
+import { applyTrumpPlay, applyTrumpPass } from '../logic/trump-logic';
 // @ts-ignore -- uno-logic.js はプレーンJS（型定義なし）
-import { applyUnoPlay, applyUnoDraw } from './uno-logic.js';
+import { applyUnoPlay, applyUnoDraw } from '../logic/uno-logic.js';
 // @ts-ignore -- game-rules.js はプレーンJS（型定義なし）
 import {
   checkAllPassed,
@@ -23,7 +23,7 @@ import {
   applyUnoSkip,
   applyParentColorChange,
   applyUnoDeclaration,
-} from './game-rules.js';
+} from '../logic/game-rules';
 import type {
   ReplayActionLogEntry,
   ReplayFile,
@@ -32,7 +32,7 @@ import type {
   TrumpPlayArgs,
   UnoPlayArgs,
   PickParentColorArgs,
-} from './replay-types';
+} from './types';
 
 export class ReplayEngine {
   private readonly players: ReplayPlayerInfo[];
@@ -159,7 +159,7 @@ export class ReplayEngine {
         this.appendLog(logMsg);
         break;
       }
-      case 'pickParentColor': {
+        case 'pickParentColor': {
         const args = entry.args as PickParentColorArgs;
         const result = applyParentColorChange(g, entry.playerId, args.color, pname);
         if (result) {

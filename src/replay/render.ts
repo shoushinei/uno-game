@@ -10,7 +10,7 @@
 // 既存のものを再利用しつつ、レイアウト自体はリプレイ専用に
 // 軽量な描画関数として書いている。
 // ========================================
-import type { ReplayEngine } from './replay-engine';
+import type { ReplayEngine } from './engine';
 
 /** トランプ1枚分のカードHTMLを組み立てる（既存の .trump-hand-card クラスを再利用） */
 function trumpCardHtml(card: { s: string; v: string }): string {

@@ -7,8 +7,8 @@
 //   - ゲームロジックの「判定関数」を window に公開することで
 //     ui-render.js から呼び出せるようにする
 // ========================================
-import { trumpCanPlay } from './trump-logic.js';
-import { unoCanPlay } from './uno-logic.js';
+import { trumpCanPlay } from '../logic/trump-logic.js';
+import { unoCanPlay } from '../logic/uno-logic.js';
 
 // ----------------------------------------
 // カード選択状態（モジュールスコープ）

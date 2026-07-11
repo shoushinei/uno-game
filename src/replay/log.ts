@@ -6,7 +6,7 @@
 // 新しいFirebase書き込み経路は作らず、既存の fbUpdate 呼び出しに
 // 1行乗せるだけで済むようにするための関数。
 // ========================================
-import type { ReplayActionLogEntry, ReplayActionType, ReplayActionArgs } from './replay-types';
+import type { ReplayActionLogEntry, ReplayActionType, ReplayActionArgs } from './types';
 
 // 安全弁：万が一バグでゲームが終わらず操作が無限に続いた場合でも、
 // actionLog が際限なく肥大化してFirebaseの1ノードサイズを圧迫しないようにする上限。

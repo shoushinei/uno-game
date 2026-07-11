@@ -7,7 +7,7 @@ import { state, uid, newRoomId } from './state.js';
 import { fbGet, fbSet, fbUpdate, testConnection } from './db.js';
 import { auth, googleProvider } from './firebase-config.js';
 import { signInWithPopup, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { show, setHomeMsg, setLobbyMsg, setStatus, dbg, setLoading } from './ui-render.js';
+import { show, setHomeMsg, setLobbyMsg, setStatus, dbg, setLoading } from './ui/ui-render.js';
 
 // ----------------------------------------
 // Google ログイン

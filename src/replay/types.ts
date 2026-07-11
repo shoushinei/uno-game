@@ -5,7 +5,7 @@
 // 保存用JSONファイル（ReplayFile）の形をここで一元管理する。
 // DOM・Firebaseには一切依存しない、純粋な型定義だけのファイル。
 // ========================================
-import type { TrumpCard } from './trump-logic';
+import type { TrumpCard } from '../logic/trump-logic';
 
 // このゲームで発生しうる「操作」の種類一覧
 export type ReplayActionType =

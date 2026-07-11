@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { actionTrumpPlay } from './game-actions.js';
-import { fbGet, fbUpdate } from './db.js';
-import { state } from './state.js';
+import { fbGet, fbUpdate } from '../db.js';
+import { state } from '../state.js';
 
 // 1. 実際のFirebase通信とログイン状態をテスト用に偽装（モック化）
-vi.mock('./db.js', () => ({
+vi.mock('../db.js', () => ({
   fbGet: vi.fn(),
   fbUpdate: vi.fn(),
   fbSet: vi.fn(),
 }));
 
-vi.mock('./state.js', () => ({
+vi.mock('../state.js', () => ({
   state: {
     roomId: 'ROOM123',
     myId: 'p2', // ★修正：今回は2人目のあがりを検証するため、手番をBob（p2）にします

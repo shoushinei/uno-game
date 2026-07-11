@@ -5,16 +5,22 @@
 // - DOM・Firebase・window に一切依存しない
 // - この層だけで単体テストが完結する
 // ========================================
+import type { GameState, Player } from './types';
+
+export interface CheckAllPassedResult {
+  cleared: boolean;
+  parentName: string | null;
+  logMsg: string | null;
+}
 
 /**
  * トランプ手番の「全員パス判定」を行い、該当する場合に場を流す。
  *
- * @param {object} g         - ゲーム状態（破壊的変更あり）
- * @param {number} passCount - 現在のパス累計数（Firebaseの trumpPassCount）
- * @param {object[]} players - プレイヤー配列 [{ id, name }]
- * @returns {{ cleared: boolean, parentName: string|null, logMsg: string|null }}
+ * @param g         - ゲーム状態（破壊的変更あり）
+ * @param passCount - 現在のパス累計数（Firebaseの trumpPassCount）
+ * @param players   - プレイヤー配列
  */
-export function checkAllPassed(g, passCount, players) {
+export function checkAllPassed(g: GameState, passCount: number, players: Player[]): CheckAllPassedResult {
   const fCards = Array.isArray(g.trumpField) ? g.trumpField : [];
   if (fCards.length === 0) return { cleared: false, parentName: null, logMsg: null };
   if (passCount < g.order.length - 1) return { cleared: false, parentName: null, logMsg: null };
@@ -29,7 +35,7 @@ export function checkAllPassed(g, passCount, players) {
   g.trumpFieldOwner = null;
   g.trumpElevenBack = false;
   g.trumpSuitLock = null;
-  g.hasParent  = ownerId;
+  g.hasParent = ownerId;
   // ★バグ修正（ターンすっ飛ばし）★
   // 以前はここで g.ci を親(owner)のインデックスへ強制的にジャンプさせていた。
   // しかし「全員パス」が成立するのは、まさに"最後にパスしたプレイヤー"の
@@ -55,17 +61,20 @@ export function checkAllPassed(g, passCount, players) {
 
 /**
  * ゲーム終了時にランキングの「?」を実名に補完する。
- *
- * @param {object[]} rankings - g.rankings（破壊的変更あり）
- * @param {object[]} players  - プレイヤー配列 [{ id, name }]
  */
-export function resolveRankingNames(rankings, players) {
+export function resolveRankingNames(rankings: { id: string; name: string }[], players: Player[]): void {
   rankings.forEach(r => {
     if (r.name === '?') {
       const p = players.find(p2 => p2.id === r.id);
       if (p) r.name = p.name;
     }
   });
+}
+
+export interface FinalizeResult {
+  finished: boolean;
+  isGameOver: boolean;
+  logMsg: string | null;
 }
 
 /**
@@ -81,47 +90,15 @@ export function resolveRankingNames(rankings, players) {
  *
  * このヘルパーを applyTrumpSkip / applyUnoSkip の先頭で必ず呼び出し、
  * 「本当にスキップすべきか、それとも上がり確定すべきか」を先に判定する。
- *
- * @param {object} g          - ゲーム状態（破壊的変更あり）
- * @param {string} playerId
- * @param {string} playerName
- * @returns {{ finished: boolean, isGameOver: boolean, logMsg: string|null }}
  */
-export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
+export function finalizeIfBothHandsEmpty(g: GameState, playerId: string, playerName: string): FinalizeResult {
   // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様・再修正）★
-  // 以前はここで「g.trumpHands / g.unoHands オブジェクト自体が無ければ
-  // finished:false で即return」としていたが、これは意図（コメント）と
-  // 実装が矛盾していた。「オブジェクト自体が消えている」のはまさに
-  // 「全員の手札が0枚になった」時にFirebaseが空配列ごとキーを削除する
-  // ケースであり、本来は「0枚として扱う」べきところを「判定不能として
-  // 諦める」実装になっていた。
-  // これにより、全員トランプ0枚（g.trumpHands が丸ごと undefined）に
-  // なった瞬間から、このプレイヤーのUNOも0枚になっても上がりが二度と
-  // 検出されなくなる（applyTrumpSkip / applyUnoSkip / applyParentColorChange
-  // 全てがこの関数に依存しているため影響大）という不具合があった。
-  //
-  // g.trumpHands[playerId] / g.unoHands[playerId] を直接読まず、
-  // オブジェクト自体が無い場合もオプショナルチェーン相当の書き方で
-  // 「0枚」として扱う。
-  // ★バグ修正（再修正）★
-  // 一度「trumpHands/unoHands オブジェクト自体が丸ごと存在しない場合は
-  // 判定不能（＝0枚ではない）として扱う」という修正を入れたが、これは
-  // 本番環境で新たな不具合を生んでしまった。
-  //
-  // Firebase Realtime Database は空配列 [] を書き込むとキーごと消す
-  // 仕様であるため、ゲームが進行して「残っている全員」がトランプを
-  // 出し切ると、trumpHands オブジェクトの中身が1人分ずつ消えていき、
-  // 最後の1人が出し切った瞬間に trumpHands オブジェクト自体が
-  // 丸ごと消滅する（正常な状態）。
-  // この状態で「オブジェクトが丸ごと無い＝0枚ではない」と判定して
-  // しまうと、以後 誰の上がり判定も二度と成立しなくなり、
-  // 「トランプ出し切り！UNOフェイズのみ」⇄「UNO出し切り！トランプ
-  // フェイズのみ」を全員が永遠に行き来する無限ループになっていた
-  // （順位が一切確定しない不具合）。
-  //
-  // 「オブジェクト自体が無い」も「オブジェクトはあるがこのプレイヤーの
-  // キーだけが無い」も、本番では同じ意味（＝0枚）である。両者を
-  // 区別する必要はそもそも無かった。単純に「無ければ0枚」で統一する。
+  // Firebase Realtime Database は空配列 [] を書き込むとキーごと消す仕様であるため、
+  // ゲームが進行して「残っている全員」がトランプを出し切ると、trumpHands
+  // オブジェクトの中身が1人分ずつ消えていき、最後の1人が出し切った瞬間に
+  // trumpHands オブジェクト自体が丸ごと消滅する（正常な状態）。
+  // 「オブジェクト自体が無い」も「オブジェクトはあるがこのプレイヤーのキー
+  // だけが無い」も、本番では同じ意味（＝0枚）である。単純に「無ければ0枚」で統一する。
   const trumpHand = (g.trumpHands && g.trumpHands[playerId]) || [];
   const unoHand = (g.unoHands && g.unoHands[playerId]) || [];
   const trumpDone = trumpHand.length === 0;
@@ -140,11 +117,6 @@ export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
   if (g.hasParent === playerId) g.hasParent = null;
 
   // ★バグ修正（dir=-1 で手番がおかしくなる問題）★
-  // 以前は「除外前の g.ci をそのまま新しい order の長さで割った余り」で
-  // 次の手番を求めていたが、これは dir=1（時計回り）の場合にしか正しく
-  // 動かないトリックだった。dir=-1（反時計回り、UNOのリバース後）だと
-  // 本来「前の人」に手番が渡るべきところ、別の人に飛んでしまっていた。
-  //
   // 正しい手順：
   //   1. 除外「前」の order 上で、dir 方向に本来次に来るはずだった
   //      プレイヤーIDを特定する（自分の位置から dir 分だけ進めた位置）。
@@ -153,7 +125,7 @@ export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
   const oldOrder = g.order;
   const oldLen = oldOrder.length;
   const myOldIdx = oldOrder.indexOf(playerId);
-  let nextPlayerId = null;
+  let nextPlayerId: string | null = null;
   if (myOldIdx !== -1 && oldLen > 1) {
     const nextOldIdx = (myOldIdx + g.dir + oldLen) % oldLen;
     nextPlayerId = oldOrder[nextOldIdx];
@@ -179,22 +151,23 @@ export function finalizeIfBothHandsEmpty(g, playerId, playerName) {
   return { finished: true, isGameOver, logMsg: `${playerName}が上がりました！🎉` };
 }
 
+export interface SkipResult {
+  logMsg: string;
+  isGameOver: boolean;
+  finished: boolean;
+}
+
 /**
  * トランプ手番をスキップしてUNOフェイズへ進める（手札0枚の場合）。
  *
  * ★バグ修正★ playerId を受け取るようになった。スキップする前に
  * finalizeIfBothHandsEmpty で「UNO手札も0枚か」を必ず確認し、
  * 両方0枚ならUNOフェイズへは進めず、その場で上がり確定させる。
- *
- * @param {object} g          - ゲーム状態（破壊的変更あり）
- * @param {string} playerId
- * @param {string} playerName
- * @returns {{ logMsg: string, isGameOver: boolean, finished: boolean }}
  */
-export function applyTrumpSkip(g, playerId, playerName) {
+export function applyTrumpSkip(g: GameState, playerId: string, playerName: string): SkipResult {
   const finalize = finalizeIfBothHandsEmpty(g, playerId, playerName);
   if (finalize.finished) {
-    return { logMsg: finalize.logMsg, isGameOver: finalize.isGameOver, finished: true };
+    return { logMsg: finalize.logMsg as string, isGameOver: finalize.isGameOver, finished: true };
   }
   g.phase = 'uno';
   return { logMsg: `${playerName}のトランプは0枚（自動スキップ）→ UNOフェイズへ`, isGameOver: false, finished: false };
@@ -212,16 +185,11 @@ export function applyTrumpSkip(g, playerId, playerName) {
  * ★バグ修正★ スキップする前に finalizeIfBothHandsEmpty で
  * 「トランプ手札も0枚か」を必ず確認し、両方0枚ならトランプフェイズへは進めず、
  * その場で上がり確定させる（無限スキップループの解消）。
- *
- * @param {object} g          - ゲーム状態（破壊的変更あり）
- * @param {string} playerId
- * @param {string} playerName
- * @returns {{ logMsg: string, isGameOver: boolean, finished: boolean }}
  */
-export function applyUnoSkip(g, playerId, playerName) {
+export function applyUnoSkip(g: GameState, playerId: string, playerName: string): SkipResult {
   const finalize = finalizeIfBothHandsEmpty(g, playerId, playerName);
   if (finalize.finished) {
-    return { logMsg: finalize.logMsg, isGameOver: finalize.isGameOver, finished: true };
+    return { logMsg: finalize.logMsg as string, isGameOver: finalize.isGameOver, finished: true };
   }
 
   const n = g.order.length;
@@ -234,6 +202,15 @@ export function applyUnoSkip(g, playerId, playerName) {
   return { logMsg: `${playerName}のUNOは0枚（自動スキップ）→ 次のトランプフェイズへ${parentNote}`, isGameOver: false, finished: false };
 }
 
+export interface ParentColorChangeResult {
+  logMsg: string;
+  turnAdvanced: boolean;
+  /** 色変更と同時にトランプ・UNO両方の手札が0枚となり上がりが確定した場合（finalizeIfBothHandsEmpty経由）のみ存在する */
+  finished?: boolean;
+  /** 同上。finished が true の場合のみ意味を持つ */
+  isGameOver?: boolean;
+}
+
 /**
  * 親の権限でUNO色を変更する。
  *
@@ -241,18 +218,17 @@ export function applyUnoSkip(g, playerId, playerName) {
  * 意味しない。色変更後（または変更せず見送る場合）は即座にトランプフェイズの
  * 次のプレイヤーへターンを進める。UNO未出し切りの親の場合は従来通り、
  * 色変更後そのまま自分のUNOフェイズ行動（出す/引く）に続く。
- *
- * @param {object} g          - ゲーム状態（破壊的変更あり）
- * @param {string} playerId
- * @param {string} color
- * @param {string} playerName
- * @returns {{ logMsg: string, turnAdvanced: boolean } | null}
  */
-export function applyParentColorChange(g, playerId, color, playerName) {
+export function applyParentColorChange(
+  g: GameState,
+  playerId: string,
+  color: string,
+  playerName: string
+): ParentColorChangeResult | null {
   if (g.hasParent !== playerId) return null;
   g.unoCurrentColor = color;
   g.hasParent = null;
-  const cname = { red: '赤', blue: '青', green: '緑', yellow: '黄' }[color] ?? color;
+  const cname = ({ red: '赤', blue: '青', green: '緑', yellow: '黄' } as Record<string, string>)[color] ?? color;
   let logMsg = `${playerName}が親の権限でUNOの色を【${cname}】に変更！`;
 
   // ★バグ修正（親の権限行使タイミングで上がり判定が漏れる問題）★
@@ -289,15 +265,14 @@ export function applyParentColorChange(g, playerId, color, playerName) {
   return { logMsg, turnAdvanced };
 }
 
+export interface UnoDeclarationResult {
+  logMsg: string;
+}
+
 /**
  * UNO宣言を記録する。
- *
- * @param {object} g          - ゲーム状態（破壊的変更あり）
- * @param {string} playerId
- * @param {string} playerName
- * @returns {{ logMsg: string }}
  */
-export function applyUnoDeclaration(g, playerId, playerName) {
+export function applyUnoDeclaration(g: GameState, playerId: string, playerName: string): UnoDeclarationResult {
   if (!g.unoSaid) g.unoSaid = {};
   g.unoSaid[playerId] = true;
   return { logMsg: `${playerName}が「UNO！」と叫んだ 🎉` };
@@ -314,13 +289,9 @@ export function applyUnoDeclaration(g, playerId, playerName) {
 
 /**
  * ゲーム状態の不変条件をチェックし、違反のメッセージ一覧を返す。
- *
- * @param {object} g          - ゲーム状態
- * @param {object[]} players  - プレイヤー配列 [{ id, name }]
- * @returns {string[]} 違反メッセージの配列（違反が無ければ空配列）
  */
-export function checkInvariants(g, players) {
-  const violations = [];
+export function checkInvariants(g: GameState, players: Player[]): string[] {
+  const violations: string[] = [];
   if (!g) return violations;
 
   const playerIds = (players || []).map(p => p.id);
@@ -347,7 +318,7 @@ export function checkInvariants(g, players) {
   }
 
   // ---- トランプカードの重複チェック ----
-  const allTrumpIds = [];
+  const allTrumpIds: string[] = [];
   playerIds.forEach(id => {
     ((g.trumpHands && g.trumpHands[id]) || []).forEach(c => allTrumpIds.push(c.id));
   });
@@ -410,12 +381,8 @@ export function checkInvariants(g, players) {
 /**
  * checkInvariants で見つかった違反をコンソールへ出力する。
  * 診断専用（ここでは何も投げない・書き込みは止めない）。
- *
- * @param {string} actionName - 呼び出し元アクション名（ログの見出しに使う）
- * @param {object} g          - ゲーム状態（現状は未使用だが将来の拡張用に残す）
- * @param {string[]} violations
  */
-export function reportInvariantViolations(actionName, g, violations) {
+export function reportInvariantViolations(actionName: string, g: GameState, violations: string[]): void {
   if (!violations || violations.length === 0) return;
   console.error(`🚨 [不変条件違反] ${actionName} の実行後、ゲーム状態が不正です:`);
   violations.forEach(v => console.error(`  - ${v}`));

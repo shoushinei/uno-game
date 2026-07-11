@@ -5,9 +5,9 @@
 // 既存の app.js が game-actions.js の関数を window.* に橋渡ししているのと
 // 同じ役割を、リプレイ画面（replay-engine.ts / replay-render.ts）に対して行う。
 // ========================================
-import { ReplayEngine } from './replay-engine';
-import { renderReplayView } from './replay-render';
-import type { ReplayFile } from './replay-types';
+import { ReplayEngine } from './engine';
+import { renderReplayView } from './render';
+import type { ReplayFile } from './types';
 
 // window オブジェクトに生やす関数の型宣言
 // （これを書かないと TypeScript の strict モードでエラーになる）

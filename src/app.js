@@ -12,8 +12,8 @@
 import './auth.js';
 import { state } from './state.js';
 import { fbListen } from './db.js';
-import './test-bot.ts';
-import './replay-app.ts'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
+import './bot/test-bot.ts';
+import './replay/app.js'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg } from './ui-render.js';
 import {
   actionStartGame,
@@ -26,7 +26,7 @@ import {
   actionSayUno,
   actionPickParentColor,
   actionSendReaction,
-} from './game-actions.js';
+} from './actions/game-actions.js';
 import {
   getSelectedTrumpIds,
   getSelectedUnoIdx,
@@ -34,7 +34,7 @@ import {
   setPendingUnoIdx,
   resetTrumpSelection,
   resetUnoSelection,
-} from './ui-input.js';
+} from './ui/ui-input.js';
 
 // ========================================
 // ★追加：状態スナップショット詳細ログ化関数
@@ -228,7 +228,7 @@ window.sendReaction = async (emoji) => {
 // ★リプレイ機能で追加★ リプレイ保存（リザルト画面の「📼 リプレイを保存」ボタン用）
 // ========================================
 window.saveReplay = async () => {
-  const { buildReplayFile, downloadReplayFile } = await import('./replay-io.ts');
+  const { buildReplayFile, downloadReplayFile } = await import('./replay/io.js');
   const replay = await buildReplayFile(state.roomId);
   if (!replay) {
     dbg('リプレイデータが見つかりません（このゲームはリプレイ非対応です）', true);

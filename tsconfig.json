@@ -16,5 +16,5 @@
     "esModuleInterop": true,                     /* 旧モジュールとの互換性確保 */
     "isolatedModules": true                      /* 高速ビルドツールとの相性抜群の設定 */
   },
-  "include": ["js/**/*"]                         /* jsフォルダ内をスキャン */
+  "include": ["src/**/*"]                         /* srcフォルダ内をスキャン */
 }

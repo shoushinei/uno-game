@@ -3,9 +3,9 @@
 // ゲームロジックへの依存はなし。
 // カード判定に必要な関数は ui-input.js 経由でwindowに公開済みのものを使用する。
 // ========================================
-import { state } from './state.js';
-import { AVATAR_COLORS } from './game-init.js';
-import { unoCardColorClass } from './uno-logic.js';
+import { state } from '../state.js';
+import { AVATAR_COLORS } from '../logic/game-init.js';
+import { unoCardColorClass } from '../logic/uno-logic.js';
 import {
   resetTrumpSelection,
   resetUnoSelection,

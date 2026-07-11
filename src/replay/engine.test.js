@@ -14,11 +14,11 @@
 // 壊れにくい。
 // ========================================
 import { describe, it, expect } from 'vitest';
-import { ReplayEngine } from './replay-engine.ts';
-import { applyTrumpPlay, applyTrumpPass } from './trump-logic.ts';
-import { applyUnoDraw } from './uno-logic.js';
-import { checkAllPassed } from './game-rules.js';
-import { makeActionLogEntry } from './replay-log.ts';
+import { ReplayEngine } from './engine.js';
+import { applyTrumpPlay, applyTrumpPass } from '../logic/trump-logic.ts';
+import { applyUnoDraw } from '../logic/uno-logic.js';
+import { checkAllPassed } from '../logic/game-rules.js';
+import { makeActionLogEntry } from './log.js';
 
 const PLAYERS = [
   { id: 'p1', name: 'Alice' },

@@ -6,8 +6,8 @@
 // リプレイファイル（JSON）としてブラウザからダウンロードさせる。
 // ========================================
 // @ts-ignore -- db.js はプレーンJS（型定義なし）
-import { fbGet } from './db.js';
-import type { ReplayFile } from './replay-types';
+import { fbGet } from '../db.js';
+import type { ReplayFile } from './types.js';
 
 /**
  * 指定したルームの replayInitialState / actionLog を取得し、

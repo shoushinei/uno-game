@@ -27,7 +27,7 @@
 // ========================================
 
 // @ts-ignore -- state.js はプレーンJS（型定義なし）
-import { state } from './state.js';
+import { state } from '../state.js';
 // @ts-ignore -- game-actions.js はプレーンJS（型定義なし）
 import {
   actionTrumpPlay,
@@ -39,10 +39,10 @@ import {
   actionSayUno,
   actionPickParentColor,
   actionSetAutoPlay,
-} from './game-actions.js';
-import { trumpCanPlay, type TrumpCard, type PartialGameState } from './trump-logic.js';
+} from '../actions/game-actions.js';
+import { trumpCanPlay, type TrumpCard, type PartialGameState } from '../logic/trump-logic.js';
 // @ts-ignore -- uno-logic.js はプレーンJS（型定義なし）
-import { unoCanPlay } from './uno-logic.js';
+import { unoCanPlay } from '../logic/uno-logic.js';
 
 // ----------------------------------------
 // 型定義（このファイル内で完結させる最小限の型）
