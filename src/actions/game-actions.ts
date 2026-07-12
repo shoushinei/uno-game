@@ -347,6 +347,10 @@ export async function actionUnoPlay(cardIdx: number | null, chosenColor?: string
   const pname = getPlayerName(room.players);
   const currentPassCount = room.trumpPassCount ?? 0;
 
+  // ★PC UI（ホバーカード）で追加★ 出すカードを apply 前に控えておく
+  // （applyUnoPlay が手札から取り除くため、後からは特定できない）
+  const playedCard = cardIdx !== null ? ((g.unoHands?.[state.myId] ?? [])[cardIdx] ?? null) : null;
+
   const result = applyUnoPlay(g, state.myId, cardIdx, chosenColor ?? null, pname);
   if (!result) return { error: 'そのカードは出せません' };
 
@@ -367,7 +371,11 @@ export async function actionUnoPlay(cardIdx: number | null, chosenColor?: string
   //   （null なら applyUnoPlay が null を返して上で早期リターン済み）。
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('unoPlay', state.myId, { cardIdx: cardIdx!, chosenColor: chosenColor ?? null })
+    makeActionLogEntry('unoPlay', state.myId, {
+      cardIdx: cardIdx!,
+      chosenColor: chosenColor ?? null,
+      card: playedCard, // ★PC UI（ホバーカード）の表示用。リプレイ再生では使わない
+    })
   );
 
   assertInvariants('actionUnoPlay', newG, room.players);
@@ -394,6 +402,8 @@ export async function actionUnoDraw(): Promise<ActionResult> {
 
   const pname = getPlayerName(room.players);
   const currentPassCount = room.trumpPassCount ?? 0;
+  // ★PC UI（ホバーカード）で追加★ 引く枚数を apply 前に控えておく（表示用）
+  const drawCount = g.unoPenaltyAccum > 0 ? g.unoPenaltyAccum : 1;
   const { g: newG, logMsg } = applyUnoDraw(g, state.myId, pname);
   const logs = appendLog(room, logMsg);
 
@@ -403,7 +413,7 @@ export async function actionUnoDraw(): Promise<ActionResult> {
   // ★リプレイ機能で追加★
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('unoDraw', state.myId, {})
+    makeActionLogEntry('unoDraw', state.myId, { count: drawCount })
   );
 
   assertInvariants('actionUnoDraw', newG, room.players);

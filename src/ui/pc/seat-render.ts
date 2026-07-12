@@ -2,18 +2,26 @@
 // 席（他プレイヤー1人分）の描画
 //
 // 常時表示するのは「今の状態」だけ（名前・枚数・バッジ・手番フェイズチップ）。
-// 「過去（直近の操作）」は hover カード（Step4）、対人リアクションは
-// クリックメニュー（Phase C）に置く、という情報3階層ルールに従う。
+// 「過去（直近の操作）」はホバーカードに載せる（情報3階層ルール）。
+//
+// ホバーカードはJSの状態を持たず、席のHTML内に非表示で埋め込んで
+// CSSの :hover で出す（全再描画が走っても壊れない・遅延なしで即表示）。
+// 配置は「場（テーブル中央）を遮らない」よう、左半分の席は右外側へ、
+// 右半分の席は左外側へ出す。
 // ========================================
 import { AVATAR_COLORS } from '../../logic/game-init.js';
 import type { Player } from '../../logic/types';
 import type { SeatPosition } from './seat-layout.js';
+import { lastActionsOf, summarizeTrumpEntry, summarizeUnoEntry } from './last-actions.js';
+import { pcTrumpCardHtml, pcUnoCardHtml } from './cards.js';
+import type { ReplayActionLogEntry } from '../../replay/types';
 
 export interface SeatContext {
   g: any;
   players: Player[];
   autoPlayers: Record<string, boolean>;
   curId: string | undefined;
+  actionLog: ReplayActionLogEntry[] | null | undefined;
 }
 
 export function renderSeatHtml(pos: SeatPosition, ctx: SeatContext): string {
@@ -46,8 +54,11 @@ export function renderSeatHtml(pos: SeatPosition, ctx: SeatContext): string {
     ? '<span class="pcg-seat-counts">観戦中</span>'
     : `<span class="pcg-seat-counts">🂠${trumpCount}・<span class="pcg-uno-dot">●</span>${unoCount}${saidUno ? ' <span class="pcg-said-uno">📢UNO</span>' : ''}</span>`;
 
+  // ホバーカードの向き: 左半分の席は右外側、右半分の席は左外側
+  const hoverSide = pos.xPercent < 50 ? 'hover-r' : 'hover-l';
+
   return `
-    <div class="pcg-seat${isCurrent ? ' current' : ''}${finished ? ' finished' : ''}"
+    <div class="pcg-seat ${hoverSide}${isCurrent ? ' current' : ''}${finished ? ' finished' : ''}"
          data-seat-id="${pos.id}"
          style="left:${pos.xPercent}%;top:${pos.yPercent}%">
       <div class="pcg-avatar" style="background:${avatarColor}">
@@ -58,6 +69,40 @@ export function renderSeatHtml(pos: SeatPosition, ctx: SeatContext): string {
       ${countsHtml}
       ${phaseChip}
       ${statusChips.join('')}
+      ${_hoverCardHtml(name, pos.id, ctx.actionLog)}
+    </div>
+  `;
+}
+
+// ----------------------------------------
+// ホバーカード（直近の操作）
+// ----------------------------------------
+function _hoverCardHtml(name: string, playerId: string, actionLog: ReplayActionLogEntry[] | null | undefined): string {
+  const last = lastActionsOf(actionLog, playerId);
+
+  let trumpRow: string;
+  if (last.trump) {
+    const s = summarizeTrumpEntry(last.trump);
+    const cards = s.cards.map(c => pcTrumpCardHtml(c, 'mini')).join('');
+    trumpRow = `${cards}<span>${s.text}</span>`;
+  } else {
+    trumpRow = '<span class="pcg-hc-none">まだ操作なし</span>';
+  }
+
+  let unoRow: string;
+  if (last.uno) {
+    const s = summarizeUnoEntry(last.uno);
+    const card = s.card ? pcUnoCardHtml(s.card as any, 'mini') : '';
+    unoRow = `${card}<span>${s.text}</span>`;
+  } else {
+    unoRow = '<span class="pcg-hc-none">まだ操作なし</span>';
+  }
+
+  return `
+    <div class="pcg-hovercard">
+      <div class="pcg-hc-title">${name} の直近の操作</div>
+      <div class="pcg-hc-row"><span class="pcg-hc-ph">①🃏</span>${trumpRow}</div>
+      <div class="pcg-hc-row"><span class="pcg-hc-ph">②🎴</span>${unoRow}</div>
     </div>
   `;
 }

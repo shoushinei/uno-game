@@ -21,13 +21,26 @@ export type ReplayActionType =
 // ---- 各操作ごとの引数（args）の形 ----
 export interface TrumpPlayArgs { cardIds: string[] }
 export interface EmptyArgs { [key: string]: never } // 引数を持たない操作用（パス・スキップ・UNO宣言など）
-export interface UnoPlayArgs { cardIdx: number; chosenColor: string | null }
+export interface UnoPlayArgs {
+  cardIdx: number;
+  chosenColor: string | null;
+  /**
+   * ★PC UI（ホバーカード）で追加★ 出したカード自体。
+   * cardIdx だけでは後からカードを特定できない（手札から消えるため）ので、
+   * 表示用に記録する。再生（リプレイ）はこのフィールドを使わないため、
+   * 記録されていない古いリプレイファイルとも互換（optional）。
+   */
+  card?: { c: string; t: string; v: string } | null;
+}
+/** ★PC UI（ホバーカード）で追加★ 引いた枚数の記録（表示用・optional） */
+export interface UnoDrawArgs { count?: number }
 export interface PickParentColorArgs { color: string }
 
 export type ReplayActionArgs =
   | TrumpPlayArgs
   | EmptyArgs
   | UnoPlayArgs
+  | UnoDrawArgs
   | PickParentColorArgs;
 
 /**

@@ -32,6 +32,14 @@ import { renderSeatHtml } from './seat-render.js';
 import { renderFieldHtml } from './field-render.js';
 import { pcTrumpCardHtml, pcUnoCardHtml } from './cards.js';
 import { deriveBarState, renderActionBarHtml } from './action-bar.js';
+import {
+  renderDrawerHtml,
+  toggleDrawer,
+  setDrawerTab,
+  isDrawerOpen,
+  mergeServerLog,
+  resetDrawerLog,
+} from './drawer.js';
 
 declare global {
   interface Window {
@@ -42,6 +50,9 @@ declare global {
 
 /** 最後に描画した room（クリック後の再描画などに使う） */
 let lastRoom: any = null;
+
+/** ログ蓄積のリセット判定用（別ルームに入ったら蓄積を捨てる） */
+let lastRoomIdForLog: string | null = null;
 
 /** 操作バーの一時モード（色選択中）。前提が崩れたら描画時に自動クリアされる */
 let barOverride: 'wild-color' | 'parent-color' | null = null;
@@ -71,9 +82,30 @@ export function renderGamePC(room: any): void {
   if (!canActTrump) resetTrumpSelection();
   if (!canActUno) resetUnoSelection();
 
+  // 別ルームに入ったらログの蓄積をリセットしてからマージする
+  if (lastRoomIdForLog !== state.roomId) {
+    resetDrawerLog();
+    lastRoomIdForLog = state.roomId;
+  }
+  mergeServerLog(room.log);
+
   _renderTopbar(room, players, curId, isMyTurn, phase);
   _renderTable(room);
+  _renderDrawer(room);
   _renderOwn(room, canActTrump, canActUno, iFinished);
+}
+
+// ----------------------------------------
+// 引き出しパネル（ログ/ルール）
+// ----------------------------------------
+function _renderDrawer(room: any): void {
+  const el = document.getElementById('pcg-drawer');
+  if (!el) return;
+  el.classList.toggle('open', isDrawerOpen());
+  el.innerHTML = renderDrawerHtml(room.game);
+  // ログは常に最新（末尾）までスクロールしておく
+  const list = document.getElementById('pcg-log-list');
+  if (list) list.scrollTop = list.scrollHeight;
 }
 
 // ----------------------------------------
@@ -132,7 +164,7 @@ function _renderTable(room: any): void {
   );
   const positions = seatPositions(others);
   const seatsHtml = positions
-    .map(pos => renderSeatHtml(pos, { g, players, autoPlayers, curId }))
+    .map(pos => renderSeatHtml(pos, { g, players, autoPlayers, curId, actionLog: room.actionLog }))
     .join('');
 
   el.innerHTML = `
@@ -280,6 +312,12 @@ async function _handleAction(action: string, target: HTMLElement): Promise<void>
     case 'reaction':
       reactionOpen = false;
       await window.sendReaction(target.dataset.emoji!);
+      break;
+    case 'drawer-toggle':
+      toggleDrawer();
+      break;
+    case 'drawer-tab':
+      setDrawerTab(target.dataset.tab!);
       break;
   }
   rerenderPc();
