@@ -502,6 +502,28 @@ describe('applyUnoDraw', () => {
     applyUnoDraw(g, 'p1', 'Alice');
     expect(g.ci).toBe(1);
   });
+
+  // ★バグ修正回帰テスト★
+  // UNO宣言後にカードを引くと手札が増えて「残り1枚になる」状況ではなくなるのに、
+  // 以前は宣言状態(unoSaid)が残り続けていた（📢UNOバッジが出っぱなしになり、
+  // 次に2枚→1枚を出すときにも宣言不要になってしまう）。
+  it('[バグ修正] UNO宣言後にカードを引くと宣言状態がリセットされる', () => {
+    const g = makeGame({
+      unoHands: { p1: [RED5, RED3], p2: [], p3: [] },
+      unoSaid: { p1: true },
+    });
+    applyUnoDraw(g, 'p1', 'Alice');
+    expect(g.unoSaid.p1).toBeUndefined();
+  });
+
+  it('[バグ修正] 他のプレイヤーの宣言状態は引いても消えない', () => {
+    const g = makeGame({
+      unoHands: { p1: [RED5, RED3], p2: [BLUE3], p3: [] },
+      unoSaid: { p2: true },
+    });
+    applyUnoDraw(g, 'p1', 'Alice');
+    expect(g.unoSaid.p2).toBe(true);
+  });
 });
 
 // ========================================

@@ -225,6 +225,12 @@ export function applyUnoDraw(g: GameState, playerId: string, playerName: string)
   // 以前は権限が消滅せず残り続けてしまっていた)
   if (g.hasParent === playerId) g.hasParent = null;
 
+  // ★バグ修正★ UNO宣言後にカードを引いた場合、手札が増えて「残り1枚になる」
+  // 状況ではなくなるため、宣言状態をリセットする。
+  // (以前は宣言が残り続け、手札3枚以上でも📢UNOバッジが表示されたままになり、
+  //  次に2枚→1枚を出すときにも宣言不要になってしまっていた)
+  if (g.unoSaid && g.unoSaid[playerId]) delete g.unoSaid[playerId];
+
   g.phase = 'trump';
   const myIdx = g.order.indexOf(playerId);
   if (myIdx !== -1) g.ci = (myIdx + g.dir + n) % n;
