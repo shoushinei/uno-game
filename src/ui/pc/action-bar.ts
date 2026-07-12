@@ -123,7 +123,7 @@ const COLOR_BUTTONS = (action: string): string => `
 
 const REACTION_EMOJIS = ['😭', '💢', '😂', '👏', '❤️', '🔥'];
 
-export function renderActionBarHtml(bar: BarState, reactionOpen: boolean): string {
+export function renderActionBarHtml(bar: BarState, reactionOpen: boolean, autoAdvancing = false): string {
   const reactionBtn = `<span class="pcg-bar-sep">|</span>
     <button class="pcg-btn" data-action="reaction-toggle">😄</button>`;
   const reactionStrip = reactionOpen
@@ -147,7 +147,10 @@ export function renderActionBarHtml(bar: BarState, reactionOpen: boolean): strin
         ${reactionBtn}`;
       break;
     case 'trump-skip':
-      inner = `
+      // 通常は自動進行（ボタン不要）。自動発火が滞ったときだけ手動ボタンを出す
+      inner = autoAdvancing
+        ? `<span class="pcg-bar-note pcg-note-auto">✅ トランプ出し切り — 自動でUNOフェイズへ進みます…</span>`
+        : `
         <span class="pcg-bar-note">✅ トランプ出し切り</span>
         <button class="pcg-btn pcg-btn-primary" data-action="trump-skip">UNOフェイズへ ▶</button>
         ${reactionBtn}`;
@@ -161,7 +164,11 @@ export function renderActionBarHtml(bar: BarState, reactionOpen: boolean): strin
         ${reactionBtn}`;
       break;
     case 'uno-skip':
-      inner = `
+      // 通常は自動進行。ただし親の権限を持つ間は自動発火しない
+      // （auto-advance側の判定）ため、その場合はここのボタンが出る
+      inner = autoAdvancing
+        ? `<span class="pcg-bar-note pcg-note-auto">✅ UNO出し切り — 自動で次のプレイヤーへ進みます…</span>`
+        : `
         <span class="pcg-bar-note">✅ UNO出し切り</span>
         <button class="pcg-btn pcg-btn-primary" data-action="uno-skip">次のトランプフェイズへ ▶</button>
         ${bar.showParentButton ? '<button class="pcg-btn pcg-btn-parent" data-action="parent-open">👑 色を変更</button>' : ''}

@@ -562,6 +562,16 @@
   font-weight: 600;
 }
 
+#s-game-pc .pcg-note-auto {
+  color: #9fe1cb;
+  animation: pcg-auto-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes pcg-auto-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
 #s-game-pc .pcg-bar-sep { color: #3a5c4c; }
 
 #s-game-pc .pcg-color-btn {

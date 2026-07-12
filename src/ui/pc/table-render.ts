@@ -40,6 +40,7 @@ import {
   mergeServerLog,
   resetDrawerLog,
 } from './drawer.js';
+import { maybeAutoAdvance } from './auto-advance.js';
 
 declare global {
   interface Window {
@@ -193,9 +194,14 @@ function _renderOwn(room: any, canActTrump: boolean, canActUno: boolean, iFinish
   // 一時モードの前提が崩れていたら（手番が移った等）保持している状態も掃除する
   if (barOverride && bar.mode !== barOverride) barOverride = null;
 
+  // フェイズ自動進行（手札0枚のスキップを自動発火）。
+  // 予約中はバーに「自動で進みます…」を表示し、発火が滞ったときだけ
+  // 手動スキップボタンにフォールバックする
+  const autoAdvancing = maybeAutoAdvance(room, rerenderPc);
+
   el.innerHTML = `
     ${_handRowsHtml(g, canActTrump, canActUno, iFinished)}
-    ${renderActionBarHtml(bar, reactionOpen)}
+    ${renderActionBarHtml(bar, reactionOpen, autoAdvancing)}
   `;
 }
 
