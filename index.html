@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="src/styles/game.css">
   <link rel="stylesheet" href="src/styles/lobby.css">
   <link rel="stylesheet" href="src/styles/result.css">
+  <link rel="stylesheet" href="src/styles/game-pc.css">
 </head>
 <body>
 
@@ -232,6 +233,24 @@
       <button class="react-btn" data-emoji="🔥" onclick="sendReaction('🔥')">🔥</button>
     </div>
 
+  </div>
+</div>
+
+
+<!-- =====================================================
+     ゲーム画面（PC向け新UI）
+     画面幅1024px以上のブラウザで #s-game の代わりに使われる。
+     ?ui=classic を付けると従来UI（#s-game）に戻せる。
+     各ゾーンの中身は src/ui/pc/ 配下のモジュールが描画する。
+     ===================================================== -->
+<div id="s-game-pc" class="screen">
+  <div class="pcg-frame">
+    <div class="pcg-topbar" id="pcg-topbar"></div>
+    <div class="pcg-main">
+      <div class="pcg-table" id="pcg-table"></div>
+      <div class="pcg-drawer" id="pcg-drawer"></div>
+    </div>
+    <div class="pcg-own" id="pcg-own"></div>
   </div>
 </div>
 

@@ -14,6 +14,8 @@ import {
 } from './ui-input.js';
 import type { GameState, Player, UnoCard } from '../logic/types';
 import type { TrumpCard, TrumpEffect } from '../logic/trump-logic.js';
+import { isPcUi } from './pc/ui-mode.js';
+import { renderGamePC } from './pc/table-render.js';
 
 /** 他プレイヤーのリアクション表示（Firebaseの rooms/{id}/reactions/{playerId}） */
 interface Reaction {
@@ -28,6 +30,9 @@ interface Reaction {
 // 画面切り替え
 // ----------------------------------------
 export function show(id: string): void {
+  // PC向け新UIが有効な場合、ゲーム画面は #s-game-pc を使う
+  // （従来の #s-game はモバイル用・?ui=classic 用としてそのまま残す）
+  if (id === 'game' && isPcUi()) id = 'game-pc';
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('s-' + id)!.classList.add('active');
 }
@@ -139,6 +144,14 @@ export function renderGame(room: any): void {
   // window._currentTrumpHand が古い値のまま更新されなくなっていた。
   // 常に（空配列も込みで）更新する。
   window._currentTrumpHand = g.trumpHands?.[state.myId] ?? [];
+
+  // PC向け新UIが有効な場合はそちらに描画を委譲する
+  // （window._currentGame 等のグローバル同期は上で済ませてあるので、
+  //   ui-input.ts / test-bot.ts はどちらのUIでも同じように動く）
+  if (isPcUi()) {
+    renderGamePC(room);
+    return;
+  }
 
   const players: Player[] = room.players || [];
   const reactions: Record<string, Reaction | undefined> = room.reactions || {};

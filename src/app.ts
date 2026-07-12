@@ -110,7 +110,12 @@ export function startListening(): void {
       if (room.state === 'lobby') {
         renderLobby(room);
       } else if (room.state === 'playing') {
-        if (!document.getElementById('s-game')!.classList.contains('active')) show('game');
+        // 従来UI（s-game）とPC向け新UI（s-game-pc）のどちらかがアクティブなら
+        // 画面切り替え済みとみなす（show('game') が内部でどちらを使うかを判定する）
+        const gameActive =
+          document.getElementById('s-game')!.classList.contains('active') ||
+          document.getElementById('s-game-pc')?.classList.contains('active');
+        if (!gameActive) show('game');
         renderGame(room);
       } else if (room.state === 'ended') {
         // ★バグ修正★ 条件が反転していた。以前は「s-game画面がアクティブ
