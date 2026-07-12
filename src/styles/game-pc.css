@@ -132,3 +132,213 @@
   font-size: 13px;
   padding: 24px;
 }
+
+/* ---------- 席 ---------- */
+#s-game-pc .pcg-seat {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  text-align: center;
+  z-index: 2;
+}
+
+#s-game-pc .pcg-seat.finished { opacity: 0.55; }
+
+#s-game-pc .pcg-avatar {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#s-game-pc .pcg-seat.current .pcg-avatar {
+  box-shadow: 0 0 0 3px #ffd166, 0 0 14px 2px rgba(255, 209, 102, 0.6);
+}
+
+#s-game-pc .pcg-crown {
+  position: absolute;
+  top: -12px;
+  right: -8px;
+  font-size: 15px;
+}
+
+#s-game-pc .pcg-seat-name {
+  font-size: 12px;
+  color: #fff;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#s-game-pc .pcg-seat.current .pcg-seat-name {
+  color: #ffd166;
+  font-weight: 600;
+}
+
+#s-game-pc .pcg-seat-counts {
+  display: block;
+  font-size: 11px;
+  color: #cfe0d6;
+}
+
+#s-game-pc .pcg-uno-dot { color: #e74c3c; }
+
+#s-game-pc .pcg-said-uno {
+  color: #f09595;
+  font-weight: 600;
+}
+
+#s-game-pc .pcg-seat-phase {
+  display: inline-block;
+  font-size: 11px;
+  background: #ffd166;
+  color: #412402;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 1px 8px;
+  margin-top: 2px;
+}
+
+#s-game-pc .pcg-seat-chip {
+  display: inline-block;
+  font-size: 10px;
+  border-radius: 8px;
+  padding: 1px 7px;
+  margin-top: 2px;
+}
+
+#s-game-pc .pcg-chip-rank { background: #5f5e5a; color: #f1efe8; }
+#s-game-pc .pcg-chip-auto { background: #afa9ec; color: #26215c; }
+#s-game-pc .pcg-chip-left { background: #5f5e5a; color: #f1efe8; }
+
+/* ---------- 中央の場 ---------- */
+#s-game-pc .pcg-field {
+  position: absolute;
+  left: 50%;
+  top: 62%;
+  transform: translate(-50%, -50%);
+  width: 330px;
+  z-index: 1;
+}
+
+#s-game-pc .pcg-field-zone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #3a5c4c;
+  border-radius: 10px;
+  padding: 8px 14px;
+  opacity: 0.6;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+#s-game-pc .pcg-field-zone + .pcg-field-zone { margin-top: 7px; }
+
+#s-game-pc .pcg-field-zone.active {
+  border: 2px solid #ffd166;
+  background: rgba(255, 209, 102, 0.08);
+  opacity: 1;
+}
+
+#s-game-pc .pcg-field-label {
+  font-size: 12px;
+  color: #cfe0d6;
+  font-weight: 600;
+  width: 58px;
+  flex-shrink: 0;
+}
+
+#s-game-pc .pcg-field-zone.active .pcg-field-label { color: #ffd166; }
+
+#s-game-pc .pcg-field-cards {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 52px;
+}
+
+#s-game-pc .pcg-field-empty {
+  font-size: 11px;
+  color: #8fa89b;
+  text-align: center;
+  line-height: 1.4;
+}
+
+#s-game-pc .pcg-field-meta {
+  font-size: 11px;
+  color: #cfe0d6;
+}
+
+#s-game-pc .pcg-deck {
+  width: 30px;
+  height: 44px;
+  background: #31435c;
+  border: 1px solid #1f2c3d;
+  border-radius: 4px;
+  margin-left: auto;
+  position: relative;
+  flex-shrink: 0;
+}
+
+#s-game-pc .pcg-penalty {
+  position: absolute;
+  top: -10px;
+  right: -14px;
+  background: #e24b4a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+/* ---------- カード ---------- */
+#s-game-pc .pcg-tcard {
+  width: 36px;
+  height: 50px;
+  background: #fff;
+  border: 1px solid #999;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a2e;
+  flex-shrink: 0;
+}
+
+#s-game-pc .pcg-tcard.red { color: #c0392b; }
+#s-game-pc .pcg-tcard.joker { background: #f5e9d0; }
+
+#s-game-pc .pcg-tc-s { font-size: 13px; line-height: 1; }
+#s-game-pc .pcg-tc-v { font-size: 15px; font-weight: 600; line-height: 1.2; }
+
+#s-game-pc .pcg-ucard {
+  width: 36px;
+  height: 50px;
+  border-radius: 4px;
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+#s-game-pc .pcg-uc-red    { background: #d64541; }
+#s-game-pc .pcg-uc-blue   { background: #2e86de; }
+#s-game-pc .pcg-uc-green  { background: #27ae60; }
+#s-game-pc .pcg-uc-yellow { background: #e5b800; }
+#s-game-pc .pcg-uc-w      { background: #1a1a2e; }

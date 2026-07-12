@@ -10,6 +10,9 @@
 // ========================================
 import { state } from '../../state.js';
 import type { Player } from '../../logic/types';
+import { othersInTurnOrder, seatPositions } from './seat-layout.js';
+import { renderSeatHtml } from './seat-render.js';
+import { renderFieldHtml } from './field-render.js';
 
 declare global {
   interface Window {
@@ -78,14 +81,31 @@ function _renderTopbar(room: any, players: Player[], curId: string | undefined, 
 }
 
 // ----------------------------------------
-// テーブル（席＋場） … Step2 で実装
+// テーブル（席＋場）
 // ----------------------------------------
 function _renderTable(room: any): void {
   const el = document.getElementById('pcg-table');
   if (!el) return;
+  const g = room.game;
+  const players: Player[] = room.players || [];
+  const autoPlayers: Record<string, boolean> = room.autoPlayers || {};
+  const curId = g.order?.[g.ci];
+
+  // 自分以外を手番順（自分基準に回転）で上弧に配置する
+  const others = othersInTurnOrder(
+    Array.isArray(g.order) ? g.order : [],
+    players.map(p => p.id),
+    state.myId
+  );
+  const positions = seatPositions(others);
+  const seatsHtml = positions
+    .map(pos => renderSeatHtml(pos, { g, players, autoPlayers, curId }))
+    .join('');
+
   el.innerHTML = `
     <div class="pcg-table-felt"></div>
-    <div class="pcg-placeholder">テーブル（席・場）は Step2 で実装</div>
+    ${seatsHtml}
+    ${renderFieldHtml(g, players)}
   `;
 }
 
