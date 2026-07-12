@@ -40,8 +40,11 @@ export function shouldAutoAdvance(room: any, myId: string): 'trump' | 'uno' | nu
   if (!g || room.state !== 'playing') return null;
   if (g.order?.[g.ci] !== myId) return null;
   if ((g.rankings || []).some((r: { id: string }) => r.id === myId)) return null;
-  // 自動プレイON中はボットに任せる（二重発火防止）
+  // 自動プレイON中はボットに任せる（二重発火防止）。
+  // autoPlayers はFirebase経由で同期が一拍遅れるため、
+  // ローカルの即時フラグ（window._botActive）も併せて見る
   if (room.autoPlayers && room.autoPlayers[myId]) return null;
+  if (typeof window !== 'undefined' && window._botActive) return null;
 
   const phase = g.phase || 'trump';
   if (phase === 'trump') {

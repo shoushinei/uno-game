@@ -107,6 +107,12 @@ export function startListening(): void {
       // room.game?.trumpHands が無い場合も含めて、毎回必ず（空配列も込みで）
       // 更新する。
       window._currentTrumpHand = room.game?.trumpHands?.[state.myId] ?? [];
+      // ★バグ修正（1人だけ同期が止まって古いターン表示のまま固まる）★
+      // 描画中の例外が Firebase リスナーのコールバックまで波及すると、
+      // 以降の同期通知が処理されなくなり、そのクライアントだけゲームが
+      // 進まなくなる。描画エラーはここで握りつぶしてログに残し、
+      // 同期自体は必ず生かし続ける。
+      try {
       if (room.state === 'lobby') {
         renderLobby(room);
       } else if (room.state === 'playing') {
@@ -132,6 +138,10 @@ export function startListening(): void {
           show('result');
         }
         renderResult(room);
+      }
+      } catch (e: any) {
+        console.error('画面描画でエラーが発生しました（同期は継続します）:', e);
+        dbg('描画エラー: ' + e.message, true);
       }
     },
     (err) => { dbg('同期エラー: ' + err.message, true); logSnapshot('同期エラー: ' + err.message); } // ★ログ追加

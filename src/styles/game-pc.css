@@ -23,12 +23,38 @@
 }
 
 /* ---------- ステータスバー ---------- */
+/* 16:9の横長画面を前提に1行固定。折り返しはさせない */
 #s-game-pc .pcg-topbar {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 16px;
   background: rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#s-game-pc .pcg-topbar > * { flex-shrink: 0; }
+
+/* 左＝再描画される情報部 / 右＝静的な操作ボタン（再構築されない） */
+#s-game-pc .pcg-topbar-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#s-game-pc .pcg-topbar-info > * { flex-shrink: 0; }
+
+#s-game-pc .pcg-topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-shrink: 0;
 }
 
@@ -43,6 +69,9 @@
   background: rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 3px 12px;
+  flex-shrink: 1 !important; /* 幅が足りないときは手番表示だけ省略記号で縮む */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #s-game-pc .pcg-turn-me {
@@ -249,6 +278,9 @@
   text-align: center;
   z-index: 2;
 }
+
+/* ★hover被り修正★ hover中の席は他の席・場・バッジ類より必ず手前に出す */
+#s-game-pc .pcg-seat:hover { z-index: 40; }
 
 #s-game-pc .pcg-seat.finished { opacity: 0.55; }
 
@@ -648,9 +680,10 @@
   border: 1px solid #3a5c4c;
   border-radius: 8px;
   padding: 8px 10px;
-  z-index: 10;
+  z-index: 50; /* hover中の席(z-index:40)よりさらに手前 */
   text-align: left;
   cursor: default;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
 #s-game-pc .pcg-seat:hover .pcg-hovercard { display: block; }

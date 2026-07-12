@@ -245,7 +245,16 @@
      ===================================================== -->
 <div id="s-game-pc" class="screen">
   <div class="pcg-frame">
-    <div class="pcg-topbar" id="pcg-topbar"></div>
+    <!-- ステータスバー。左の情報部だけ再描画され、右の操作ボタンは
+         静的DOMのまま（再構築するとbot対戦中の頻繁な同期でクリックが
+         成立しなくなるため） -->
+    <div class="pcg-topbar">
+      <div class="pcg-topbar-info" id="pcg-topbar-info"></div>
+      <div class="pcg-topbar-controls">
+        <button class="pcg-btn" id="pcg-auto-btn" onclick="toggleMonkeyPlay()">🐒 自動プレイ</button>
+        <button class="pcg-btn" onclick="leaveGame()">🚪 退室</button>
+      </div>
+    </div>
     <div class="pcg-main">
       <div class="pcg-table" id="pcg-table"></div>
       <div class="pcg-drawer" id="pcg-drawer"></div>

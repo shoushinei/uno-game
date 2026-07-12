@@ -55,6 +55,26 @@ let lastRoom: any = null;
 /** ログ蓄積のリセット判定用（別ルームに入ったら蓄積を捨てる） */
 let lastRoomIdForLog: string | null = null;
 
+/**
+ * ゾーンごとの前回HTMLキャッシュ（差分描画用）。
+ *
+ * ★クリック不能バグの修正★
+ * Firebase同期のたびに全ゾーンを innerHTML で作り直すと、bot対戦中
+ * （毎秒更新）はボタンが mousedown と mouseup の間に破壊されて
+ * クリックが成立しない。「HTMLが前回と同じならDOMに触らない」ことで、
+ * 変化のないゾーン（大抵はステータスバーや操作バー）のボタンを保護する。
+ */
+const zoneCache: Record<string, string> = {};
+
+function setZone(id: string, html: string): boolean {
+  if (zoneCache[id] === html) return false;
+  const el = document.getElementById(id);
+  if (!el) return false;
+  el.innerHTML = html;
+  zoneCache[id] = html;
+  return true;
+}
+
 /** 操作バーの一時モード（色選択中）。前提が崩れたら描画時に自動クリアされる */
 let barOverride: 'wild-color' | 'parent-color' | null = null;
 
@@ -66,6 +86,18 @@ export function rerenderPc(): void {
 }
 
 export function renderGamePC(room: any): void {
+  // ★重要★ この関数は Firebase リスナーのコールバックから呼ばれる。
+  // 描画中の例外がリスナーまで波及すると、そのクライアントだけ同期が
+  // 止まり「1人だけ古いターン表示のまま固まる」事故になるため、
+  // 例外は必ずここで握りつぶしてログに出す。
+  try {
+    _renderGamePCInner(room);
+  } catch (e) {
+    console.error('renderGamePC で描画エラー（同期は継続します）:', e);
+  }
+}
+
+function _renderGamePCInner(room: any): void {
   lastRoom = room;
   const g = room.game;
   if (!g) return;
@@ -103,18 +135,18 @@ function _renderDrawer(room: any): void {
   const el = document.getElementById('pcg-drawer');
   if (!el) return;
   el.classList.toggle('open', isDrawerOpen());
-  el.innerHTML = renderDrawerHtml(room.game);
-  // ログは常に最新（末尾）までスクロールしておく
-  const list = document.getElementById('pcg-log-list');
-  if (list) list.scrollTop = list.scrollHeight;
+  const changed = setZone('pcg-drawer', renderDrawerHtml(room.game));
+  // 内容が更新されたときだけ、ログを最新（末尾）までスクロールする
+  if (changed) {
+    const list = document.getElementById('pcg-log-list');
+    if (list) list.scrollTop = list.scrollHeight;
+  }
 }
 
 // ----------------------------------------
 // ステータスバー
 // ----------------------------------------
 function _renderTopbar(room: any, players: Player[], curId: string | undefined, isMyTurn: boolean, phase: string): void {
-  const el = document.getElementById('pcg-topbar');
-  if (!el) return;
   const g = room.game;
 
   const phaseLabel = phase === 'trump' ? '①🃏 トランプ' : '②🎴 UNO';
@@ -131,27 +163,31 @@ function _renderTopbar(room: any, players: Player[], curId: string | undefined, 
   }
 
   const dirLabel = g.dir === 1 ? '⟳ 時計回り' : '⟲ 反時計回り';
-  const isAutoOn = !!(room.autoPlayers && room.autoPlayers[state.myId]);
 
-  el.innerHTML = `
+  // 情報部だけを再描画する（右端の操作ボタンは index.html の静的DOM）
+  setZone('pcg-topbar-info', `
     <span class="pcg-room">ルーム ${state.roomId || '----'}</span>
     ${turnHtml}
     ${badges.join('')}
     <span class="pcg-spacer"></span>
     <span class="pcg-dir">${dirLabel}</span>
-    <button class="pcg-btn ${isAutoOn ? 'pcg-btn-auto-on' : ''}" onclick="toggleMonkeyPlay()">
-      ${isAutoOn ? '🐒 自動プレイ中' : '🐒 自動プレイ'}
-    </button>
-    <button class="pcg-btn" onclick="leaveGame()">🚪 退室</button>
-  `;
+  `);
+
+  // ★クリック不能バグの修正★ 自動プレイボタンは innerHTML で作り直さず、
+  // 静的DOMのラベル・クラスだけを差分更新する（クリック中に破壊されないように）
+  const isAutoOn = !!(room.autoPlayers && room.autoPlayers[state.myId]);
+  const autoBtn = document.getElementById('pcg-auto-btn');
+  if (autoBtn) {
+    const label = isAutoOn ? '🐒 自動プレイ中' : '🐒 自動プレイ';
+    if (autoBtn.textContent !== label) autoBtn.textContent = label;
+    autoBtn.classList.toggle('pcg-btn-auto-on', isAutoOn);
+  }
 }
 
 // ----------------------------------------
 // テーブル（席＋場）
 // ----------------------------------------
 function _renderTable(room: any): void {
-  const el = document.getElementById('pcg-table');
-  if (!el) return;
   const g = room.game;
   const players: Player[] = room.players || [];
   const autoPlayers: Record<string, boolean> = room.autoPlayers || {};
@@ -168,19 +204,17 @@ function _renderTable(room: any): void {
     .map(pos => renderSeatHtml(pos, { g, players, autoPlayers, curId, actionLog: room.actionLog }))
     .join('');
 
-  el.innerHTML = `
+  setZone('pcg-table', `
     <div class="pcg-table-felt"></div>
     ${seatsHtml}
     ${renderFieldHtml(g, players)}
-  `;
+  `);
 }
 
 // ----------------------------------------
 // 自分のエリア（手札＋操作バー）
 // ----------------------------------------
 function _renderOwn(room: any, canActTrump: boolean, canActUno: boolean, iFinished: boolean): void {
-  const el = document.getElementById('pcg-own');
-  if (!el) return;
   const g = room.game;
   const players: Player[] = room.players || [];
 
@@ -199,10 +233,10 @@ function _renderOwn(room: any, canActTrump: boolean, canActUno: boolean, iFinish
   // 手動スキップボタンにフォールバックする
   const autoAdvancing = maybeAutoAdvance(room, rerenderPc);
 
-  el.innerHTML = `
+  setZone('pcg-own', `
     ${_handRowsHtml(g, canActTrump, canActUno, iFinished)}
     ${renderActionBarHtml(bar, reactionOpen, autoAdvancing)}
-  `;
+  `);
 }
 
 function _handRowsHtml(g: any, canActTrump: boolean, canActUno: boolean, iFinished: boolean): string {

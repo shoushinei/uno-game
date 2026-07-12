@@ -76,6 +76,13 @@ declare global {
     _currentGame: FusionGameState | null;
     _currentTrumpHand: TrumpCard[];
     _roomState: string | null;
+    /**
+     * ボットがこのクライアントで動作中かの即時フラグ。
+     * rooms/{id}/autoPlayers の同期を待たずに参照できるため、
+     * PC UIのフェイズ自動進行（auto-advance.ts）がボットと
+     * 二重にスキップを発火するのを防ぐのに使う。
+     */
+    _botActive?: boolean;
     toggleTestBot: () => void;
     toggleMonkeyPlay: () => void;
   }
@@ -297,6 +304,7 @@ window.toggleTestBot = (): void => {
     lastSignature = '';
     lastChangeAt = 0;
     isProcessing = false;
+    window._botActive = false; // 即時フラグ（auto-advance の二重発火防止用）
     if (btn) { btn.textContent = '🐒 自動ON'; btn.style.background = '#ff9800'; }
     log('停止しました');
     // ★機能追加★ 他プレイヤーにも自動プレイOFFを知らせる
@@ -305,6 +313,7 @@ window.toggleTestBot = (): void => {
   }
   if (btn) { btn.textContent = '🐒 自動OFF'; btn.style.background = '#e74c3c'; }
   log('開始しました（出せるカードがあれば必ず出す greedy AI）');
+  window._botActive = true; // 即時フラグ（auto-advance の二重発火防止用）
   botTimer = setInterval(step, 800);
   // ★機能追加★ 他プレイヤーにも自動プレイONを知らせる
   // （rooms/{roomId}/autoPlayers/{myId} に書き込み、ui-render.js の
