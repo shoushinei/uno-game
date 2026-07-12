@@ -342,3 +342,156 @@
 #s-game-pc .pcg-uc-green  { background: #27ae60; }
 #s-game-pc .pcg-uc-yellow { background: #e5b800; }
 #s-game-pc .pcg-uc-w      { background: #1a1a2e; }
+
+/* ---------- 自分の手札 ---------- */
+#s-game-pc .pcg-hand-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  opacity: 0.55;
+  padding: 3px 0;
+}
+
+#s-game-pc .pcg-hand-row.active { opacity: 1; }
+
+#s-game-pc .pcg-hand-label {
+  font-size: 12px;
+  color: #cfe0d6;
+  width: 92px;
+  flex-shrink: 0;
+}
+
+#s-game-pc .pcg-hand-row.active .pcg-hand-label {
+  color: #ffd166;
+  font-weight: 600;
+}
+
+#s-game-pc .pcg-hand-cards {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  min-height: 54px;
+}
+
+#s-game-pc .pcg-hand-card { cursor: pointer; transition: transform 0.12s ease; }
+
+#s-game-pc .pcg-hand-card:not(.off):hover { transform: translateY(-4px); }
+
+#s-game-pc .pcg-hand-card.off {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#s-game-pc .pcg-hand-card.selected {
+  transform: translateY(-7px);
+  box-shadow: 0 0 0 2px #ffd166;
+}
+
+#s-game-pc .pcg-hand-empty {
+  font-size: 12px;
+  color: #8fa89b;
+}
+
+#s-game-pc .pcg-hand-done {
+  text-align: center;
+  font-size: 14px;
+  color: #cfe0d6;
+  padding: 16px 0;
+}
+
+/* ---------- 操作バー ---------- */
+#s-game-pc .pcg-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+  min-height: 38px;
+}
+
+#s-game-pc .pcg-bar .pcg-btn {
+  font-size: 13px;
+  padding: 7px 20px;
+}
+
+#s-game-pc .pcg-btn-primary {
+  background: #d64541;
+  border-color: #d64541;
+  color: #fff;
+  font-weight: 600;
+}
+
+#s-game-pc .pcg-btn-primary:hover:not(:disabled) { background: #e05955; }
+
+#s-game-pc .pcg-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#s-game-pc .pcg-btn-declare {
+  background: #e24b4a;
+  border-color: #e24b4a;
+  color: #fff;
+  font-weight: 600;
+  animation: pcg-declare-pulse 1s ease-in-out infinite;
+}
+
+@keyframes pcg-declare-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 149, 149, 0.7); }
+  50%      { box-shadow: 0 0 0 6px rgba(240, 149, 149, 0); }
+}
+
+#s-game-pc .pcg-btn-parent {
+  background: #ffd166;
+  border-color: #ffd166;
+  color: #412402;
+  font-weight: 600;
+}
+
+#s-game-pc .pcg-bar-note {
+  font-size: 13px;
+  color: #cfe0d6;
+}
+
+#s-game-pc .pcg-note-parent {
+  color: #ffd166;
+  font-weight: 600;
+}
+
+#s-game-pc .pcg-bar-sep { color: #3a5c4c; }
+
+#s-game-pc .pcg-color-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+#s-game-pc .pcg-color-btn:hover { transform: scale(1.15); }
+
+#s-game-pc .pcg-cb-red    { background: #d64541; }
+#s-game-pc .pcg-cb-blue   { background: #2e86de; }
+#s-game-pc .pcg-cb-green  { background: #27ae60; }
+#s-game-pc .pcg-cb-yellow { background: #e5b800; }
+
+/* ---------- 自己リアクションのストリップ ---------- */
+#s-game-pc .pcg-reaction-strip {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+#s-game-pc .pcg-react-btn {
+  font-size: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid #4a6b5c;
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+#s-game-pc .pcg-react-btn:hover { background: rgba(255, 255, 255, 0.18); }
