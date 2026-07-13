@@ -82,6 +82,16 @@ export function drawUnoCards(g: GameState, playerId: string, count: number): voi
   }
 }
 
+/**
+ * UNO手札がまだ残っているアクティブプレイヤー（上がっていない人）の数を返す。
+ *
+ * ★ルール追加（UNO残り1人）★の判定に使う。UIの状態バッジ表示にも使うため export する。
+ */
+export function countUnoActivePlayers(g: GameState): number {
+  const order = Array.isArray(g.order) ? g.order : [];
+  return order.filter(id => ((g.unoHands && g.unoHands[id]) || []).length > 0).length;
+}
+
 export interface UnoPlayResult {
   g: GameState;
   logMsg: string;
@@ -106,6 +116,14 @@ export function applyUnoPlay(
 
   const topUno = g.unoDiscardPile[g.unoDiscardPile.length - 1]!;
   if (!unoCanPlay(card, topUno, g.unoCurrentColor, g.unoPenaltyAccum)) return null;
+
+  // ★ルール追加（UNO残り1人）★
+  // UNO手札を持っているのが自分1人だけの場合、+2/+4のドロー効果は発動しない。
+  // （引かせる相手がいないため、累積ペナルティが巡り巡って自分に返ってきて
+  //   いつまでも上がれなくなるのを防ぐ。カード自体は通常どおり出せて、
+  //   +4の色変更などドロー以外の効果は有効のまま）
+  // 手札からカードを取り除く「前」に判定する（自分はまだ1枚以上持っている状態）。
+  const unoSoloNoDraw = countUnoActivePlayers(g) === 1;
 
   myHand.splice(cardIdx, 1);
   g.unoHands[playerId] = myHand;
@@ -138,11 +156,19 @@ export function applyUnoPlay(
     skipNext = true;
     logExtra += ' スキップ！';
   } else if (card.t === 'd2') {
-    g.unoPenaltyAccum = (g.unoPenaltyAccum || 0) + 2;
-    logExtra += ` +2（累積${g.unoPenaltyAccum}枚）`;
+    if (unoSoloNoDraw) {
+      logExtra += ' +2（UNO残り1人のためドロー効果なし）';
+    } else {
+      g.unoPenaltyAccum = (g.unoPenaltyAccum || 0) + 2;
+      logExtra += ` +2（累積${g.unoPenaltyAccum}枚）`;
+    }
   } else if (card.t === 'w4') {
-    g.unoPenaltyAccum = (g.unoPenaltyAccum || 0) + 4;
-    logExtra += ` +4（累積${g.unoPenaltyAccum}枚）`;
+    if (unoSoloNoDraw) {
+      logExtra += ` +4（UNO残り1人のためドロー効果なし）${chosenColor ? ` ${UNO_COLOR_NAMES[chosenColor]}色に変更` : ''}`;
+    } else {
+      g.unoPenaltyAccum = (g.unoPenaltyAccum || 0) + 4;
+      logExtra += ` +4（累積${g.unoPenaltyAccum}枚）`;
+    }
   } else if (card.t === 'w') {
     logExtra += ` ワイルド！${UNO_COLOR_NAMES[chosenColor ?? '']}色に変更`;
   }

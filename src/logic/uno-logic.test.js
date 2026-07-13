@@ -307,15 +307,17 @@ describe('applyUnoPlay', () => {
   });
 
   // ---- +2 ----
+  // ※「UNO残り1人ルール」の追加により、+2/+4のドロー効果をテストする場合は
+  //   自分以外にもUNO手札を持つプレイヤーがいる状況を作る必要がある
   it('[正常] +2 を出すと unoPenaltyAccum が 2 増える', () => {
-    const g = makeGame({ unoHands: { p1: [RED_D2], p2: [], p3: [] }, unoDiscardPile: [RED5], unoCurrentColor: 'red' });
+    const g = makeGame({ unoHands: { p1: [RED_D2], p2: [BLUE3], p3: [] }, unoDiscardPile: [RED5], unoCurrentColor: 'red' });
     applyUnoPlay(g, 'p1', 0, null, 'Alice');
     expect(g.unoPenaltyAccum).toBe(2);
   });
 
   it('[正常] +2 を連続で出すと累積される', () => {
     const g = makeGame({
-      unoHands: { p1: [RED_D2], p2: [BLUE_D2], p3: [] },
+      unoHands: { p1: [RED_D2], p2: [BLUE_D2], p3: [RED3] },
       unoDiscardPile: [RED5],
       unoCurrentColor: 'red',
       ci: 0,
@@ -328,7 +330,7 @@ describe('applyUnoPlay', () => {
   });
 
   it('[正常] +2 を出すと penaltyAccum はリセットしない', () => {
-    const g = makeGame({ unoHands: { p1: [RED_D2], p2: [], p3: [] }, unoDiscardPile: [RED5], unoCurrentColor: 'red', unoPenaltyAccum: 0 });
+    const g = makeGame({ unoHands: { p1: [RED_D2], p2: [BLUE3], p3: [] }, unoDiscardPile: [RED5], unoCurrentColor: 'red', unoPenaltyAccum: 0 });
     applyUnoPlay(g, 'p1', 0, null, 'Alice');
     expect(g.unoPenaltyAccum).toBe(2); // 0 ではなく 2 になっている
   });
@@ -351,7 +353,7 @@ describe('applyUnoPlay', () => {
   });
 
   it('[正常] ワイルド+4 を出すと unoPenaltyAccum が 4 増える', () => {
-    const g = makeGame({ unoHands: { p1: [WILD4], p2: [], p3: [] }, unoCurrentColor: 'red' });
+    const g = makeGame({ unoHands: { p1: [WILD4], p2: [BLUE3], p3: [] }, unoCurrentColor: 'red' });
     applyUnoPlay(g, 'p1', 0, 'green', 'Alice');
     expect(g.unoPenaltyAccum).toBe(4);
     expect(g.unoCurrentColor).toBe('green');
@@ -453,6 +455,66 @@ describe('applyUnoPlay', () => {
       unoPenaltyAccum: 2,
     });
     expect(applyUnoPlay(g, 'p1', 0, null, 'Alice')).toBeNull();
+  });
+});
+
+// ========================================
+// ★ルール追加★ UNO残り1人のときの +2/+4 ドロー効果無効化
+// ========================================
+import { countUnoActivePlayers } from './uno-logic.js';
+
+describe('UNO残り1人ルール（+2/+4のドロー効果無効化）', () => {
+  const RED_D2_  = { c: 'red', t: 'd2', v: '+2' };
+  const WILD4_   = { c: 'w',   t: 'w4', v: '+4' };
+
+  it('countUnoActivePlayers はUNO手札が残っているアクティブプレイヤー数を返す', () => {
+    const g = makeGame({
+      unoHands: { p1: [RED5], p2: [], p3: [BLUE3] },
+    });
+    expect(countUnoActivePlayers(g)).toBe(2);
+  });
+
+  it('上がり済み（orderにいない）プレイヤーは数えない', () => {
+    const g = makeGame({
+      order: ['p1', 'p2'],
+      unoHands: { p1: [RED5], p2: [], p3: [BLUE3] }, // p3はorder外
+    });
+    expect(countUnoActivePlayers(g)).toBe(1);
+  });
+
+  it('[新ルール] UNO残り1人が+2を出してもペナルティが累積しない', () => {
+    const g = makeGame({
+      trumpHands: { p1: [{ s: '♠', v: '5', id: '♠5' }], p2: [{ s: '♣', v: '3', id: '♣3' }], p3: [] },
+      unoHands: { p1: [RED_D2_, RED3], p2: [], p3: [] }, // UNOを持つのはp1だけ
+      unoDiscardPile: [RED5],
+      unoCurrentColor: 'red',
+    });
+    const result = applyUnoPlay(g, 'p1', 0, null, 'Alice');
+    expect(result).not.toBeNull();
+    expect(g.unoPenaltyAccum).toBe(0); // 累積しない
+    expect(result.logMsg).toContain('ドロー効果なし');
+  });
+
+  it('[新ルール] UNO残り1人が+4を出してもペナルティは累積せず、色変更は有効', () => {
+    const g = makeGame({
+      trumpHands: { p1: [{ s: '♠', v: '5', id: '♠5' }], p2: [], p3: [] },
+      unoHands: { p1: [WILD4_, RED3], p2: [], p3: [] },
+      unoCurrentColor: 'red',
+    });
+    const result = applyUnoPlay(g, 'p1', 0, 'blue', 'Alice');
+    expect(result).not.toBeNull();
+    expect(g.unoPenaltyAccum).toBe(0);      // ドロー効果なし
+    expect(g.unoCurrentColor).toBe('blue'); // 色変更は有効
+  });
+
+  it('[従来通り] UNOを持つ人が2人以上いれば+2は累積する', () => {
+    const g = makeGame({
+      unoHands: { p1: [RED_D2_, RED3], p2: [BLUE3], p3: [] },
+      unoDiscardPile: [RED5],
+      unoCurrentColor: 'red',
+    });
+    applyUnoPlay(g, 'p1', 0, null, 'Alice');
+    expect(g.unoPenaltyAccum).toBe(2);
   });
 });
 
