@@ -8,6 +8,8 @@
 //   クライアント側で受信したログを蓄積して長い履歴を表示する
 // ========================================
 
+import { countUnoActivePlayers } from '../../logic/uno-logic.js';
+
 const LS_OPEN_KEY = 'pcgDrawerOpen';
 const LS_TAB_KEY = 'pcgDrawerTab';
 const MAX_LOCAL_LOG = 200;
@@ -120,6 +122,9 @@ function _rulesTabHtml(g: any): string {
   if (Array.isArray(g?.trumpSuitLock) && g.trumpSuitLock.length > 0) {
     active.push(`<div class="pcg-rule-active">⛓ <b>${g.trumpSuitLock.join('')}しばり中</b> — 場が流れるまで同じマークしか出せません</div>`);
   }
+  if (g && countUnoActivePlayers(g) === 1) {
+    active.push('<div class="pcg-rule-active">🎴 <b>UNO残り1人</b> — 引かせる相手がいないため、+2/+4を出してもドロー効果は発動しません（色変更などは有効）</div>');
+  }
   const activeHtml = active.length > 0
     ? active.join('')
     : '<div class="pcg-rule-none">現在発動中の特殊状態はありません</div>';
@@ -139,6 +144,7 @@ function _rulesTabHtml(g: any): string {
       <li>同じ色 か 同じ数字・記号を1枚。出せなければ1枚引く</li>
       <li>スキップ・リバースは<b>トランプの手番にも波及</b></li>
       <li>+2/+4は同種でのみ返せて累積。返せないとまとめて引く</li>
+      <li>UNOの手札を持つのが<b>残り1人</b>になったら、+2/+4のドロー効果は発動しない</li>
       <li>残り2枚から1枚出すとき、出す前に<b>📢UNO宣言</b>（忘れると+2枚）</li>
     </ul>
     <div class="pcg-rule-sec">👑 親の権限</div>

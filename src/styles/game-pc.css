@@ -14,12 +14,16 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  max-width: 1600px;
+  /* ★16:9対応★ 親の .screen が align-items:center のため、width を
+     明示しないとフレームが内容幅に収縮して縦長になってしまう */
+  width: 100%;
+  max-width: 1920px;
   margin: 0 auto;
   background: #152e23;
   border-left: 6px solid #5d4027;
   border-right: 6px solid #5d4027;
   box-sizing: border-box;
+  position: relative; /* 演出レイヤー（pcg-effect-layer）の基準 */
 }
 
 /* ---------- ステータスバー ---------- */
@@ -89,6 +93,7 @@
 #s-game-pc .pcg-badge-rev   { background: #fac775; color: #412402; }
 #s-game-pc .pcg-badge-jback { background: #cecbf6; color: #26215c; }
 #s-game-pc .pcg-badge-lock  { background: #b5d4f4; color: #042c53; }
+#s-game-pc .pcg-badge-solo  { background: #f4c0d1; color: #4b1528; }
 
 #s-game-pc .pcg-spacer { flex: 1; }
 
@@ -133,8 +138,8 @@
   left: 50%;
   top: 55%;
   transform: translate(-50%, -50%);
-  width: 82%;
-  height: 72%;
+  width: 90%;
+  height: 76%;
   border-radius: 50%;
   background: radial-gradient(ellipse at center, #2a5a45 0%, #1f4736 70%);
   border: 4px solid #0f2a20;
@@ -369,9 +374,9 @@
 #s-game-pc .pcg-field {
   position: absolute;
   left: 50%;
-  top: 62%;
+  top: 60%;
   transform: translate(-50%, -50%);
-  width: 330px;
+  width: 400px;
   z-index: 1;
 }
 
@@ -505,7 +510,11 @@
 #s-game-pc .pcg-uc-blue   { background: #2e86de; }
 #s-game-pc .pcg-uc-green  { background: #27ae60; }
 #s-game-pc .pcg-uc-yellow { background: #e5b800; }
-#s-game-pc .pcg-uc-w      { background: #1a1a2e; }
+/* ワイルドは従来UIと同じ4色ストライプ（見分けやすさ優先） */
+#s-game-pc .pcg-uc-w {
+  background: linear-gradient(135deg, #e74c3c 25%, #2980b9 25%, #2980b9 50%, #27ae60 50%, #27ae60 75%, #f39c12 75%);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
 
 /* ---------- 自分の手札 ---------- */
 #s-game-pc .pcg-hand-row {
@@ -736,4 +745,61 @@
   border-radius: 3px;
   border-width: 1px;
   font-size: 10px;
+}
+
+/* ---------- 演出レイヤー ---------- */
+#s-game-pc .pcg-effect-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+#s-game-pc .pcg-effect-parent {
+  text-align: center;
+  animation: pcg-effect-pop 2.4s ease forwards;
+}
+
+#s-game-pc .pcg-ep-crown {
+  font-size: 64px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+}
+
+#s-game-pc .pcg-ep-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffd166;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  margin-top: 4px;
+}
+
+#s-game-pc .pcg-ep-sub {
+  font-size: 16px;
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+#s-game-pc .pcg-ep-color {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+}
+
+@keyframes pcg-effect-pop {
+  0%   { opacity: 0; transform: scale(0.5); }
+  12%  { opacity: 1; transform: scale(1.08); }
+  18%  { transform: scale(1); }
+  80%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.02) translateY(-12px); }
 }

@@ -245,6 +245,9 @@
      ===================================================== -->
 <div id="s-game-pc" class="screen">
   <div class="pcg-frame">
+    <!-- 演出レイヤー（親の権限発動など）。ゾーン再描画の影響を受けないよう
+         静的DOMとして持ち、src/ui/pc/table-render.ts が子要素を出し入れする -->
+    <div class="pcg-effect-layer" id="pcg-effect-layer"></div>
     <!-- ステータスバー。左の情報部だけ再描画され、右の操作ボタンは
          静的DOMのまま（再構築するとbot対戦中の頻繁な同期でクリックが
          成立しなくなるため） -->
@@ -425,6 +428,7 @@
       </table>
       <p style="font-size:11.5px;color:#888;margin:2px 0 8px">
         ※ スキップ・リバースは<b>大富豪側の手番にも影響</b>します。+2/+4は<b>同種のみ</b>積み増しでき、+2と+4は混ぜて返せません。
+        また、UNOの手札を持つプレイヤーが<b>残り1人</b>になった場合、引かせる相手がいないため<b>+2/+4のドロー効果は発動しません</b>（+4の色変更などは有効）。
       </p>
 
       <p style="font-size:12.5px;background:#fdecec;border-left:3px solid #c0392b;

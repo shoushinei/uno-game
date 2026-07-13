@@ -41,6 +41,7 @@ import {
   resetDrawerLog,
 } from './drawer.js';
 import { maybeAutoAdvance } from './auto-advance.js';
+import { countUnoActivePlayers } from '../../logic/uno-logic.js';
 
 declare global {
   interface Window {
@@ -54,6 +55,14 @@ let lastRoom: any = null;
 
 /** ログ蓄積のリセット判定用（別ルームに入ったら蓄積を捨てる） */
 let lastRoomIdForLog: string | null = null;
+
+/**
+ * 演出検知用: 前回同期時点の actionLog 長。
+ * 新しく増えたエントリだけを見て演出を再生する（actionLog駆動の演出基盤）。
+ * -1 は「このルームでまだ一度も同期していない」印で、初回は演出を再生しない
+ * （途中参加・リロード時に過去の操作の演出が一気に再生されるのを防ぐ）。
+ */
+let seenActionLogLen = -1;
 
 /**
  * ゾーンごとの前回HTMLキャッシュ（差分描画用）。
@@ -115,17 +124,76 @@ function _renderGamePCInner(room: any): void {
   if (!canActTrump) resetTrumpSelection();
   if (!canActUno) resetUnoSelection();
 
-  // 別ルームに入ったらログの蓄積をリセットしてからマージする
+  // 別ルームに入ったらログの蓄積・演出の既読位置をリセットする
   if (lastRoomIdForLog !== state.roomId) {
     resetDrawerLog();
     lastRoomIdForLog = state.roomId;
+    seenActionLogLen = -1;
   }
   mergeServerLog(room.log);
+  _detectEffects(room, players);
 
   _renderTopbar(room, players, curId, isMyTurn, phase);
   _renderTable(room);
   _renderDrawer(room);
   _renderOwn(room, canActTrump, canActUno, iFinished);
+}
+
+// ----------------------------------------
+// 演出（actionLog駆動）
+//
+// 同期のたびに「前回から増えた actionLog エントリ」を調べて演出を再生する。
+// 全クライアントが同じ actionLog を受け取るため、演出も全員の画面で同期する。
+// 現在は親の権限発動のみ。今後のPhase B（カード移動等）もこの仕組みに乗せる。
+// ----------------------------------------
+const EFFECT_COLOR_LABELS: Record<string, { label: string; hex: string }> = {
+  red:    { label: '赤', hex: '#d64541' },
+  blue:   { label: '青', hex: '#2e86de' },
+  green:  { label: '緑', hex: '#27ae60' },
+  yellow: { label: '黄', hex: '#e5b800' },
+};
+
+function _detectEffects(room: any, players: Player[]): void {
+  const log: any[] = Array.isArray(room.actionLog) ? room.actionLog : [];
+  if (seenActionLogLen === -1) {
+    // 初回同期（入室直後・リロード直後）は過去分の演出を再生しない
+    seenActionLogLen = log.length;
+    return;
+  }
+  if (log.length <= seenActionLogLen) {
+    // ロビーに戻る等でログが短くなった場合は位置を合わせ直すだけ
+    seenActionLogLen = log.length;
+    return;
+  }
+  const fresh = log.slice(seenActionLogLen);
+  seenActionLogLen = log.length;
+
+  for (const entry of fresh) {
+    if (entry?.type === 'pickParentColor') {
+      const name = players.find(p => p.id === entry.playerId)?.name ?? '?';
+      const color = entry.args?.color ?? '';
+      _showParentEffect(name, color);
+    }
+  }
+}
+
+/** 親の権限発動の演出（画面中央に王冠＋色をポップ表示） */
+function _showParentEffect(playerName: string, color: string): void {
+  const layer = document.getElementById('pcg-effect-layer');
+  if (!layer) return;
+  const c = EFFECT_COLOR_LABELS[color] ?? { label: color, hex: '#fff' };
+  const el = document.createElement('div');
+  el.className = 'pcg-effect-parent';
+  el.innerHTML = `
+    <div class="pcg-ep-crown">👑</div>
+    <div class="pcg-ep-title">親の権限発動！</div>
+    <div class="pcg-ep-sub">${playerName} が色を
+      <span class="pcg-ep-color" style="background:${c.hex}"></span><b>${c.label}</b> に変更
+    </div>
+  `;
+  layer.appendChild(el);
+  // アニメーション（2.4s）終了後に取り除く
+  setTimeout(() => el.remove(), 2500);
 }
 
 // ----------------------------------------
@@ -160,6 +228,10 @@ function _renderTopbar(room: any, players: Player[], curId: string | undefined, 
   if (g.trumpElevenBack) badges.push('<span class="pcg-badge pcg-badge-jback">🔄 Jバック</span>');
   if (Array.isArray(g.trumpSuitLock) && g.trumpSuitLock.length > 0) {
     badges.push(`<span class="pcg-badge pcg-badge-lock">⛓ ${g.trumpSuitLock.join('')}しばり</span>`);
+  }
+  // ★ルール追加（UNO残り1人）★ +2/+4のドロー効果が無効になっている状態を明示
+  if (countUnoActivePlayers(g) === 1) {
+    badges.push('<span class="pcg-badge pcg-badge-solo">🎴 UNO残り1人（+2/+4無効）</span>');
   }
 
   const dirLabel = g.dir === 1 ? '⟳ 時計回り' : '⟲ 反時計回り';
