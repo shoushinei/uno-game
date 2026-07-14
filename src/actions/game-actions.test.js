@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { actionTrumpPlay } from './game-actions.js';
+import { actionTrumpPlay, actionTrumpPass } from './game-actions.js';
 import { fbGet, fbUpdate } from '../db.js';
 import { state } from '../state.js';
 
@@ -175,5 +175,83 @@ describe('game-actions.js — actionLog（リプレイ）への記録', () => {
 
     const updatedData = fbUpdate.mock.calls[0][1];
     expect('actionLog' in updatedData).toBe(false);
+  });
+});
+
+// ========================================
+// ★C1（actorId化）★ 代行実行のための actorId 引数
+// state.myId は 'p2'（Bob）にモックされている。actorId で他人（p3 Carol）を
+// 指定すると、Carol の手番として操作でき、actionLog も Carol 名義で記録される。
+// これが Phase C の「退室者をホストが代行実行する」土台になる。
+// ========================================
+describe('game-actions.js — actorId による代行実行', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function makeRoom() {
+    return {
+      players: [
+        { id: 'p2', name: 'Bob' },
+        { id: 'p3', name: 'Carol' },
+      ],
+      log: [],
+      trumpPassCount: 0,
+      state: 'playing',
+      actionLog: [],
+      game: {
+        order: ['p2', 'p3'],
+        ci: 1, // ★Carol（p3）の手番。自分（Bob=p2）ではない
+        phase: 'trump',
+        dir: 1,
+        rankings: [],
+        trumpField: [{ s: '♠', v: '5', id: '♠5' }],
+        trumpHands: {
+          p2: [{ s: '♣', v: '3', id: '♣3' }],
+          p3: [{ s: '♦', v: '9', id: '♦9' }, { s: '♥', v: 'K', id: '♥K' }],
+        },
+        unoHands: { p2: [{ t: 'b', v: '1' }], p3: [{ t: 'b', v: '7' }] },
+      },
+    };
+  }
+
+  it('actorId を省略すると自分（p2）の手番でないため弾かれる', async () => {
+    fbGet.mockResolvedValue(makeRoom());
+    fbUpdate.mockResolvedValue({ ok: true });
+    // 場は♠5・1枚なので♥Kで返せるが、手番はCarolなので自分では出せない
+    const result = await actionTrumpPass(); // 自分(p2)としてパス→手番違いでエラー
+    expect(result.error).toBeTruthy();
+    expect(fbUpdate).not.toHaveBeenCalled();
+  });
+
+  it('actorId に p3 を渡すと Carol の手番として実行でき、actionLog も p3 名義になる', async () => {
+    fbGet.mockResolvedValue(makeRoom());
+    fbUpdate.mockResolvedValue({ ok: true });
+    const result = await actionTrumpPass('p3'); // Carol を代行してパス
+    expect(result.ok).toBe(true);
+    const updated = fbUpdate.mock.calls[0][1];
+    // ログメッセージが Carol 名義
+    expect(updated.log.join(' ')).toContain('Carol');
+    // actionLog の playerId が p3
+    expect(updated.actionLog[updated.actionLog.length - 1]).toMatchObject({
+      type: 'trumpPass',
+      playerId: 'p3',
+    });
+  });
+
+  it('actorId にカードを出させる代行（actionTrumpPlay）も playerId が代行先になる', async () => {
+    fbGet.mockResolvedValue(makeRoom());
+    fbUpdate.mockResolvedValue({ ok: true });
+    // Carol の♥K（場の♠5より強い1枚）を代行で出す
+    const result = await actionTrumpPlay(['♥K'], 'p3');
+    expect(result.ok).toBe(true);
+    const updated = fbUpdate.mock.calls[0][1];
+    expect(updated.actionLog[updated.actionLog.length - 1]).toMatchObject({
+      type: 'trumpPlay',
+      playerId: 'p3',
+      args: { cardIds: ['♥K'] },
+    });
+    // Carol の手札から♥Kが消えている
+    expect(updated.game.trumpHands.p3.some(c => c.id === '♥K')).toBe(false);
   });
 });

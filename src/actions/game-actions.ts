@@ -53,9 +53,14 @@ function assertInvariants(actionName: string, g: GameState, players: Player[]): 
 
 // ----------------------------------------
 // ヘルパー：プレイヤー名取得
+// ★C1（actorId化）★ 代行実行では自分以外のプレイヤーとして操作するため、
+// 名前も actorId で引く。actorId が自分自身なら従来どおり state.myName に
+// フォールバックする（players に自分が未登録の一瞬でも名前を出すため）。
 // ----------------------------------------
-function getPlayerName(players: Player[]): string {
-  return players.find(p => p.id === state.myId)?.name ?? state.myName;
+function getPlayerName(players: Player[], actorId: string): string {
+  const found = players.find(p => p.id === actorId)?.name;
+  if (found) return found;
+  return actorId === state.myId ? state.myName : '?';
 }
 
 // ----------------------------------------
@@ -95,13 +100,13 @@ export async function actionStartGame(): Promise<ActionResult | undefined> {
 // ----------------------------------------
 // トランプ：カードを出す
 // ----------------------------------------
-export async function actionTrumpPlay(selectedCardIds: string[]): Promise<ActionResult> {
+export async function actionTrumpPlay(selectedCardIds: string[], actorId: string = state.myId): Promise<ActionResult> {
   if (!selectedCardIds.length) return { error: 'カードが選択されていません' };
 
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
-  if (!g || g.order[g.ci] !== state.myId || g.phase !== 'trump') {
+  if (!g || g.order[g.ci] !== actorId || g.phase !== 'trump') {
     return { error: '自分のターン（トランプフェイズ）ではありません' };
   }
 
@@ -110,8 +115,8 @@ export async function actionTrumpPlay(selectedCardIds: string[]): Promise<Action
     return { error: `場の枚数（${fCards.length}枚）と一致させてください` };
   }
 
-  const pname = getPlayerName(room.players);
-  const result = applyTrumpPlay(g, state.myId, selectedCardIds, pname);
+  const pname = getPlayerName(room.players, actorId);
+  const result = applyTrumpPlay(g, actorId, selectedCardIds, pname);
   if (!result) return { error: '選択したカードの組み合わせは出せません' };
 
   // TrumpGameState は GameState の実行時サブセット（実体は常に完全な融合状態）
@@ -133,7 +138,7 @@ export async function actionTrumpPlay(selectedCardIds: string[]): Promise<Action
   // 下の fbUpdate では actionLog キー自体を送らないようにする。
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('trumpPlay', state.myId, { cardIds: selectedCardIds })
+    makeActionLogEntry('trumpPlay', actorId, { cardIds: selectedCardIds })
   );
 
   assertInvariants('actionTrumpPlay', newG, room.players);
@@ -150,17 +155,17 @@ export async function actionTrumpPlay(selectedCardIds: string[]): Promise<Action
 // ----------------------------------------
 // トランプ：パス
 // ----------------------------------------
-export async function actionTrumpPass(): Promise<ActionResult> {
+export async function actionTrumpPass(actorId: string = state.myId): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
-  if (!g || g.order[g.ci] !== state.myId || g.phase !== 'trump') {
+  if (!g || g.order[g.ci] !== actorId || g.phase !== 'trump') {
     return { error: '自分のターン（トランプフェイズ）ではありません' };
   }
 
-  const pname = getPlayerName(room.players);
+  const pname = getPlayerName(room.players, actorId);
   const passCount = (room.trumpPassCount ?? 0) + 1;
-  const passRes = applyTrumpPass(g, state.myId, pname);
+  const passRes = applyTrumpPass(g, actorId, pname);
   // TrumpGameState → GameState（actionTrumpPlay と同じ理由の型合わせ）
   const newG = passRes.g as unknown as GameState;
   const logs = appendLog(room, passRes.logMsg);
@@ -172,7 +177,7 @@ export async function actionTrumpPass(): Promise<ActionResult> {
   // ★リプレイ機能で追加★
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('trumpPass', state.myId, {})
+    makeActionLogEntry('trumpPass', actorId, {})
   );
 
   assertInvariants('actionTrumpPass', newG, room.players);
@@ -209,17 +214,17 @@ export async function actionTrumpPass(): Promise<ActionResult> {
 // 3箇所すべてに反映させる必要がある（1箇所でも忘れるとリプレイが
 // その手数だけ再現できなくなる）。
 // ----------------------------------------
-export async function actionTrumpSkip(): Promise<ActionResult> {
+export async function actionTrumpSkip(actorId: string = state.myId): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
-  if (!g || g.order[g.ci] !== state.myId || g.phase !== 'trump') {
+  if (!g || g.order[g.ci] !== actorId || g.phase !== 'trump') {
     return { error: '自分のターン（トランプフェイズ）ではありません' };
   }
 
-  const pname = getPlayerName(room.players);
+  const pname = getPlayerName(room.players, actorId);
   const passCount = (room.trumpPassCount ?? 0) + 1;
-  const { logMsg, isGameOver, finished } = applyTrumpSkip(g, state.myId, pname);
+  const { logMsg, isGameOver, finished } = applyTrumpSkip(g, actorId, pname);
   const logs = appendLog(room, logMsg);
 
   // ★リプレイ機能で追加★
@@ -228,7 +233,7 @@ export async function actionTrumpSkip(): Promise<ActionResult> {
   // このオブジェクトを3つの fbUpdate すべてに共通して使い回す。
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('trumpSkip', state.myId, {})
+    makeActionLogEntry('trumpSkip', actorId, {})
   );
   const actionLogPatch = nextActionLog ? { actionLog: nextActionLog } : {};
 
@@ -284,21 +289,21 @@ export async function actionTrumpSkip(): Promise<ActionResult> {
 // 両方0枚ならその場で上がり確定させる（isGameOver対応）。ゲームが終了した
 // 場合は全員パス判定（checkAllPassed）をスキップする。
 // ----------------------------------------
-export async function actionUnoSkip(): Promise<ActionResult> {
+export async function actionUnoSkip(actorId: string = state.myId): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
-  if (!g || g.order[g.ci] !== state.myId || g.phase !== 'uno') {
+  if (!g || g.order[g.ci] !== actorId || g.phase !== 'uno') {
     return { error: '自分のターン（UNOフェイズ）ではありません' };
   }
-  const myUno = (g.unoHands && g.unoHands[state.myId]) || [];
+  const myUno = (g.unoHands && g.unoHands[actorId]) || [];
   if (myUno.length > 0) {
     return { error: 'UNO手札が残っているためスキップできません' };
   }
 
-  const pname = getPlayerName(room.players);
+  const pname = getPlayerName(room.players, actorId);
   const currentPassCount = room.trumpPassCount ?? 0;
-  const { logMsg, isGameOver, finished } = applyUnoSkip(g, state.myId, pname);
+  const { logMsg, isGameOver, finished } = applyUnoSkip(g, actorId, pname);
   const logs = appendLog(room, logMsg);
 
   if (isGameOver) resolveRankingNames(g.rankings, room.players);
@@ -319,7 +324,7 @@ export async function actionUnoSkip(): Promise<ActionResult> {
   // ★リプレイ機能で追加★
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('unoSkip', state.myId, {})
+    makeActionLogEntry('unoSkip', actorId, {})
   );
 
   assertInvariants('actionUnoSkip', g, room.players);
@@ -336,22 +341,22 @@ export async function actionUnoSkip(): Promise<ActionResult> {
 // ----------------------------------------
 // UNO：カードを出す（共通処理）
 // ----------------------------------------
-export async function actionUnoPlay(cardIdx: number | null, chosenColor?: string | null): Promise<ActionResult> {
+export async function actionUnoPlay(cardIdx: number | null, chosenColor?: string | null, actorId: string = state.myId): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
-  if (!g || g.order[g.ci] !== state.myId || g.phase !== 'uno') {
+  if (!g || g.order[g.ci] !== actorId || g.phase !== 'uno') {
     return { error: '自分のターン（UNOフェイズ）ではありません' };
   }
 
-  const pname = getPlayerName(room.players);
+  const pname = getPlayerName(room.players, actorId);
   const currentPassCount = room.trumpPassCount ?? 0;
 
   // ★PC UI（ホバーカード）で追加★ 出すカードを apply 前に控えておく
   // （applyUnoPlay が手札から取り除くため、後からは特定できない）
-  const playedCard = cardIdx !== null ? ((g.unoHands?.[state.myId] ?? [])[cardIdx] ?? null) : null;
+  const playedCard = cardIdx !== null ? ((g.unoHands?.[actorId] ?? [])[cardIdx] ?? null) : null;
 
-  const result = applyUnoPlay(g, state.myId, cardIdx, chosenColor ?? null, pname);
+  const result = applyUnoPlay(g, actorId, cardIdx, chosenColor ?? null, pname);
   if (!result) return { error: 'そのカードは出せません' };
 
   const { g: newG, logMsg, isGameOver } = result;
@@ -371,7 +376,7 @@ export async function actionUnoPlay(cardIdx: number | null, chosenColor?: string
   //   （null なら applyUnoPlay が null を返して上で早期リターン済み）。
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('unoPlay', state.myId, {
+    makeActionLogEntry('unoPlay', actorId, {
       cardIdx: cardIdx!,
       chosenColor: chosenColor ?? null,
       card: playedCard, // ★PC UI（ホバーカード）の表示用。リプレイ再生では使わない
@@ -392,19 +397,19 @@ export async function actionUnoPlay(cardIdx: number | null, chosenColor?: string
 // ----------------------------------------
 // UNO：カードを引く
 // ----------------------------------------
-export async function actionUnoDraw(): Promise<ActionResult> {
+export async function actionUnoDraw(actorId: string = state.myId): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
-  if (!g || g.order[g.ci] !== state.myId || g.phase !== 'uno') {
+  if (!g || g.order[g.ci] !== actorId || g.phase !== 'uno') {
     return { error: '自分のターン（UNOフェイズ）ではありません' };
   }
 
-  const pname = getPlayerName(room.players);
+  const pname = getPlayerName(room.players, actorId);
   const currentPassCount = room.trumpPassCount ?? 0;
   // ★PC UI（ホバーカード）で追加★ 引く枚数を apply 前に控えておく（表示用）
   const drawCount = g.unoPenaltyAccum > 0 ? g.unoPenaltyAccum : 1;
-  const { g: newG, logMsg } = applyUnoDraw(g, state.myId, pname);
+  const { g: newG, logMsg } = applyUnoDraw(g, actorId, pname);
   const logs = appendLog(room, logMsg);
 
   const passResult = checkAllPassed(newG, currentPassCount, room.players);
@@ -413,7 +418,7 @@ export async function actionUnoDraw(): Promise<ActionResult> {
   // ★リプレイ機能で追加★
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('unoDraw', state.myId, { count: drawCount })
+    makeActionLogEntry('unoDraw', actorId, { count: drawCount })
   );
 
   assertInvariants('actionUnoDraw', newG, room.players);
@@ -429,19 +434,19 @@ export async function actionUnoDraw(): Promise<ActionResult> {
 // ----------------------------------------
 // UNO宣言
 // ----------------------------------------
-export async function actionSayUno(): Promise<ActionResult> {
+export async function actionSayUno(actorId: string = state.myId): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
   if (!g) return { error: 'ゲームが開始されていません' };
 
-  const pname = getPlayerName(room.players);
-  const { logMsg } = applyUnoDeclaration(g, state.myId, pname);
+  const pname = getPlayerName(room.players, actorId);
+  const { logMsg } = applyUnoDeclaration(g, actorId, pname);
 
   // ★リプレイ機能で追加★
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('sayUno', state.myId, {})
+    makeActionLogEntry('sayUno', actorId, {})
   );
 
   assertInvariants('actionSayUno', g, room.players);
@@ -456,14 +461,14 @@ export async function actionSayUno(): Promise<ActionResult> {
 // ----------------------------------------
 // 親の色変更
 // ----------------------------------------
-export async function actionPickParentColor(color: string): Promise<ActionResult> {
+export async function actionPickParentColor(color: string, actorId: string = state.myId): Promise<ActionResult> {
   const room = await fbGet('rooms/' + state.roomId);
   if (!room) return { error: 'ルームが見つかりません' };
   const g = room.game;
   if (!g) return { error: 'ゲームが開始されていません' };
 
-  const pname = getPlayerName(room.players);
-  const result = applyParentColorChange(g, state.myId, color, pname);
+  const pname = getPlayerName(room.players, actorId);
+  const result = applyParentColorChange(g, actorId, color, pname);
   if (!result) return { error: '親の権限がありません' };
 
   // ★バグ修正：親の権限行使によるゲーム終了（isGameOver）の判定を反映する
@@ -473,7 +478,7 @@ export async function actionPickParentColor(color: string): Promise<ActionResult
   // ★リプレイ機能で追加★
   const nextActionLog = appendActionLog(
     room,
-    makeActionLogEntry('pickParentColor', state.myId, { color })
+    makeActionLogEntry('pickParentColor', actorId, { color })
   );
 
   assertInvariants('actionPickParentColor', g, room.players);
