@@ -51,7 +51,7 @@ import {
   type EffectDescriptor,
 } from './effects/effect-derive.js';
 import { enqueueEffects, clearEffectQueue } from './effects/effect-queue.js';
-import { playEffect, flashTurnArrival } from './effects/effect-render.js';
+import { playEffect, flashTurnArrival, flashMyTurn } from './effects/effect-render.js';
 
 declare global {
   interface Window {
@@ -170,6 +170,22 @@ function _renderGamePCInner(room: any): void {
 // ----------------------------------------
 function _runEffects(room: any, g: any, players: Player[], curId: string | undefined): void {
   const snap = takeSnapshot(g, room);
+
+  // ★バグ修正（二戦目開始でリバース演出が出る）★
+  // 同じルームで再戦すると roomId は変わらないため prevSnap がリセットされず、
+  // 一戦目終盤の状態（dir=-1 等）と二戦目開始状態（dir=1）の差分を誤って
+  // リバース等として演出してしまっていた。actionLog または rankings が
+  // 「減った」＝ロビー経由で新しいゲームに切り替わった、とみなして
+  // 演出の既読状態を初期化し、ゲーム開始演出を正しく再生できるようにする。
+  if (prevSnap !== null &&
+      (snap.actionLogLen < prevSnap.actionLogLen ||
+       snap.rankingIds.length < prevSnap.rankingIds.length)) {
+    prevSnap = null;
+    seenTrumpEffectTs = null;
+    prevTurnId = null;
+    clearEffectQueue();
+  }
+
   const descs: EffectDescriptor[] = [];
 
   // A. actionLog の増分（行為者中心の演出）
@@ -200,9 +216,17 @@ function _runEffects(room: any, g: any, players: Player[], curId: string | undef
     enqueueEffects(descs, d => playEffect(d, players, state.myId));
   }
 
-  // 手番着弾フラッシュ（毎ターン発生するためキューに乗せず即時・並行で再生）
-  if (prevTurnId !== null && curId && curId !== prevTurnId) {
-    flashTurnArrival(curId, state.myId);
+  // 手番が移ったときの演出（毎ターン発生するためキューに乗せず即時・並行で再生）
+  // 自分の番は「気づかない」問題への対応として専用の目立つ演出を出し、
+  // 他人の番は席のリングを一瞬光らせるだけにする。
+  // curId は空文字IDでも成立するよう、真偽値ではなく明示的に null/undefined を除外する
+  if (prevTurnId !== null && curId != null && curId !== prevTurnId) {
+    const iFinishedNow = (g.rankings || []).some((r: { id: string }) => r.id === state.myId);
+    if (curId === state.myId && !iFinishedNow) {
+      flashMyTurn();
+    } else {
+      flashTurnArrival(curId, state.myId);
+    }
   }
   prevTurnId = curId ?? null;
 }

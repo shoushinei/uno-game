@@ -15,6 +15,7 @@ import {
   anchorUnoField,
   anchorDeck,
   anchorCenter,
+  anchorOwnHand,
   type AnchorPoint,
 } from './anchors.js';
 import { pcTrumpCardHtml, pcUnoCardHtml } from '../cards.js';
@@ -33,8 +34,9 @@ const DUR = {
   banner: 1300,
   reverse: 750,
   finish: 1400,
-  gameStart: 1300,
+  gameStart: 2800,   // ★ゲーム開始はゆっくり見せる（進行を急かす必要がないため）
   turnFlash: 300,
+  myTurn: 1700,      // 自分のターン専用演出
 };
 
 function reducedMotion(): boolean {
@@ -276,22 +278,27 @@ function playGameStart(desc: Extract<EffectDescriptor, { kind: 'game-start' }>, 
      <div class="pcg-ep-sub">♦3を持つ <b>${desc.firstPlayerName}</b> が先手</div>`,
     DUR.gameStart
   );
-  // ディール演出: 中央から各席へカード裏を配る
+  // ディール演出: 中央から各席へ、複数ラウンドに分けてゆっくりカードを配る
   if (!reducedMotion()) {
     const from = anchorCenter();
-    desc.seatIds.forEach((id, i) => {
-      const to = anchorSeat(id, myId);
-      const el = spawn('<div class="pcg-cardback"></div>', from.x, from.y, 'pcg-fx-fly', DUR.flight + i * 60);
-      el?.animate(
-        [
-          { transform: 'translate(-50%, -50%) scale(0.9)', opacity: 1 },
-          { transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(0.6)`, opacity: 0 },
-        ],
-        { duration: DUR.flight, delay: 150 + i * 60, easing: 'ease-out', fill: 'forwards' }
-      );
-    });
+    const dealFlight = 480;
+    const rounds = 3; // 各席へ3枚ずつ配る風に
+    for (let round = 0; round < rounds; round++) {
+      desc.seatIds.forEach((id, i) => {
+        const to = anchorSeat(id, myId);
+        const delay = 350 + round * 520 + i * 90;
+        const el = spawn('<div class="pcg-cardback"></div>', from.x, from.y, 'pcg-fx-fly', dealFlight + delay);
+        el?.animate(
+          [
+            { transform: 'translate(-50%, -50%) scale(0.9) rotate(0deg)', opacity: 1 },
+            { transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(0.55) rotate(${(Math.random() - 0.5) * 30}deg)`, opacity: 0 },
+          ],
+          { duration: dealFlight, delay, easing: 'ease-out', fill: 'forwards' }
+        );
+      });
+    }
   }
-  return sleep(DUR.gameStart * 0.8);
+  return sleep(DUR.gameStart * 0.85);
 }
 
 // 特殊効果（applyTrumpPlay 由来）のバナー表記
@@ -370,5 +377,33 @@ export function flashTurnArrival(playerId: string, myId: string): void {
       { transform: 'translate(-50%, -50%) scale(1.7)', opacity: 0 },
     ],
     { duration: DUR.turnFlash, easing: 'ease-out', fill: 'forwards' }
+  );
+}
+
+/**
+ * 自分のターンが来たことをはっきり知らせる演出（キュー外・即時）。
+ * 「自分の番に気づかない」問題への対応。手札エリアの枠を光らせ、
+ * その上に「▶ あなたのターン」トーストを出す。
+ * reduced-motion でも重要情報なのでトーストは出す（枠グローだけ省略）。
+ */
+export function flashMyTurn(): void {
+  const own = document.getElementById('pcg-own');
+  if (own && !reducedMotion()) {
+    own.classList.remove('pcg-myturn-flash');
+    void own.offsetWidth; // reflow でアニメーションを確実に再起動
+    own.classList.add('pcg-myturn-flash');
+    setTimeout(() => own.classList.remove('pcg-myturn-flash'), DUR.myTurn);
+  }
+  const p = anchorOwnHand();
+  const el = spawn('▶ あなたのターン', p.x, p.y - 92, 'pcg-fx-myturn', DUR.myTurn);
+  if (!el) return;
+  el.animate(
+    [
+      { transform: 'translate(-50%, -50%) scale(0.7)', opacity: 0 },
+      { transform: 'translate(-50%, -60%) scale(1.05)', opacity: 1, offset: 0.18 },
+      { transform: 'translate(-50%, -60%) scale(1)', opacity: 1, offset: 0.8 },
+      { transform: 'translate(-50%, -70%) scale(0.98)', opacity: 0 },
+    ],
+    { duration: DUR.myTurn, easing: 'ease-out', fill: 'forwards' }
   );
 }
