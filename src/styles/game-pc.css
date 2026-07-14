@@ -753,20 +753,79 @@
   inset: 0;
   pointer-events: none;
   z-index: 60;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
+  overflow: hidden;
 }
 
-#s-game-pc .pcg-effect-parent {
+/* 演出要素はすべて left/top 指定＋中心基準の絶対配置 */
+#s-game-pc .pcg-effect-layer > * {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* 飛翔カード（中身は pcg-tcard / pcg-ucard / pcg-cardback） */
+#s-game-pc .pcg-fx-fly { z-index: 5; }
+
+#s-game-pc .pcg-cardback {
+  width: 30px;
+  height: 42px;
+  background: #31435c;
+  border: 1px solid #1f2c3d;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* 吹き出し（パス・+N枚・着弾バースト等） */
+#s-game-pc .pcg-fx-bubble {
+  background: rgba(14, 36, 27, 0.92);
+  border: 1px solid #3a5c4c;
+  border-radius: 14px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #fff;
+  white-space: nowrap;
+  z-index: 8;
+}
+
+#s-game-pc .pcg-fx-burst {
+  background: #ffd166;
+  border-color: #ffd166;
+  color: #412402;
+  font-weight: 700;
+}
+
+#s-game-pc .pcg-fx-uno {
+  background: #e24b4a;
+  border-color: #fff;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+#s-game-pc .pcg-fx-finish {
+  background: #ffd166;
+  border-color: #fff;
+  color: #412402;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* 中央バナー */
+#s-game-pc .pcg-fx-banner {
   text-align: center;
-  animation: pcg-effect-pop 2.4s ease forwards;
+  z-index: 9;
 }
 
 #s-game-pc .pcg-ep-crown {
-  font-size: 64px;
+  font-size: 58px;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+}
+
+#s-game-pc .pcg-fx-start-icon,
+#s-game-pc .pcg-fx-rev-icon {
+  font-size: 52px;
+  color: #ffd166;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
 }
 
 #s-game-pc .pcg-ep-title {
@@ -775,7 +834,10 @@
   color: #ffd166;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
   margin-top: 4px;
+  white-space: nowrap;
 }
+
+#s-game-pc .pcg-fx-special-title { font-size: 30px; }
 
 #s-game-pc .pcg-ep-sub {
   font-size: 16px;
@@ -786,6 +848,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
 #s-game-pc .pcg-ep-color {
@@ -796,10 +859,31 @@
   border: 2px solid #fff;
 }
 
-@keyframes pcg-effect-pop {
-  0%   { opacity: 0; transform: scale(0.5); }
-  12%  { opacity: 1; transform: scale(1.08); }
-  18%  { transform: scale(1); }
-  80%  { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.02) translateY(-12px); }
+/* 王冠降下・紙吹雪・手番フラッシュ・革命フラッシュ */
+#s-game-pc .pcg-fx-crown {
+  font-size: 34px;
+  z-index: 9;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.6));
+}
+
+#s-game-pc .pcg-fx-confetti {
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  z-index: 7;
+}
+
+#s-game-pc .pcg-fx-turnflash {
+  width: 64px;
+  height: 64px;
+  border: 3px solid #ffd166;
+  border-radius: 50%;
+  z-index: 4;
+}
+
+#s-game-pc .pcg-fx-revflash {
+  inset: 0;
+  transform: none;
+  background: radial-gradient(ellipse at center, rgba(255, 209, 102, 0.5) 0%, rgba(214, 69, 65, 0.35) 100%);
+  z-index: 3;
 }

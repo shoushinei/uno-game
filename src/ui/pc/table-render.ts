@@ -42,6 +42,16 @@ import {
 } from './drawer.js';
 import { maybeAutoAdvance } from './auto-advance.js';
 import { countUnoActivePlayers } from '../../logic/uno-logic.js';
+import {
+  deriveFromEntries,
+  deriveFromDiff,
+  deriveTrumpSpecial,
+  takeSnapshot,
+  type GameSnap,
+  type EffectDescriptor,
+} from './effects/effect-derive.js';
+import { enqueueEffects, clearEffectQueue } from './effects/effect-queue.js';
+import { playEffect, flashTurnArrival } from './effects/effect-render.js';
 
 declare global {
   interface Window {
@@ -57,12 +67,19 @@ let lastRoom: any = null;
 let lastRoomIdForLog: string | null = null;
 
 /**
- * 演出検知用: 前回同期時点の actionLog 長。
- * 新しく増えたエントリだけを見て演出を再生する（actionLog駆動の演出基盤）。
- * -1 は「このルームでまだ一度も同期していない」印で、初回は演出を再生しない
- * （途中参加・リロード時に過去の操作の演出が一気に再生されるのを防ぐ）。
+ * 演出検知用: 前回同期時点のゲーム状態スナップショット。
+ * null は「このルームでまだ一度も同期していない」印で、初回は
+ * actionLog増分・状態diffとも演出を再生しない
+ * （途中参加・リロード時に過去の演出が一気に再生されるのを防ぐ。
+ *   例外はゲーム開始演出で、actionLogが空＝まだ誰も操作していない場合のみ再生）。
  */
-let seenActionLogLen = -1;
+let prevSnap: GameSnap | null = null;
+
+/** trumpEffect（8切り・革命等）の再生済み ts。null=未初期化 */
+let seenTrumpEffectTs: number | null = null;
+
+/** 手番着弾フラッシュ用: 前回の手番プレイヤー */
+let prevTurnId: string | null = null;
 
 /**
  * ゾーンごとの前回HTMLキャッシュ（差分描画用）。
@@ -128,10 +145,13 @@ function _renderGamePCInner(room: any): void {
   if (lastRoomIdForLog !== state.roomId) {
     resetDrawerLog();
     lastRoomIdForLog = state.roomId;
-    seenActionLogLen = -1;
+    prevSnap = null;
+    seenTrumpEffectTs = null;
+    prevTurnId = null;
+    clearEffectQueue();
   }
   mergeServerLog(room.log);
-  _detectEffects(room, players);
+  _runEffects(room, g, players, curId);
 
   _renderTopbar(room, players, curId, isMyTurn, phase);
   _renderTable(room);
@@ -140,60 +160,51 @@ function _renderGamePCInner(room: any): void {
 }
 
 // ----------------------------------------
-// 演出（actionLog駆動）
+// 演出（actionLog増分＋状態diff駆動）
 //
-// 同期のたびに「前回から増えた actionLog エントリ」を調べて演出を再生する。
-// 全クライアントが同じ actionLog を受け取るため、演出も全員の画面で同期する。
-// 現在は親の権限発動のみ。今後のPhase B（カード移動等）もこの仕組みに乗せる。
+// 同期のたびに「前回から増えた actionLog エントリ」（誰が何をしたか）と
+// 「状態のdiff」（場流し・リバース・上がり等の結果）から演出を導出し、
+// 順次再生キューへ積む。全クライアントが同じデータを受け取るため、
+// 演出も全員の画面で同期する。
+// 状態表示は即時・演出は上乗せ（演出のために描画は一切遅らせない）。
 // ----------------------------------------
-const EFFECT_COLOR_LABELS: Record<string, { label: string; hex: string }> = {
-  red:    { label: '赤', hex: '#d64541' },
-  blue:   { label: '青', hex: '#2e86de' },
-  green:  { label: '緑', hex: '#27ae60' },
-  yellow: { label: '黄', hex: '#e5b800' },
-};
+function _runEffects(room: any, g: any, players: Player[], curId: string | undefined): void {
+  const snap = takeSnapshot(g, room);
+  const descs: EffectDescriptor[] = [];
 
-function _detectEffects(room: any, players: Player[]): void {
-  const log: any[] = Array.isArray(room.actionLog) ? room.actionLog : [];
-  if (seenActionLogLen === -1) {
-    // 初回同期（入室直後・リロード直後）は過去分の演出を再生しない
-    seenActionLogLen = log.length;
-    return;
+  // A. actionLog の増分（行為者中心の演出）
+  if (prevSnap !== null && snap.actionLogLen > prevSnap.actionLogLen) {
+    const log: any[] = Array.isArray(room.actionLog) ? room.actionLog : [];
+    descs.push(...deriveFromEntries(log.slice(prevSnap.actionLogLen)));
   }
-  if (log.length <= seenActionLogLen) {
-    // ロビーに戻る等でログが短くなった場合は位置を合わせ直すだけ
-    seenActionLogLen = log.length;
-    return;
-  }
-  const fresh = log.slice(seenActionLogLen);
-  seenActionLogLen = log.length;
 
-  for (const entry of fresh) {
-    if (entry?.type === 'pickParentColor') {
-      const name = players.find(p => p.id === entry.playerId)?.name ?? '?';
-      const color = entry.args?.color ?? '';
-      _showParentEffect(name, color);
-    }
-  }
-}
+  // B. 状態diff（結果中心の演出。初回はゲーム開始判定のみ）
+  descs.push(...deriveFromDiff(prevSnap, snap, g, players));
 
-/** 親の権限発動の演出（画面中央に王冠＋色をポップ表示） */
-function _showParentEffect(playerName: string, color: string): void {
-  const layer = document.getElementById('pcg-effect-layer');
-  if (!layer) return;
-  const c = EFFECT_COLOR_LABELS[color] ?? { label: color, hex: '#fff' };
-  const el = document.createElement('div');
-  el.className = 'pcg-effect-parent';
-  el.innerHTML = `
-    <div class="pcg-ep-crown">👑</div>
-    <div class="pcg-ep-title">親の権限発動！</div>
-    <div class="pcg-ep-sub">${playerName} が色を
-      <span class="pcg-ep-color" style="background:${c.hex}"></span><b>${c.label}</b> に変更
-    </div>
-  `;
-  layer.appendChild(el);
-  // アニメーション（2.4s）終了後に取り除く
-  setTimeout(() => el.remove(), 2500);
+  // C. trumpEffect（8切り・革命・しばり等の特殊効果バナー）
+  // 初回同期では再生せず「既読ts」を初期化するだけ（リロード時に古い演出が
+  // 再生されるのを防ぐ）。★trumpEffectがまだ存在しない場合も0で初期化する★
+  // （でないと最初に発生した特殊効果が「初回扱い」でスキップされてしまう）
+  const te = g.trumpEffect;
+  const teTs = (te && typeof te.ts === 'number') ? te.ts : 0;
+  if (seenTrumpEffectTs === null) {
+    seenTrumpEffectTs = teTs;
+  } else if (teTs !== 0 && teTs !== seenTrumpEffectTs) {
+    seenTrumpEffectTs = teTs;
+    const desc = deriveTrumpSpecial(te, !!g.trumpRevolution);
+    if (desc) descs.push(desc);
+  }
+
+  prevSnap = snap;
+  if (descs.length > 0) {
+    enqueueEffects(descs, d => playEffect(d, players, state.myId));
+  }
+
+  // 手番着弾フラッシュ（毎ターン発生するためキューに乗せず即時・並行で再生）
+  if (prevTurnId !== null && curId && curId !== prevTurnId) {
+    flashTurnArrival(curId, state.myId);
+  }
+  prevTurnId = curId ?? null;
 }
 
 // ----------------------------------------
