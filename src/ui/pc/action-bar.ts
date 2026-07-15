@@ -121,7 +121,7 @@ const COLOR_BUTTONS = (action: string): string => `
   <button class="pcg-color-btn pcg-cb-yellow" data-action="${action}" data-color="yellow" aria-label="黄"></button>
 `;
 
-const REACTION_EMOJIS = ['😭', '💢', '😂', '👏', '❤️', '🔥'];
+const REACTION_EMOJIS = ['😂', '😭', '😡', '👍', '👎', '❤️', '👏', '😱', '😴', '🤔', '👀', '🎉'];
 
 export function renderActionBarHtml(bar: BarState, reactionOpen: boolean, autoAdvancing = false): string {
   const reactionBtn = `<span class="pcg-bar-sep">|</span>

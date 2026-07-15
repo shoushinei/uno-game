@@ -407,3 +407,23 @@ export function flashMyTurn(): void {
     { duration: DUR.myTurn, easing: 'ease-out', fill: 'forwards' }
   );
 }
+
+/**
+ * プレイヤーのリアクション絵文字をその席の上にポップ表示する
+ * （キュー外・即時。自分のリアクションは自分の手札エリア上に出る）。
+ * 「他プレイヤーのリアクションがPC UIで見えない」問題への対応。
+ */
+export function playReaction(emoji: string, playerId: string, myId: string): void {
+  const p = anchorSeat(playerId, myId);
+  const el = spawn(emoji, p.x, p.y - 30, 'pcg-fx-reaction', 1500);
+  if (!el) return;
+  el.animate(
+    [
+      { transform: 'translate(-50%, -50%) scale(0.3)', opacity: 0 },
+      { transform: 'translate(-50%, -80%) scale(1.3)', opacity: 1, offset: 0.25 },
+      { transform: 'translate(-50%, -95%) scale(1.1)', opacity: 1, offset: 0.7 },
+      { transform: 'translate(-50%, -130%) scale(0.9)', opacity: 0 },
+    ],
+    { duration: 1500, easing: 'ease-out', fill: 'forwards' }
+  );
+}

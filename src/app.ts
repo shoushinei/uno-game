@@ -16,6 +16,7 @@ import './bot/test-bot.js';
 import { startAbsentRunner } from './bot/absent-runner.js';
 import './replay/app.js'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg } from './ui/ui-render.js';
+import { isPcUi } from './ui/pc/ui-mode.js';
 import {
   actionStartGame,
   actionTrumpPlay,
@@ -272,7 +273,10 @@ window.sendReaction = async (emoji) => {
   if (state.reactionCooldown) return;
   state.reactionCooldown = true;
   state.lastSentReaction = emoji;
-  flashReactionBtn(emoji);
+  // PC UIでは自分のリアクションも席バブル（reactions同期→_runReactionEffects）で
+  // 表示されるため、旧・中央ポップの flashReactionBtn は従来UIのときだけ呼ぶ
+  // （二重表示防止）。
+  if (!isPcUi()) flashReactionBtn(emoji);
   const result = await actionSendReaction(emoji);
   if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
   setTimeout(() => { state.reactionCooldown = false; }, 2000);

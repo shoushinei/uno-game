@@ -905,6 +905,13 @@
   z-index: 9;
 }
 
+/* リアクション絵文字（席の上にふわっと浮かぶ） */
+#s-game-pc .pcg-fx-reaction {
+  font-size: 40px;
+  z-index: 11;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.55));
+}
+
 #s-game-pc .pcg-fx-revflash {
   inset: 0;
   transform: none;

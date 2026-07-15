@@ -51,7 +51,7 @@ import {
   type EffectDescriptor,
 } from './effects/effect-derive.js';
 import { enqueueEffects, clearEffectQueue } from './effects/effect-queue.js';
-import { playEffect, flashTurnArrival, flashMyTurn } from './effects/effect-render.js';
+import { playEffect, flashTurnArrival, flashMyTurn, playReaction } from './effects/effect-render.js';
 
 declare global {
   interface Window {
@@ -80,6 +80,12 @@ let seenTrumpEffectTs: number | null = null;
 
 /** 手番着弾フラッシュ用: 前回の手番プレイヤー */
 let prevTurnId: string | null = null;
+
+/**
+ * リアクション表示用: プレイヤーごとの最後に再生した ts。
+ * null=このルームで未初期化（初回同期では過去のリアクションを再生しない）。
+ */
+let prevReactionTs: Record<string, number> | null = null;
 
 /**
  * ゾーンごとの前回HTMLキャッシュ（差分描画用）。
@@ -148,6 +154,7 @@ function _renderGamePCInner(room: any): void {
     prevSnap = null;
     seenTrumpEffectTs = null;
     prevTurnId = null;
+    prevReactionTs = null;
     clearEffectQueue();
   }
   mergeServerLog(room.log);
@@ -229,6 +236,42 @@ function _runEffects(room: any, g: any, players: Player[], curId: string | undef
     }
   }
   prevTurnId = curId ?? null;
+
+  // リアクション表示（誰のリアクションも席の上にポップさせる）
+  // ★「他プレイヤーのリアクションがPC UIで見えない」問題の修正★
+  _runReactionEffects(room);
+}
+
+/**
+ * room.reactions の ts 変化を検知して、そのプレイヤーの席にリアクションを出す。
+ * 全プレイヤー分（自分含む）を表示するため、送信者以外の画面でも見える。
+ */
+function _runReactionEffects(room: any): void {
+  const reactions: Record<string, { emoji: string; ts: number } | undefined> = room.reactions || {};
+
+  // 初回同期では過去のリアクションを再生せず、既読位置だけ記録する
+  if (prevReactionTs === null) {
+    prevReactionTs = {};
+    for (const id of Object.keys(reactions)) {
+      const r = reactions[id];
+      if (r && typeof r.ts === 'number') prevReactionTs[id] = r.ts;
+    }
+    return;
+  }
+
+  const now = Date.now();
+  for (const id of Object.keys(reactions)) {
+    const r = reactions[id];
+    if (!r || typeof r.ts !== 'number') continue;
+    const seen = prevReactionTs[id] ?? 0;
+    if (r.ts > seen) {
+      prevReactionTs[id] = r.ts;
+      // 8秒以上前の古いリアクションは再生しない（再接続時の一斉再生防止）
+      if (now - r.ts < 8000 && r.emoji) {
+        playReaction(r.emoji, id, state.myId);
+      }
+    }
+  }
 }
 
 // ----------------------------------------
