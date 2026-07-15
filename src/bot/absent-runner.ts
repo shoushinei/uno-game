@@ -1,17 +1,18 @@
 // ========================================
-// 退室者の代行実行（Phase C4）
+// 退室者・ボットの代行実行（Phase C4 / ロビーボット）
 //
-// ゲーム進行中に退室したプレイヤー（leftPlayers）の手番を、ホストの
-// クライアントが自動で代行プレイする。
+// ゲーム進行中の以下2種の手番を、ホストのクライアントが自動でプレイする:
+//  - 退室したプレイヤー（leftPlayers）… Phase C4
+//  - ロビーで追加されたボット（botPlayers, isBot）… ロビーボット
+// どちらも「本人のブラウザで操作されない席」なので同じ代行で処理できる。
 //
 // 設計上の要点:
 // - ★ホストだけが実行する★ … room.host === state.myId のときのみ動く。
 //   ホストは常に一意なので、代行が二重に走らない（構造的な多重防止）。
-// - 対象は「今の手番プレイヤーが leftPlayers に含まれる」場合のみ。
-//   ホスト自身は leftPlayers に入らない（退室時にホスト移譲するため）ので、
-//   人間の手番を勝手に進めることはない。
-// - 退室者のブラウザは閉じているので test-bot とは競合しない
-//   （test-bot は各自のブラウザでのみ動く）。
+// - 対象は「今の手番プレイヤーが退室者 or ボット」の場合のみ。
+//   ホスト自身は leftPlayers/botPlayers に入らないので、人間（ホスト）の
+//   手番を勝手に進めることはない。ホスト移譲時もボットは移譲先から除外する
+//   （ボットがホストだと代行実行者が居なくなり進行が止まるため）。
 // - 思考は decideBotPlan、実行は executeBotPlan（strategy/execute）を共有。
 // ========================================
 import { state } from '../state.js';
@@ -21,13 +22,13 @@ import { executeBotPlan } from './execute.js';
 const TICK_MS = 1100; // test-bot(800ms) とずらして同時発火を避ける
 
 /**
- * 「今このクライアントが代行すべき退室者ID」を返す（純粋関数・テスト対象）。
+ * 「今このクライアントが代行すべき席のID」を返す（純粋関数・テスト対象）。
  * 代行不要なら null。
  *
  * 条件:
  *  - 自分がホストである（host === myId）
  *  - ゲーム進行中である
- *  - 今の手番プレイヤーが leftPlayers に含まれる（＝退室者）
+ *  - 今の手番プレイヤーが leftPlayers（退室者）または botPlayers（ボット）
  */
 export function absentActorToRun(params: {
   roomHost: string | null;
@@ -36,14 +37,17 @@ export function absentActorToRun(params: {
   order: string[] | undefined;
   ci: number;
   leftPlayers: Record<string, boolean>;
+  botPlayers?: Record<string, boolean>;
 }): string | null {
-  const { roomHost, roomState, myId, order, ci, leftPlayers } = params;
+  const { roomHost, roomState, myId, order, ci, leftPlayers, botPlayers } = params;
   if (!roomHost || roomHost !== myId) return null;
   if (roomState !== 'playing') return null;
   if (!Array.isArray(order) || order.length === 0) return null;
   const curId = order[ci];
   if (!curId) return null;
-  return leftPlayers[curId] ? curId : null;
+  const isAbsent = !!leftPlayers[curId];
+  const isBot = !!(botPlayers && botPlayers[curId]);
+  return isAbsent || isBot ? curId : null;
 }
 
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -62,6 +66,7 @@ async function tick(): Promise<void> {
     order: g.order,
     ci: g.ci,
     leftPlayers: window._leftPlayers || {},
+    botPlayers: window._botPlayers || {},
   });
   if (!curId) return;
 

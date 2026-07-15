@@ -76,29 +76,43 @@ export function renderLobby(room: any): void {
   const pl = document.getElementById('lpl')!;
   pl.innerHTML = '';
 
+  const iAmHost = state.myId === room.host;
   let allReady = true;
   players.forEach((p, i) => {
     const el = document.createElement('div');
     el.className = 'pi';
     let tags = '';
+    if (p.isBot) tags += '<span class="tag bot">🤖 ボット</span>';
     if (p.id === state.myId) tags += '<span class="tag you">あなた</span>';
     if (p.id === room.host) tags += '<span class="tag host">ホスト</span>';
     tags += p.ready
       ? '<span class="tag ready">✓ Ready</span>'
       : '<span class="tag not-ready">準備中</span>';
     if (!p.ready) allReady = false;
+    // ホストにはボット行に削除ボタンを出す
+    const removeBtn = (iAmHost && p.isBot)
+      ? `<button class="pi-remove" onclick="removeBot('${p.id}')" aria-label="ボットを削除">✕</button>`
+      : '';
     el.innerHTML = `
       <div class="av" style="background:${AVATAR_COLORS[i % 5]}">${p.name[0].toUpperCase()}</div>
       <span class="pi-name">${p.name}</span>
       <div class="pi-tags">${tags}</div>
+      ${removeBtn}
     `;
     pl.appendChild(el);
   });
 
   const sb = document.getElementById('sbtn') as HTMLButtonElement;
   const rb = document.getElementById('rbtn') as HTMLButtonElement;
+  const ab = document.getElementById('addbot-btn') as HTMLButtonElement | null;
 
-  if (state.myId === room.host) {
+  // ボット追加ボタンはホストのみ・8人未満のときだけ操作可能
+  if (ab) {
+    ab.style.display = iAmHost ? 'block' : 'none';
+    ab.disabled = players.length >= 8;
+  }
+
+  if (iAmHost) {
     sb.style.display = 'block';
     rb.style.display = 'none';
     if (players.length < 3) {
@@ -288,12 +302,15 @@ function _renderOtherPlayers(
     // 表示しない。全体向けの自己リアクションだけ従来通りバッジ表示する。
     const reactHtml = (react && !react.targetId && Date.now() - react.ts < 4000)
       ? `<div class="react-badge">${react.emoji}</div>` : '';
-    // ★機能追加★ 他プレイヤーが自動プレイ／退室中かどうかを表示する
-    // 退室中（灰）と自発的な自動プレイ（紫）は区別する
+    // ★機能追加★ 他プレイヤーが自動プレイ／退室中／ボットかを表示する
+    // 退室中（灰）・ボット（紫）・自発的な自動プレイ（紫）を区別する
     const isLeft = !!(leftPlayers && leftPlayers[p.id]);
     const isAuto = !!(autoPlayers && autoPlayers[p.id]);
+    const isBot = !!p.isBot;
     const autoHtml = isLeft
       ? `<div class="auto-badge" style="font-size:11px;background:#5f5e5a;color:#fff;border-radius:8px;padding:1px 6px;display:inline-block;margin-top:2px">🚪 退室中（自動）</div>`
+      : isBot
+      ? `<div class="auto-badge" style="font-size:11px;background:#8e44ad;color:#fff;border-radius:8px;padding:1px 6px;display:inline-block;margin-top:2px">🤖 ボット</div>`
       : isAuto
       ? `<div class="auto-badge" style="font-size:11px;background:#8e44ad;color:#fff;border-radius:8px;padding:1px 6px;display:inline-block;margin-top:2px">🐒 自動プレイ中</div>`
       : '';

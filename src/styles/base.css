@@ -101,6 +101,7 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
 .tag.host      { background: var(--color-background-warning); color: var(--color-text-warning); }
 .tag.ready     { background: #27ae60; color: white; }
 .tag.not-ready { background: #95a5a6; color: white; }
+.tag.bot       { background: #8e44ad; color: white; }
 
 /* ---- ボックス ---- */
 .box {

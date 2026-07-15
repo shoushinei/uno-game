@@ -5,6 +5,7 @@
 // ========================================
 import { state, uid, newRoomId } from './state.js';
 import { fbGet, fbSet, fbUpdate, testConnection } from './db.js';
+import { canAddBot, canRemoveBot, makeBotPlayer } from './bot/lobby-bots.js';
 import { auth, googleProvider } from './firebase-config.js';
 import { signInWithPopup, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { show, setHomeMsg, setLobbyMsg, setStatus, dbg, setLoading } from './ui/ui-render.js';
@@ -17,6 +18,8 @@ declare global {
     createRoom: () => Promise<void>;
     joinRoom: () => Promise<void>;
     toggleReady: () => Promise<void>;
+    addBot: () => Promise<void>;
+    removeBot: (botId: string) => Promise<void>;
     backToLobby: () => Promise<void>;
     leaveGame: () => Promise<void>;
     _startListening?: () => void;
@@ -225,6 +228,38 @@ window.toggleReady = async function () {
 };
 
 // ----------------------------------------
+// ボットの追加／削除（ホストのみ・ロビー中のみ）
+//
+// ボットは players 配列の普通のプレイヤー（isBot: true, ready: true）として
+// 追加する。手番はゲーム開始後、ホストのクライアントが absent-runner で
+// 代行実行する（退室者と同じ仕組み）。
+// ----------------------------------------
+window.addBot = async function () {
+  try {
+    const room = await fbGet('rooms/' + state.roomId);
+    if (!canAddBot(room, state.myId)) {
+      setLobbyMsg('ボットを追加できません（ホストのみ・最大8人）');
+      return;
+    }
+    const players: any[] = room.players || [];
+    const bot = makeBotPlayer(players);
+    players.push(bot);
+    await fbUpdate('rooms/' + state.roomId, { players });
+    dbg('ボット追加: ' + bot.name);
+  } catch (e: any) { dbg('addBot error: ' + e.message, true); }
+};
+
+window.removeBot = async function (botId: string) {
+  try {
+    const room = await fbGet('rooms/' + state.roomId);
+    if (!canRemoveBot(room, state.myId, botId)) return;
+    const players: any[] = (room.players || []).filter((p: any) => p.id !== botId);
+    await fbUpdate('rooms/' + state.roomId, { players });
+    dbg('ボット削除: ' + botId);
+  } catch (e: any) { dbg('removeBot error: ' + e.message, true); }
+};
+
+// ----------------------------------------
 // lobbyへ戻る
 // ----------------------------------------
 window.backToLobby = async function () {
@@ -234,7 +269,8 @@ window.backToLobby = async function () {
 
     // ★修正：まだ誰も部屋をリセットしていない場合のみ、Firebaseを初期化する
     if (room.state !== 'lobby') {
-      const players = (room.players || []).map((p: any) => ({ ...p, ready: p.id === room.host }));
+      // ホストは自動でready、ボットは常にready。人間の参加者だけ準備待ちに戻す
+      const players = (room.players || []).map((p: any) => ({ ...p, ready: p.isBot || p.id === room.host }));
       await fbUpdate('rooms/' + state.roomId, {
         state: 'lobby', game: null, log: [], players, reactions: {}, trumpPassCount: 0,
         // ★リプレイ機能で追加★
@@ -305,17 +341,23 @@ window.leaveGame = async function () {
         const leftPlayers = { ...(room.leftPlayers || {}), [myId]: true };
         const autoPlayers = { ...(room.autoPlayers || {}), [myId]: true };
 
-        // 全プレイヤーが退室済みになったら、ボットだけの無人試合を続けずに削除
-        const allLeft = room.players.every((p: any) => leftPlayers[p.id]);
-        if (allLeft) {
+        // 人間が全員退室したら、ボットだけの無人試合を続けずに削除する
+        // （ボットの手番を代行できるホスト＝人間がもう居ないため）
+        const allHumansLeft = room.players
+          .filter((p: any) => !p.isBot)
+          .every((p: any) => leftPlayers[p.id]);
+        if (allHumansLeft) {
           await fbSet('rooms/' + rid, null);
-          dbg('全員退室したためルームを削除しました: ' + rid);
+          dbg('人間が全員退室したためルームを削除しました: ' + rid);
         } else {
           const updates: any = { leftPlayers, autoPlayers };
           const myName = room.players.find((p: any) => p.id === myId)?.name ?? 'プレイヤー';
-          // ホスト自身が退室する場合、退室していないプレイヤーへホストを移譲する
+          // ホスト自身が退室する場合、退室していない「人間」へホストを移譲する。
+          // ★ボットをホストにしない★（ボットのブラウザは無く、代行実行者が
+          //   居なくなって進行が止まるため）。人間が残っていることは
+          //   allHumansLeft が false であることで保証されている。
           if (room.host === myId) {
-            const nextHost = room.players.find((p: any) => !leftPlayers[p.id]);
+            const nextHost = room.players.find((p: any) => !leftPlayers[p.id] && !p.isBot);
             if (nextHost) {
               updates.host = nextHost.id;
               updates.log = [...(room.log || []), `${nextHost.name} が新しいホストになりました`].slice(-8);
@@ -336,14 +378,17 @@ window.leaveGame = async function () {
 
       // ---- 従来どおりの退出（ロビー中・ゲーム終了後）----
       const remainingPlayers = room.players.filter((p: any) => p.id !== myId);
-      if (remainingPlayers.length === 0) {
+      const remainingHumans = remainingPlayers.filter((p: any) => !p.isBot);
+      // 人間が誰も残らない（無人 or ボットだけ）なら部屋ごと削除する
+      if (remainingHumans.length === 0) {
         await fbSet('rooms/' + rid, null);
-        dbg('無人になったためルームを削除しました: ' + rid);
+        dbg('人間が居なくなったためルームを削除しました: ' + rid);
       } else {
         const updates: { players: any[]; host?: string; log?: string[] } = { players: remainingPlayers };
+        // ★ホストは人間に移譲する★（ボットをホストにしない）
         if (room.host === myId) {
-          updates.host = remainingPlayers[0].id;
-          const logs = [...(room.log || []), `${remainingPlayers[0].name} が新しいホストになりました`];
+          updates.host = remainingHumans[0].id;
+          const logs = [...(room.log || []), `${remainingHumans[0].name} が新しいホストになりました`];
           updates.log = logs.slice(-8);
         }
         await fbUpdate('rooms/' + rid, updates);

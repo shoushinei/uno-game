@@ -14,6 +14,7 @@ import { state } from './state.js';
 import { fbListen } from './db.js';
 import './bot/test-bot.js';
 import { startAbsentRunner } from './bot/absent-runner.js';
+import { botPlayerMap } from './bot/lobby-bots.js';
 import './replay/app.js'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg } from './ui/ui-render.js';
 import { isPcUi } from './ui/pc/ui-mode.js';
@@ -61,9 +62,10 @@ declare global {
     closeReplayScreen: () => void;
     openRuleModal: () => void;
     closeRuleModal: (event?: Event) => void;
-    // ★Phase C4★ 退室者代行が参照する同期情報
+    // ★Phase C4 / ロビーボット★ 退室者・ボット代行が参照する同期情報
     _roomHost: string | null;
     _leftPlayers: Record<string, boolean>;
+    _botPlayers: Record<string, boolean>;
   }
 }
 
@@ -105,6 +107,8 @@ export function startListening(): void {
       // leftPlayers を公開する。
       window._roomHost = room.host || null;
       window._leftPlayers = room.leftPlayers || {};
+      // ロビーで追加されたボット席（players の isBot 由来）も同じ代行対象
+      window._botPlayers = botPlayerMap(room.players);
       // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様）★
       // 全員のトランプ手札が0枚になると room.game.trumpHands ノード自体が
       // 丸ごと削除されて undefined になる（前回までに直したゲームロジック側と

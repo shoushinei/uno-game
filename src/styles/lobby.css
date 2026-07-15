@@ -62,6 +62,16 @@
 }
 .pi-name { flex: 1; font-weight: 500; }
 .pi-tags { display: flex; gap: 4px; align-items: center; }
+/* ホストがボット行を削除するボタン */
+.pi-remove {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  border: none; border-radius: 50%;
+  background: #c0392b; color: #fff;
+  font-size: 12px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.pi-remove:hover { background: #e74c3c; }
 
 /* ---- モーダル（ルール説明ポップアップ） ---- */
 .modal-overlay {

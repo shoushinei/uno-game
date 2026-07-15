@@ -11,6 +11,8 @@ import type { TrumpCard } from './trump-logic';
 export interface Player {
   id: string;
   name: string;
+  /** ロビーでホストが追加したボット。手番はホストのクライアントが代行実行する */
+  isBot?: boolean;
 }
 
 export interface UnoCard {

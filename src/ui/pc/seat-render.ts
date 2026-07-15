@@ -42,6 +42,7 @@ export function renderSeatHtml(pos: SeatPosition, ctx: SeatContext): string {
   const saidUno = !!(g.unoSaid && g.unoSaid[pos.id]);
   const isLeft = !!leftPlayers[pos.id];
   const isAuto = !!autoPlayers[pos.id];
+  const isBot = !!player?.isBot;
 
   const phase = g.phase || 'trump';
   const phaseChip = isCurrent
@@ -50,8 +51,9 @@ export function renderSeatHtml(pos: SeatPosition, ctx: SeatContext): string {
 
   const statusChips: string[] = [];
   if (finished) statusChips.push(`<span class="pcg-seat-chip pcg-chip-rank">🏁 ${rankIdx + 1}位</span>`);
-  // 退室中（灰）と自発的な自動プレイ（紫）は区別する。退室中を優先表示
+  // 退室中（灰）・ボット（紫）・自発的な自動プレイ（紫）を区別する。退室中を優先表示
   else if (isLeft) statusChips.push('<span class="pcg-seat-chip pcg-chip-left">🚪 退室中（自動）</span>');
+  else if (isBot) statusChips.push('<span class="pcg-seat-chip pcg-chip-auto">🤖 ボット</span>');
   else if (isAuto) statusChips.push('<span class="pcg-seat-chip pcg-chip-auto">🐒 自動プレイ中</span>');
 
   const countsHtml = finished

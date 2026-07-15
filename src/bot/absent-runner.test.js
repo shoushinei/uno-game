@@ -57,4 +57,25 @@ describe('absentActorToRun', () => {
     const params = base({ leftPlayers: { p2: true, p3: true }, ci: 2 });
     expect(absentActorToRun(params)).toBe('p3');
   });
+
+  // ---- ロビーボットの代行 ----
+  it('手番がボット(botPlayers)なら、退室していなくても代行する', () => {
+    const params = base({ leftPlayers: {}, botPlayers: { p2: true }, ci: 1 });
+    expect(absentActorToRun(params)).toBe('p2');
+  });
+
+  it('手番が人間（退室者でもボットでもない）なら null', () => {
+    // p3 の手番。leftPlayers にも botPlayers にも居ない人間
+    const params = base({ leftPlayers: { p2: true }, botPlayers: { pX: true }, ci: 2 });
+    expect(absentActorToRun(params)).toBeNull();
+  });
+
+  it('退室者とボットが混在していても、今の手番の該当席を返す', () => {
+    const params = base({ leftPlayers: { p2: true }, botPlayers: { p3: true }, ci: 2 });
+    expect(absentActorToRun(params)).toBe('p3');
+  });
+
+  it('botPlayers を渡さなくても従来どおり退室者判定は動く（後方互換）', () => {
+    expect(absentActorToRun(base())).toBe('p2');
+  });
 });
