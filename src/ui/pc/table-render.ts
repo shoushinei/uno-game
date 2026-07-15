@@ -51,11 +51,13 @@ import {
   type EffectDescriptor,
 } from './effects/effect-derive.js';
 import { enqueueEffects, clearEffectQueue } from './effects/effect-queue.js';
-import { playEffect, flashTurnArrival, flashMyTurn, playReaction, playDirectedReaction } from './effects/effect-render.js';
+import { playEffect, flashTurnArrival, flashMyTurn, playReaction, playDirectedReaction, playHitToast } from './effects/effect-render.js';
 import {
   renderReactionMenuHtml,
   isReactorBlocked,
   toggleReactorBlock,
+  areReactionsOff,
+  toggleReactionsOff,
   DIRECTED_COOLDOWN_MS,
 } from './reaction-menu.js';
 
@@ -315,11 +317,19 @@ function _runReactionEffects(room: any): void {
       prevReactionTs[id] = r.ts;
       // 8秒以上前の古いリアクションは再生しない（再接続時の一斉再生防止）
       if (now - r.ts < 8000 && r.emoji) {
+        // 全体OFF: 自己・対人とも一切表示しない（既読位置は上で更新済みなので
+        // 再ONにしても過去分は蘇らない）
+        if (areReactionsOff()) continue;
         if (r.targetId) {
           // 対人リアクション: ブロックした相手からのものは自分の画面に出さない
           // （送信者には通知しない＝受信側クライアントで描画スキップ）
           if (isReactorBlocked(id)) continue;
           playDirectedReaction(r.emoji, id, r.targetId, state.myId);
+          // 被弾トースト（自分が宛先のとき）
+          if (r.targetId === state.myId) {
+            const fromName = lastRoom?.players?.find((p: Player) => p.id === id)?.name ?? '？';
+            playHitToast(r.emoji, fromName);
+          }
         } else {
           playReaction(r.emoji, id, state.myId);
         }
@@ -575,6 +585,10 @@ async function _handleAction(action: string, target: HTMLElement): Promise<void>
       if (seatEl) openReactionMenu(seatEl, targetId);
       break;
     }
+    case 'reactions-toggle':
+      // 全リアクション表示ON/OFF（引き出しパネルの設定トグル）
+      toggleReactionsOff();
+      break;
     case 'drawer-toggle':
       toggleDrawer();
       break;

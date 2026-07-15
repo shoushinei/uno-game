@@ -211,6 +211,31 @@
   min-width: 200px;
 }
 
+/* 引き出しフッター（全リアクション表示ON/OFFの設定トグル） */
+#s-game-pc .pcg-drawer-foot {
+  flex-shrink: 0;
+  border-top: 1px solid #2a4638;
+  padding: 8px;
+}
+
+#s-game-pc .pcg-drawer-setting {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #3a5c4c;
+  border-radius: 8px;
+  color: #cfe0d6;
+  font-size: 11px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+#s-game-pc .pcg-drawer-setting:hover { background: rgba(255, 255, 255, 0.12); }
+#s-game-pc .pcg-drawer-setting.off {
+  color: #ff9b8a;
+  border-color: #a4544a;
+  background: rgba(164, 84, 74, 0.15);
+}
+
 #s-game-pc .pcg-log-list {
   overflow-y: auto;
   max-height: 100%;
@@ -1003,6 +1028,32 @@
   font-size: 40px;
   z-index: 11;
   filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.55));
+}
+
+/* 対人リアクションの投擲物は少し小さめ（弧を描いて飛ぶ） */
+#s-game-pc .pcg-fx-reaction-dir { font-size: 34px; z-index: 12; }
+
+/* 着弾の波紋（絵文字非依存の汎用リング） */
+#s-game-pc .pcg-fx-hit-ring {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  z-index: 11;
+}
+
+/* 被弾トースト（自分が宛先のとき手札エリア上に出る） */
+#s-game-pc .pcg-fx-hittoast {
+  background: #d64541;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 5px 16px;
+  border-radius: 16px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  z-index: 13;
 }
 
 #s-game-pc .pcg-fx-revflash {

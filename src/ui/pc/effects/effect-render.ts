@@ -428,12 +428,15 @@ export function playReaction(emoji: string, playerId: string, myId: string): voi
   );
 }
 
+// 対人リアクションの投擲テンポ（ms）
+const DUR_THROW = 820;
+
 /**
  * 対人リアクション（特定プレイヤー宛て）を表示する。
  * 「誰が誰へ投げたか」が伝わるよう、送信者の席から宛先の席へ絵文字を
- * 飛ばし、着弾でひと弾ませする。宛先が自分なら手札エリアへ着弾する
- * （anchorSeat が自分の場合は手札エリアを返す）。
- * ※放物線・被弾トースト等の磨きは Phase C6 で行う。
+ * 放物線で投げ、着弾でつぶれて波紋を出す。宛先が自分なら手札エリアへ
+ * 着弾する（anchorSeat が自分の場合は手札エリアを返す）。
+ * reduced-motion では飛翔を省き、宛先にポップだけ出す。
  */
 export function playDirectedReaction(
   emoji: string,
@@ -443,23 +446,83 @@ export function playDirectedReaction(
 ): void {
   const from = anchorSeat(fromId, myId);
   const to = anchorSeat(targetId, myId);
-  const el = spawn(emoji, from.x, from.y, 'pcg-fx-reaction pcg-fx-reaction-dir', 900);
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+
+  // reduced-motion: 飛翔なしで宛先に一瞬ポップ
+  if (reducedMotion()) {
+    const el = spawn(emoji, to.x, to.y, 'pcg-fx-reaction pcg-fx-reaction-dir', 700);
+    if (!el) return;
+    el.animate(
+      [
+        { transform: 'translate(-50%, -50%) scale(0.5)', opacity: 0 },
+        { transform: 'translate(-50%, -50%) scale(1.2)', opacity: 1, offset: 0.4 },
+        { transform: 'translate(-50%, -50%) scale(1)', opacity: 0 },
+      ],
+      { duration: 700, easing: 'ease-out', fill: 'forwards' }
+    );
+    return;
+  }
+
+  // 放物線の頂点の高さ（距離が長いほど高く弧を描く。上限あり）
+  const dist = Math.hypot(dx, dy);
+  const arc = Math.min(170, 55 + dist * 0.28);
+  const spin = (dx >= 0 ? 1 : -1) * 540; // 進行方向へ回転
+  const A = 10; // 弧のサンプル数
+
+  const frames: Keyframe[] = [];
+  for (let i = 0; i < A; i++) {
+    const t = i / (A - 1);
+    const x = dx * t;
+    const y = dy * t - arc * Math.sin(Math.PI * t); // 上（負方向）へ持ち上げる
+    const rot = spin * t;
+    const scale = i === 0 ? 0.6 : 1;
+    frames.push({
+      // 弧は全体の 0〜85% を使い、残り 15% を着弾スカッシュに充てる
+      offset: t * 0.85,
+      opacity: i === 0 ? 0.2 : 1,
+      transform: `translate(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px)) rotate(${rot.toFixed(0)}deg) scale(${scale})`,
+    });
+  }
+  // 着弾スカッシュ（宛先に留まって横につぶれてから消える）
+  const land = `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px)) rotate(${spin}deg)`;
+  frames.push({ offset: 0.93, opacity: 1, transform: `${land} scale(1.4, 0.6)` });
+  frames.push({ offset: 1, opacity: 0, transform: `${land} scale(1.1, 0.85)` });
+
+  const el = spawn(emoji, from.x, from.y, 'pcg-fx-reaction pcg-fx-reaction-dir', DUR_THROW);
+  if (!el) return;
+  el.animate(frames, { duration: DUR_THROW, easing: 'linear', fill: 'forwards' });
+
+  // 着弾の波紋（絵文字非依存の汎用リング）
+  const ring = spawn('', to.x, to.y, 'pcg-fx-hit-ring', 520);
+  if (ring) {
+    ring.animate(
+      [
+        { transform: 'translate(-50%, -50%) scale(0.2)', opacity: 0.85 },
+        { transform: 'translate(-50%, -50%) scale(1.9)', opacity: 0 },
+      ],
+      { duration: 480, delay: DUR_THROW - 70, easing: 'ease-out', fill: 'forwards' }
+    );
+  }
+}
+
+/**
+ * 自分が対人リアクションの宛先になったときの被弾トースト。
+ * 席の弧だけでは誰から投げられたか気づきにくいため、宛先本人には
+ * 手札エリア上に「絵文字 〇〇 から！」をはっきり出す。
+ * reduced-motion でも重要通知なのでトースト自体は出す。
+ */
+export function playHitToast(emoji: string, fromName: string): void {
+  const p = anchorOwnHand();
+  const el = spawn(`${emoji} ${fromName} から！`, p.x, p.y - 92, 'pcg-fx-hittoast', 1600);
   if (!el) return;
   el.animate(
     [
-      { transform: 'translate(-50%, -50%) scale(0.5)', opacity: 0, offset: 0 },
-      { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, offset: 0.15 },
-      {
-        transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(1.25)`,
-        opacity: 1,
-        offset: 0.8,
-      },
-      {
-        transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(0.9)`,
-        opacity: 0,
-        offset: 1,
-      },
+      { transform: 'translate(-50%, -50%) scale(0.7)', opacity: 0 },
+      { transform: 'translate(-50%, -66%) scale(1.06)', opacity: 1, offset: 0.18 },
+      { transform: 'translate(-50%, -66%) scale(1)', opacity: 1, offset: 0.78 },
+      { transform: 'translate(-50%, -78%) scale(0.98)', opacity: 0 },
     ],
-    { duration: 900, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)', fill: 'forwards' }
+    { duration: 1600, easing: 'ease-out', fill: 'forwards' }
   );
 }

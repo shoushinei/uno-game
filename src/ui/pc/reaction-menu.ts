@@ -19,6 +19,7 @@ export const SEAT_REACTION_EMOJIS = ['🍅', '💋', '💐'] as const;
 export const DIRECTED_COOLDOWN_MS = 1000;
 
 const LS_BLOCK_KEY = 'pcgBlockedReactors';
+const LS_OFF_KEY = 'pcgReactionsOff';
 
 // localStorage はブラウザ専用（vitest の node 環境には無い）ためガードする
 function lsGet(key: string): string | null {
@@ -46,6 +47,18 @@ function saveBlocked(ids: string[]): void {
 /** playerId からの対人リアクションを自分がブロックしているか */
 export function isReactorBlocked(playerId: string): boolean {
   return loadBlocked().includes(playerId);
+}
+
+/** 全リアクション（自己・対人とも）を自分の画面で非表示にしているか */
+export function areReactionsOff(): boolean {
+  return lsGet(LS_OFF_KEY) === '1';
+}
+
+/** 全体OFF をトグルし、トグル後の状態（true=非表示）を返す */
+export function toggleReactionsOff(): boolean {
+  const next = !areReactionsOff();
+  lsSet(LS_OFF_KEY, next ? '1' : '0');
+  return next;
 }
 
 /** playerId のブロック状態をトグルし、トグル後の状態（true=ブロック中）を返す */

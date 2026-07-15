@@ -9,6 +9,7 @@
 // ========================================
 
 import { countUnoActivePlayers } from '../../logic/uno-logic.js';
+import { areReactionsOff } from './reaction-menu.js';
 
 const LS_OPEN_KEY = 'pcgDrawerOpen';
 const LS_TAB_KEY = 'pcgDrawerTab';
@@ -99,7 +100,16 @@ export function renderDrawerHtml(g: any): string {
   `;
 
   const body = tab === 'log' ? _logTabHtml(g) : _rulesTabHtml(g);
-  return `${tabsHtml}<div class="pcg-drawer-body">${body}</div>`;
+  // タブに依らず常時表示する設定フッター（全リアクション表示ON/OFF）
+  const off = areReactionsOff();
+  const footHtml = `
+    <div class="pcg-drawer-foot">
+      <button class="pcg-drawer-setting${off ? ' off' : ''}" data-action="reactions-toggle">
+        ${off ? '🔕 リアクション非表示中' : '🔔 リアクション表示中'}
+      </button>
+    </div>
+  `;
+  return `${tabsHtml}<div class="pcg-drawer-body">${body}</div>${footHtml}`;
 }
 
 function _logTabHtml(g: any): string {

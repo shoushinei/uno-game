@@ -7,6 +7,8 @@ import {
   SEAT_REACTION_EMOJIS,
   isReactorBlocked,
   toggleReactorBlock,
+  areReactionsOff,
+  toggleReactionsOff,
   renderReactionMenuHtml,
 } from './reaction-menu.js';
 
@@ -51,6 +53,27 @@ describe('toggleReactorBlock / isReactorBlocked — ブロックの永続化', (
     globalThis.localStorage.setItem('pcgBlockedReactors', '{not json');
     expect(isReactorBlocked('p1')).toBe(false);
     expect(toggleReactorBlock('p1')).toBe(true);
+    expect(isReactorBlocked('p1')).toBe(true);
+  });
+});
+
+describe('toggleReactionsOff / areReactionsOff — 全体OFFの永続化', () => {
+  it('初期状態は表示ON（OFFではない）', () => {
+    expect(areReactionsOff()).toBe(false);
+  });
+
+  it('トグルでOFF→ONに切り替わり、localStorageに残る', () => {
+    expect(toggleReactionsOff()).toBe(true);
+    expect(areReactionsOff()).toBe(true);
+    expect(localStorage.getItem('pcgReactionsOff')).toBe('1');
+    expect(toggleReactionsOff()).toBe(false);
+    expect(areReactionsOff()).toBe(false);
+  });
+
+  it('ブロックとは独立して記憶される', () => {
+    toggleReactionsOff();          // 全体OFF
+    toggleReactorBlock('p1');      // p1個別ブロック
+    expect(areReactionsOff()).toBe(true);
     expect(isReactorBlocked('p1')).toBe(true);
   });
 });

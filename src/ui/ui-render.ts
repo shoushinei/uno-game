@@ -284,7 +284,9 @@ function _renderOtherPlayers(
     const active = p.id === curId && g.order.includes(p.id);
     const rIdx = (g.rankings || []).findIndex(r => r.id === p.id);
     const react = reactions[p.id];
-    const reactHtml = (react && Date.now() - react.ts < 4000)
+    // 従来UIには対人投擲の概念がないため、targetId付き（対人リアクション）は
+    // 表示しない。全体向けの自己リアクションだけ従来通りバッジ表示する。
+    const reactHtml = (react && !react.targetId && Date.now() - react.ts < 4000)
       ? `<div class="react-badge">${react.emoji}</div>` : '';
     // ★機能追加★ 他プレイヤーが自動プレイ／退室中かどうかを表示する
     // 退室中（灰）と自発的な自動プレイ（紫）は区別する
