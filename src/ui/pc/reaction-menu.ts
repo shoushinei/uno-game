@@ -16,7 +16,7 @@
 export const SEAT_REACTION_EMOJIS = ['💦', '💋', '💐'] as const;
 
 /** 対人リアクションのクールダウン（ミリ秒） */
-export const DIRECTED_COOLDOWN_MS = 10000;
+export const DIRECTED_COOLDOWN_MS = 3000;
 
 const LS_BLOCK_KEY = 'pcgBlockedReactors';
 
