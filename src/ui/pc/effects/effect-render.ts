@@ -427,3 +427,39 @@ export function playReaction(emoji: string, playerId: string, myId: string): voi
     { duration: 1500, easing: 'ease-out', fill: 'forwards' }
   );
 }
+
+/**
+ * 対人リアクション（特定プレイヤー宛て）を表示する。
+ * 「誰が誰へ投げたか」が伝わるよう、送信者の席から宛先の席へ絵文字を
+ * 飛ばし、着弾でひと弾ませする。宛先が自分なら手札エリアへ着弾する
+ * （anchorSeat が自分の場合は手札エリアを返す）。
+ * ※放物線・被弾トースト等の磨きは Phase C6 で行う。
+ */
+export function playDirectedReaction(
+  emoji: string,
+  fromId: string,
+  targetId: string,
+  myId: string
+): void {
+  const from = anchorSeat(fromId, myId);
+  const to = anchorSeat(targetId, myId);
+  const el = spawn(emoji, from.x, from.y, 'pcg-fx-reaction pcg-fx-reaction-dir', 900);
+  if (!el) return;
+  el.animate(
+    [
+      { transform: 'translate(-50%, -50%) scale(0.5)', opacity: 0, offset: 0 },
+      { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, offset: 0.15 },
+      {
+        transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(1.25)`,
+        opacity: 1,
+        offset: 0.8,
+      },
+      {
+        transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(0.9)`,
+        opacity: 0,
+        offset: 1,
+      },
+    ],
+    { duration: 900, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)', fill: 'forwards' }
+  );
+}

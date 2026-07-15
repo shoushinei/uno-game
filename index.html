@@ -254,6 +254,9 @@
     <!-- 演出レイヤー（親の権限発動など）。ゾーン再描画の影響を受けないよう
          静的DOMとして持ち、src/ui/pc/table-render.ts が子要素を出し入れする -->
     <div class="pcg-effect-layer" id="pcg-effect-layer"></div>
+    <!-- 対人リアクションメニュー（席クリックで開く静的レイヤー）。
+         table-render.ts が中身と表示位置を出し入れする -->
+    <div class="pcg-reaction-menu" id="pcg-reaction-menu"></div>
     <!-- ステータスバー。左の情報部だけ再描画され、右の操作ボタンは
          静的DOMのまま（再構築するとbot対戦中の頻繁な同期でクリックが
          成立しなくなるため） -->

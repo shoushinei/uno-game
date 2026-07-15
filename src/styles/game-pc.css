@@ -282,6 +282,7 @@
   width: 120px;
   text-align: center;
   z-index: 2;
+  cursor: pointer; /* クリックで対人リアクションメニューを開ける */
 }
 
 /* ★hover被り修正★ hover中の席は他の席・場・バッジ類より必ず手前に出す */
@@ -678,6 +679,98 @@
 }
 
 #s-game-pc .pcg-react-btn:hover { background: rgba(255, 255, 255, 0.18); }
+
+/* ---------- 対人リアクションメニュー（席クリックで開く） ---------- */
+#s-game-pc .pcg-reaction-menu {
+  position: absolute;
+  z-index: 70; /* 演出レイヤー(60)より前面 */
+  display: none;
+  /* left/top は席中央上に JS で設定。中心を基準点にして席の真上へ出す */
+  transform: translate(-50%, calc(-100% - 10px));
+}
+
+#s-game-pc .pcg-reaction-menu.show { display: block; }
+
+#s-game-pc .pcg-rm-card {
+  background: #0e241b;
+  border: 1px solid #3a5c4c;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  min-width: 150px;
+}
+
+/* 吹き出しの三角（席の方を指す） */
+#s-game-pc .pcg-rm-card::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 7px solid #3a5c4c;
+}
+
+#s-game-pc .pcg-rm-title {
+  font-size: 12px;
+  color: #9fd3bd;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+#s-game-pc .pcg-rm-emojis {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+#s-game-pc .pcg-rm-emoji {
+  font-size: 24px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid #4a6b5c;
+  border-radius: 10px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.12s ease;
+}
+
+#s-game-pc .pcg-rm-emoji:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.12); }
+#s-game-pc .pcg-rm-emoji.off { opacity: 0.4; cursor: not-allowed; }
+#s-game-pc .pcg-rm-emoji.off:hover { background: rgba(255, 255, 255, 0.08); transform: none; }
+
+#s-game-pc .pcg-rm-note {
+  font-size: 10px;
+  color: #d98c5f;
+  text-align: center;
+  margin-top: 5px;
+}
+
+#s-game-pc .pcg-rm-foot {
+  margin-top: 8px;
+  border-top: 1px solid #24463a;
+  padding-top: 8px;
+  text-align: center;
+}
+
+#s-game-pc .pcg-rm-block {
+  font-size: 11px;
+  color: #c9d6cf;
+  background: transparent;
+  border: 1px solid #4a6b5c;
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  width: 100%;
+}
+
+#s-game-pc .pcg-rm-block:hover { background: rgba(255, 255, 255, 0.08); }
+#s-game-pc .pcg-rm-block.on {
+  color: #ff9b8a;
+  border-color: #a4544a;
+  background: rgba(164, 84, 74, 0.15);
+}
 
 /* ---------- ホバーカード（直近の操作） ---------- */
 #s-game-pc .pcg-hovercard {

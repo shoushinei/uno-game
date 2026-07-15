@@ -21,6 +21,8 @@ import { renderGamePC } from './pc/table-render.js';
 interface Reaction {
   emoji: string;
   ts: number;
+  /** 対人リアクションの宛先。未指定は全体向けの自己リアクション（PC UI専用機能） */
+  targetId?: string;
 }
 
 // room はFirebaseから取得する生データのため any のまま扱う

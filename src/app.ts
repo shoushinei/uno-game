@@ -55,7 +55,7 @@ declare global {
     sayUno: () => Promise<void>;
     showParentColorPick: () => void;
     pickParentColor: (color: string) => Promise<void>;
-    sendReaction: (emoji: string) => Promise<void>;
+    sendReaction: (emoji: string, targetId?: string) => Promise<void>;
     saveReplay: () => Promise<void>;
     openReplayScreen: () => void;
     closeReplayScreen: () => void;
@@ -269,7 +269,9 @@ window.pickParentColor = async (color) => {
 };
 
 // --- リアクション ---
-window.sendReaction = async (emoji) => {
+// targetId を渡すと特定プレイヤー宛ての「対人リアクション」になる
+// （PC UIの席クリックメニューから）。省略時は従来の全体向け自己リアクション。
+window.sendReaction = async (emoji, targetId) => {
   if (state.reactionCooldown) return;
   state.reactionCooldown = true;
   state.lastSentReaction = emoji;
@@ -277,7 +279,7 @@ window.sendReaction = async (emoji) => {
   // 表示されるため、旧・中央ポップの flashReactionBtn は従来UIのときだけ呼ぶ
   // （二重表示防止）。
   if (!isPcUi()) flashReactionBtn(emoji);
-  const result = await actionSendReaction(emoji);
+  const result = await actionSendReaction(emoji, targetId);
   if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
   setTimeout(() => { state.reactionCooldown = false; }, 2000);
 };

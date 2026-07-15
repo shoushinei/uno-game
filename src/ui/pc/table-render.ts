@@ -51,7 +51,13 @@ import {
   type EffectDescriptor,
 } from './effects/effect-derive.js';
 import { enqueueEffects, clearEffectQueue } from './effects/effect-queue.js';
-import { playEffect, flashTurnArrival, flashMyTurn, playReaction } from './effects/effect-render.js';
+import { playEffect, flashTurnArrival, flashMyTurn, playReaction, playDirectedReaction } from './effects/effect-render.js';
+import {
+  renderReactionMenuHtml,
+  isReactorBlocked,
+  toggleReactorBlock,
+  DIRECTED_COOLDOWN_MS,
+} from './reaction-menu.js';
 
 declare global {
   interface Window {
@@ -112,6 +118,47 @@ let barOverride: 'wild-color' | 'parent-color' | null = null;
 
 /** 自己リアクションの絵文字ストリップが開いているか */
 let reactionOpen = false;
+
+/**
+ * 対人リアクションのクールダウン期限（Date.now() ミリ秒）。
+ * 全宛先で共有する単一クールダウン（連投抑制）。0=クールダウンなし。
+ */
+let directedCooldownUntil = 0;
+/** 現在開いている対人リアクションメニューの宛先ID（null=閉じている） */
+let openMenuTargetId: string | null = null;
+
+function isDirectedOnCooldown(): boolean {
+  return Date.now() < directedCooldownUntil;
+}
+
+/** 席の対人リアクションメニューを開く（宛先席の中央上に配置） */
+function openReactionMenu(seatEl: HTMLElement, targetId: string): void {
+  const menu = document.getElementById('pcg-reaction-menu');
+  const frame = document.querySelector('.pcg-frame');
+  if (!menu || !frame) return;
+  const name = lastRoom?.players?.find((p: Player) => p.id === targetId)?.name ?? '?';
+  menu.innerHTML = renderReactionMenuHtml(
+    targetId,
+    name,
+    isReactorBlocked(targetId),
+    isDirectedOnCooldown()
+  );
+  const sr = seatEl.getBoundingClientRect();
+  const fr = frame.getBoundingClientRect();
+  menu.style.left = `${sr.left + sr.width / 2 - fr.left}px`;
+  menu.style.top = `${sr.top - fr.top}px`;
+  menu.classList.add('show');
+  openMenuTargetId = targetId;
+}
+
+function closeReactionMenu(): void {
+  const menu = document.getElementById('pcg-reaction-menu');
+  if (menu) {
+    menu.classList.remove('show');
+    menu.innerHTML = '';
+  }
+  openMenuTargetId = null;
+}
 
 export function rerenderPc(): void {
   if (lastRoom) renderGamePC(lastRoom);
@@ -247,7 +294,7 @@ function _runEffects(room: any, g: any, players: Player[], curId: string | undef
  * 全プレイヤー分（自分含む）を表示するため、送信者以外の画面でも見える。
  */
 function _runReactionEffects(room: any): void {
-  const reactions: Record<string, { emoji: string; ts: number } | undefined> = room.reactions || {};
+  const reactions: Record<string, { emoji: string; ts: number; targetId?: string } | undefined> = room.reactions || {};
 
   // 初回同期では過去のリアクションを再生せず、既読位置だけ記録する
   if (prevReactionTs === null) {
@@ -268,7 +315,14 @@ function _runReactionEffects(room: any): void {
       prevReactionTs[id] = r.ts;
       // 8秒以上前の古いリアクションは再生しない（再接続時の一斉再生防止）
       if (now - r.ts < 8000 && r.emoji) {
-        playReaction(r.emoji, id, state.myId);
+        if (r.targetId) {
+          // 対人リアクション: ブロックした相手からのものは自分の画面に出さない
+          // （送信者には通知しない＝受信側クライアントで描画スキップ）
+          if (isReactorBlocked(id)) continue;
+          playDirectedReaction(r.emoji, id, r.targetId, state.myId);
+        } else {
+          playReaction(r.emoji, id, state.myId);
+        }
       }
     }
   }
@@ -504,6 +558,23 @@ async function _handleAction(action: string, target: HTMLElement): Promise<void>
       reactionOpen = false;
       await window.sendReaction(target.dataset.emoji!);
       break;
+    case 'react-emoji': {
+      // 対人リアクション送信（クールダウン中は無視）
+      if (isDirectedOnCooldown()) break;
+      const targetId = target.dataset.target!;
+      closeReactionMenu();
+      directedCooldownUntil = Date.now() + DIRECTED_COOLDOWN_MS;
+      await window.sendReaction(target.dataset.emoji!, targetId);
+      break;
+    }
+    case 'react-block': {
+      // ブロック状態をトグルし、メニュー表示を更新（開いたまま）
+      const targetId = target.dataset.target!;
+      toggleReactorBlock(targetId);
+      const seatEl = document.querySelector<HTMLElement>(`.pcg-seat[data-seat-id="${targetId}"]`);
+      if (seatEl) openReactionMenu(seatEl, targetId);
+      break;
+    }
     case 'drawer-toggle':
       toggleDrawer();
       break;
@@ -515,23 +586,44 @@ async function _handleAction(action: string, target: HTMLElement): Promise<void>
 }
 
 function _onPcClick(e: MouseEvent): void {
-  const target = (e.target as HTMLElement).closest<HTMLElement>(
+  const el = e.target as HTMLElement;
+  const target = el.closest<HTMLElement>(
     '[data-action], [data-tcard-id], [data-ucard-idx]'
   );
-  if (!target) return;
+  const seatEl = el.closest<HTMLElement>('.pcg-seat[data-seat-id]');
+  const insideMenu = !!el.closest('#pcg-reaction-menu');
 
-  if (target.dataset.tcardId) {
-    window.selectTrumpCard(target.dataset.tcardId);
-    rerenderPc();
-    return;
+  // メニュー外クリックで閉じる（メニュー内のボタンと席クリックは除外）。
+  // 席クリックは下で開き直す／トグルするので、ここでは閉じない。
+  if (openMenuTargetId && !insideMenu && !seatEl) {
+    closeReactionMenu();
   }
-  if (target.dataset.ucardIdx !== undefined) {
-    window.selectUnoCard(parseInt(target.dataset.ucardIdx, 10));
-    rerenderPc();
-    return;
+
+  if (target) {
+    if (target.dataset.tcardId) {
+      window.selectTrumpCard(target.dataset.tcardId);
+      rerenderPc();
+      return;
+    }
+    if (target.dataset.ucardIdx !== undefined) {
+      window.selectUnoCard(parseInt(target.dataset.ucardIdx, 10));
+      rerenderPc();
+      return;
+    }
+    if (target.dataset.action) {
+      void _handleAction(target.dataset.action, target);
+      return;
+    }
   }
-  if (target.dataset.action) {
-    void _handleAction(target.dataset.action, target);
+
+  // 席クリック → 対人リアクションメニュー（同じ席をもう一度押すと閉じる）
+  if (seatEl) {
+    const id = seatEl.dataset.seatId!;
+    if (openMenuTargetId === id) {
+      closeReactionMenu();
+    } else {
+      openReactionMenu(seatEl, id);
+    }
   }
 }
 

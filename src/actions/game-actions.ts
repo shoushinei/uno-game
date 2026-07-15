@@ -494,8 +494,13 @@ export async function actionPickParentColor(color: string, actorId: string = sta
 // ----------------------------------------
 // リアクション送信
 // ----------------------------------------
-export async function actionSendReaction(emoji: string): Promise<ActionResult> {
-  await fbSet(`rooms/${state.roomId}/reactions/${state.myId}`, { emoji, ts: Date.now() });
+// targetId を渡すと「対人リアクション」（特定プレイヤー宛て）になる。
+// 省略時は従来どおり全体向けの自己リアクション。1スキーマ両立のため
+// reactions/{myId} に targetId を任意フィールドとして載せる。
+export async function actionSendReaction(emoji: string, targetId?: string): Promise<ActionResult> {
+  const payload: { emoji: string; ts: number; targetId?: string } = { emoji, ts: Date.now() };
+  if (targetId) payload.targetId = targetId;
+  await fbSet(`rooms/${state.roomId}/reactions/${state.myId}`, payload);
   return { ok: true };
 }
 
