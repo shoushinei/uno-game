@@ -13,6 +13,7 @@ import './auth.js';
 import { state } from './state.js';
 import { fbListen } from './db.js';
 import './bot/test-bot.js';
+import { startAbsentRunner } from './bot/absent-runner.js';
 import './replay/app.js'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg } from './ui/ui-render.js';
 import {
@@ -59,6 +60,9 @@ declare global {
     closeReplayScreen: () => void;
     openRuleModal: () => void;
     closeRuleModal: (event?: Event) => void;
+    // ★Phase C4★ 退室者代行が参照する同期情報
+    _roomHost: string | null;
+    _leftPlayers: Record<string, boolean>;
   }
 }
 
@@ -95,6 +99,11 @@ export function startListening(): void {
       localStorage.setItem('savedIsHost', String(state.isHost));
       window._currentGame = room.game || null;
       window._roomState = room.state || null; // ★追加：モンキープレイのstate参照用
+      // ★Phase C4★ 退室者代行（absent-runner）が参照する情報。
+      // 代行はホストのクライアントだけが行うため host を、対象判定に
+      // leftPlayers を公開する。
+      window._roomHost = room.host || null;
+      window._leftPlayers = room.leftPlayers || {};
       // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様）★
       // 全員のトランプ手札が0枚になると room.game.trumpHands ノード自体が
       // 丸ごと削除されて undefined になる（前回までに直したゲームロジック側と
@@ -158,6 +167,10 @@ export function stopListening(): void {
 // auth.ts から循環参照なしで参照できるよう公開
 window._startListening = startListening;
 window._stopListening  = stopListening;
+
+// ★Phase C4★ 退室者の手番をホストが代行する監視を起動する
+// （ホストのクライアントでのみ実際に動作する。軽量なので常時起動でよい）
+startAbsentRunner();
 
 // ========================================
 // window.* 登録（HTML onclick から呼ばれる）
