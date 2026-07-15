@@ -106,9 +106,9 @@ describe('game-actions.js — actionSendReaction', () => {
   });
 
   it('targetId 指定時は対人リアクションとして宛先を載せる', async () => {
-    await actionSendReaction('💦', 'p3');
+    await actionSendReaction('🍅', 'p3');
     const [, payload] = fbSet.mock.calls[0];
-    expect(payload.emoji).toBe('💦');
+    expect(payload.emoji).toBe('🍅');
     expect(payload.targetId).toBe('p3');
   });
 });
