@@ -298,6 +298,7 @@ function _renderTable(room: any): void {
   const g = room.game;
   const players: Player[] = room.players || [];
   const autoPlayers: Record<string, boolean> = room.autoPlayers || {};
+  const leftPlayers: Record<string, boolean> = room.leftPlayers || {};
   const curId = g.order?.[g.ci];
 
   // 自分以外を手番順（自分基準に回転）で上弧に配置する
@@ -308,7 +309,7 @@ function _renderTable(room: any): void {
   );
   const positions = seatPositions(others);
   const seatsHtml = positions
-    .map(pos => renderSeatHtml(pos, { g, players, autoPlayers, curId, actionLog: room.actionLog }))
+    .map(pos => renderSeatHtml(pos, { g, players, autoPlayers, leftPlayers, curId, actionLog: room.actionLog }))
     .join('');
 
   setZone('pcg-table', `

@@ -156,6 +156,7 @@ export function renderGame(room: any): void {
   const players: Player[] = room.players || [];
   const reactions: Record<string, Reaction | undefined> = room.reactions || {};
   const autoPlayers: Record<string, boolean> = room.autoPlayers || {};
+  const leftPlayers: Record<string, boolean> = room.leftPlayers || {};
   const curId = g.order[g.ci]!;
   const isMyTurn = curId === state.myId;
   const phase = g.phase || 'trump';
@@ -170,7 +171,7 @@ export function renderGame(room: any): void {
   _renderTurnBanner(g, players, isMyTurn, phase, iFinished);
   _renderPhaseIndicator(phase);
   _renderTurnOrder(g, players, curId);
-  _renderOtherPlayers(g, players, reactions, curId, autoPlayers);
+  _renderOtherPlayers(g, players, reactions, curId, autoPlayers, leftPlayers);
   _renderTrumpField(g);
   _renderTrumpStatus(g);
   _renderTrumpEffect(g, players);
@@ -270,7 +271,8 @@ function _renderOtherPlayers(
   players: Player[],
   reactions: Record<string, Reaction | undefined>,
   curId: string,
-  autoPlayers: Record<string, boolean>
+  autoPlayers: Record<string, boolean>,
+  leftPlayers: Record<string, boolean>
 ): void {
   const opl = document.getElementById('opl')!;
   opl.innerHTML = '';
@@ -282,9 +284,13 @@ function _renderOtherPlayers(
     const react = reactions[p.id];
     const reactHtml = (react && Date.now() - react.ts < 4000)
       ? `<div class="react-badge">${react.emoji}</div>` : '';
-    // ★機能追加★ 他プレイヤーが自動プレイ（テストボット）中かどうかを表示する
+    // ★機能追加★ 他プレイヤーが自動プレイ／退室中かどうかを表示する
+    // 退室中（灰）と自発的な自動プレイ（紫）は区別する
+    const isLeft = !!(leftPlayers && leftPlayers[p.id]);
     const isAuto = !!(autoPlayers && autoPlayers[p.id]);
-    const autoHtml = isAuto
+    const autoHtml = isLeft
+      ? `<div class="auto-badge" style="font-size:11px;background:#5f5e5a;color:#fff;border-radius:8px;padding:1px 6px;display:inline-block;margin-top:2px">🚪 退室中（自動）</div>`
+      : isAuto
       ? `<div class="auto-badge" style="font-size:11px;background:#8e44ad;color:#fff;border-radius:8px;padding:1px 6px;display:inline-block;margin-top:2px">🐒 自動プレイ中</div>`
       : '';
     const el = document.createElement('div');

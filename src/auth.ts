@@ -70,6 +70,19 @@ onAuthStateChanged(auth, async (user: any) => {
             state.myName = localStorage.getItem('savedMyName') || 'ゲスト';
             state.isHost = localStorage.getItem('savedIsHost') === 'true';
 
+            // ★Phase C3★ 退室（代行残留）していた席に戻ってきた場合は、
+            // leftPlayers / autoPlayers から自分を外して操作を取り戻す
+            if ((room.leftPlayers && room.leftPlayers[savedMyId]) ||
+                (room.autoPlayers && room.autoPlayers[savedMyId])) {
+              try {
+                await fbUpdate('rooms/' + savedRoomId, {
+                  [`leftPlayers/${savedMyId}`]: null,
+                  [`autoPlayers/${savedMyId}`]: null,
+                });
+                dbg('退室していた席に復帰しました: ' + savedRoomId);
+              } catch { /* 失敗しても復帰自体は続行 */ }
+            }
+
             document.getElementById('lrid')!.textContent = state.roomId;
 
             // 部屋の状態に合わせて直接画面を切り替える
@@ -241,44 +254,105 @@ window.backToLobby = async function () {
 };
 
 // ----------------------------------------
-// 退出（無人なら部屋削除）
+// セッション情報とメモリ上の状態を消してホームへ戻る共通処理
 // ----------------------------------------
-window.leaveGame = async function () {
-  const rid  = state.roomId;
-  const myId = state.myId;
-  window._stopListening?.();
-  if (rid && myId) {
-    try {
-      const room = await fbGet('rooms/' + rid);
-      if (room && room.players) {
-        const remainingPlayers = room.players.filter((p: any) => p.id !== myId);
-        if (remainingPlayers.length === 0) {
-          await fbSet('rooms/' + rid, null);
-          dbg('無人になったためルームを削除しました: ' + rid);
-        } else {
-          const updates: { players: any[]; host?: string; log?: string[] } = { players: remainingPlayers };
-          if (room.host === myId) {
-            updates.host = remainingPlayers[0].id;
-            const logs = [...(room.log || []), `${remainingPlayers[0].name} が新しいホストになりました`];
-            updates.log = logs.slice(-8);
-          }
-          await fbUpdate('rooms/' + rid, updates);
-          dbg('ルームから退出しました: ' + rid);
-        }
-      }
-    } catch (e: any) { dbg('退出処理でエラーが発生しました: ' + e.message, true); }
-  }
-  // LocalStorageからセッション情報をクリア
+function clearSessionAndGoHome(): void {
   localStorage.removeItem('savedRoomId');
   localStorage.removeItem('savedMyId');
   localStorage.removeItem('savedMyName');
   localStorage.removeItem('savedIsHost');
-
   state.roomId = '';
-  state.myId   = '';
+  state.myId = '';
   state.myName = '';
   state.isHost = false;
   show('home');
+}
+
+// ----------------------------------------
+// 退出
+//
+// ・ロビー中／ゲーム終了後：従来どおり players から削除（無人なら部屋削除）
+// ・ゲーム進行中：★Phase C3★ players からは削除せず leftPlayers + autoPlayers に
+//   登録して「退室中（自動）」として席を残す。手番はホストのクライアントが
+//   代行実行する（absent-runner, C4）。localStorage のセッション情報は保持し、
+//   同じ端末で再アクセスすれば元の席に復帰できる。
+// ----------------------------------------
+window.leaveGame = async function () {
+  const rid  = state.roomId;
+  const myId = state.myId;
+
+  let room: any = null;
+  if (rid && myId) {
+    try { room = await fbGet('rooms/' + rid); } catch { room = null; }
+  }
+  const isPlaying = room?.state === 'playing';
+
+  // ゲーム進行中の退室は、代行に引き継ぐ旨を確認してから実行する
+  if (isPlaying) {
+    const ok = window.confirm(
+      'ゲームの途中です。退室すると、あなたの手番はボットが自動でプレイします。\n' +
+      '同じ端末で再度アクセスすれば、元の席に戻って続きをプレイできます。\n\n退室しますか？'
+    );
+    if (!ok) return; // キャンセル：何もしない
+  }
+
+  window._stopListening?.();
+
+  if (rid && myId && room && room.players) {
+    try {
+      if (isPlaying) {
+        // ---- 代行残留 ----
+        const leftPlayers = { ...(room.leftPlayers || {}), [myId]: true };
+        const autoPlayers = { ...(room.autoPlayers || {}), [myId]: true };
+
+        // 全プレイヤーが退室済みになったら、ボットだけの無人試合を続けずに削除
+        const allLeft = room.players.every((p: any) => leftPlayers[p.id]);
+        if (allLeft) {
+          await fbSet('rooms/' + rid, null);
+          dbg('全員退室したためルームを削除しました: ' + rid);
+        } else {
+          const updates: any = { leftPlayers, autoPlayers };
+          const myName = room.players.find((p: any) => p.id === myId)?.name ?? 'プレイヤー';
+          // ホスト自身が退室する場合、退室していないプレイヤーへホストを移譲する
+          if (room.host === myId) {
+            const nextHost = room.players.find((p: any) => !leftPlayers[p.id]);
+            if (nextHost) {
+              updates.host = nextHost.id;
+              updates.log = [...(room.log || []), `${nextHost.name} が新しいホストになりました`].slice(-8);
+            }
+          }
+          updates.log = [...(updates.log || room.log || []), `🚪 ${myName} が退室しました（自動プレイで継続）`].slice(-8);
+          await fbUpdate('rooms/' + rid, updates);
+          dbg('退室（代行残留）: ' + rid);
+        }
+        // ★localStorageは消さない★（同じ端末での復帰の鍵）。メモリ状態だけ戻す
+        state.roomId = '';
+        state.myId = '';
+        state.myName = '';
+        state.isHost = false;
+        show('home');
+        return;
+      }
+
+      // ---- 従来どおりの退出（ロビー中・ゲーム終了後）----
+      const remainingPlayers = room.players.filter((p: any) => p.id !== myId);
+      if (remainingPlayers.length === 0) {
+        await fbSet('rooms/' + rid, null);
+        dbg('無人になったためルームを削除しました: ' + rid);
+      } else {
+        const updates: { players: any[]; host?: string; log?: string[] } = { players: remainingPlayers };
+        if (room.host === myId) {
+          updates.host = remainingPlayers[0].id;
+          const logs = [...(room.log || []), `${remainingPlayers[0].name} が新しいホストになりました`];
+          updates.log = logs.slice(-8);
+        }
+        await fbUpdate('rooms/' + rid, updates);
+        dbg('ルームから退出しました: ' + rid);
+      }
+    } catch (e: any) { dbg('退出処理でエラーが発生しました: ' + e.message, true); }
+  }
+
+  clearSessionAndGoHome();
 };
 
 // ----------------------------------------

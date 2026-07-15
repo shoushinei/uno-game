@@ -20,12 +20,13 @@ export interface SeatContext {
   g: any;
   players: Player[];
   autoPlayers: Record<string, boolean>;
+  leftPlayers: Record<string, boolean>;
   curId: string | undefined;
   actionLog: ReplayActionLogEntry[] | null | undefined;
 }
 
 export function renderSeatHtml(pos: SeatPosition, ctx: SeatContext): string {
-  const { g, players, autoPlayers, curId } = ctx;
+  const { g, players, autoPlayers, leftPlayers, curId } = ctx;
   const player = players.find(p => p.id === pos.id);
   const name = player ? player.name : '?';
   const playerIdx = players.findIndex(p => p.id === pos.id);
@@ -39,6 +40,7 @@ export function renderSeatHtml(pos: SeatPosition, ctx: SeatContext): string {
   const isCurrent = pos.id === curId && !finished;
   const isParent = g.hasParent === pos.id;
   const saidUno = !!(g.unoSaid && g.unoSaid[pos.id]);
+  const isLeft = !!leftPlayers[pos.id];
   const isAuto = !!autoPlayers[pos.id];
 
   const phase = g.phase || 'trump';
@@ -48,7 +50,9 @@ export function renderSeatHtml(pos: SeatPosition, ctx: SeatContext): string {
 
   const statusChips: string[] = [];
   if (finished) statusChips.push(`<span class="pcg-seat-chip pcg-chip-rank">🏁 ${rankIdx + 1}位</span>`);
-  if (isAuto && !finished) statusChips.push('<span class="pcg-seat-chip pcg-chip-auto">🐒 自動プレイ中</span>');
+  // 退室中（灰）と自発的な自動プレイ（紫）は区別する。退室中を優先表示
+  else if (isLeft) statusChips.push('<span class="pcg-seat-chip pcg-chip-left">🚪 退室中（自動）</span>');
+  else if (isAuto) statusChips.push('<span class="pcg-seat-chip pcg-chip-auto">🐒 自動プレイ中</span>');
 
   const countsHtml = finished
     ? '<span class="pcg-seat-counts">観戦中</span>'
