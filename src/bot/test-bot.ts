@@ -28,21 +28,12 @@
 
 // @ts-ignore -- state.js はプレーンJS（型定義なし）
 import { state } from '../state.js';
-// @ts-ignore -- game-actions.js はプレーンJS（型定義なし）
-import {
-  actionTrumpPlay,
-  actionTrumpPass,
-  actionTrumpSkip,
-  actionUnoPlay,
-  actionUnoDraw,
-  actionUnoSkip,
-  actionSayUno,
-  actionPickParentColor,
-  actionSetAutoPlay,
-} from '../actions/game-actions.js';
-import { trumpCanPlay, type TrumpCard, type PartialGameState } from '../logic/trump-logic.js';
-// @ts-ignore -- uno-logic.js はプレーンJS（型定義なし）
-import { unoCanPlay } from '../logic/uno-logic.js';
+import { actionSetAutoPlay } from '../actions/game-actions.js';
+import { type TrumpCard, type PartialGameState } from '../logic/trump-logic.js';
+// ★C2★ 思考ロジックと実行を共有モジュールへ切り出した
+// （test-bot と absent-runner が同じ頭脳を使う）
+import { decideBotPlan } from './strategy.js';
+import { executeBotPlan } from './execute.js';
 
 // ----------------------------------------
 // 型定義（このファイル内で完結させる最小限の型）
@@ -88,8 +79,6 @@ declare global {
   }
 }
 
-const UNO_COLORS: UnoColor[] = ['red', 'blue', 'green', 'yellow'];
-
 let botTimer: ReturnType<typeof setInterval> | null = null;
 let lastSignature = '';
 let lastChangeAt = 0;
@@ -121,49 +110,6 @@ let isProcessing = false;
 
 function log(...args: unknown[]): void {
   console.log('%c[TestBot]', 'color:#e67e22;font-weight:bold', ...args);
-}
-
-// ----------------------------------------
-// トランプ：出せる最初の1枚（単騎）を探す
-// ----------------------------------------
-function findPlayableTrumpSingle(
-  hand: TrumpCard[],
-  fieldCards: TrumpCard[],
-  g: FusionGameState
-): TrumpCard | null {
-  for (const card of hand) {
-    if (trumpCanPlay([card], fieldCards, g)) return card;
-  }
-  return null;
-}
-
-// ----------------------------------------
-// UNO：出せる最初の1枚を探す（インデックスを返す）
-// ----------------------------------------
-function findPlayableUnoIdx(
-  hand: UnoCard[],
-  top: UnoCard,
-  currentColor: UnoColor,
-  penaltyAccum: number
-): number {
-  for (let i = 0; i < hand.length; i++) {
-    const card = hand[i];
-    if (card && unoCanPlay(card, top, currentColor, penaltyAccum)) return i;
-  }
-  return -1;
-}
-
-// ----------------------------------------
-// 手札の中で一番枚数が多い色を選ぶ（親の権限・ワイルド用）
-// ----------------------------------------
-function pickBestColor(hand: UnoCard[]): UnoColor {
-  const counts: Record<UnoColor, number> = { red: 0, blue: 0, green: 0, yellow: 0 };
-  hand.forEach(c => {
-    if (c.c !== 'w' && counts[c.c] !== undefined) counts[c.c]++;
-  });
-  let best: UnoColor = UNO_COLORS[0]!;
-  UNO_COLORS.forEach(c => { if (counts[c] > counts[best]) best = c; });
-  return best;
 }
 
 // ----------------------------------------
@@ -208,79 +154,13 @@ async function step(): Promise<void> {
 
   isProcessing = true;
   try {
-    // ─── トランプフェイズ ───
-    if (g.phase === 'trump') {
-      if (trumpHand.length === 0) {
-        await actionTrumpSkip();
-        return;
-      }
-      const fieldCards: TrumpCard[] = Array.isArray(g.trumpField) ? g.trumpField : [];
-      const playable = findPlayableTrumpSingle(trumpHand, fieldCards, g);
-      if (playable) {
-        log('トランプを出す →', playable.id);
-        const result = await actionTrumpPlay([playable.id]);
-        if (result?.error) log('⚠️ actionTrumpPlay がエラーを返した →', result.error);
-      } else {
-        log('出せるトランプが無いためパス');
-        const result = await actionTrumpPass();
-        if (result?.error) log('⚠️ actionTrumpPass がエラーを返した →', result.error);
-      }
-      return;
-    }
-
-    // ─── UNOフェイズ ───
-    if (g.phase === 'uno') {
-      // 親の権限があり、まだUNOが残っているなら先に色を有利な色へ変更しておく
-      // （UNOを出し切り済みの場合は actionPickParentColor 自体がターンを
-      //   進めてしまうので、その場合は下の「0枚スキップ」に任せる）
-      if (g.hasParent === state.myId && unoHand.length > 0) {
-        const color = pickBestColor(unoHand);
-        log('親の権限で色を変更 →', color);
-        await actionPickParentColor(color);
-        // ★バグ修正★ ここで得られる g / unoCurrentColor は色変更前の
-        // 古いスナップショットのまま。そのまま下の判定に進むと、古い色を
-        // 基準にカードの出せる/出せないを誤判定するおそれがあるため、
-        // 今回の tick はここで終了し、次の tick で最新状態を読み直してから
-        // 「出す/引く」の判断をする。
-        return;
-      }
-
-      if (unoHand.length === 0) {
-        await actionUnoSkip();
-        return;
-      }
-
-      const top = g.unoDiscardPile[g.unoDiscardPile.length - 1];
-      if (!top) return;
-      const idx = findPlayableUnoIdx(unoHand, top, g.unoCurrentColor, g.unoPenaltyAccum || 0);
-
-      if (idx !== -1) {
-        const card = unoHand[idx]!;
-        const isWild = card.t === 'w' || card.t === 'w4';
-        const color = isWild ? pickBestColor(unoHand.filter((_, i) => i !== idx)) : null;
-        // ★バグ修正★ 以前は actionUnoPlay の「後」に actionSayUno を呼んでいたため、
-        // actionUnoPlay が手札を1枚にした時点でサーバー側が即座に
-        // 「UNO未宣言」と判定してペナルティ（2枚ドロー）を確定させてしまい、
-        // その後に届く actionSayUno は常に手遅れになっていた
-        // （ログで「UNO忘れ！2枚引き」の直後に「UNO！と叫んだ」が
-        //   続けて出ていたのはこれが原因）。
-        // これを出すと残り1枚になる場合は、actionUnoPlay を呼ぶ前に
-        // 先に actionSayUno を送っておく。
-        if (unoHand.length === 2) {
-          log('残り1枚になるため先にUNO宣言 →');
-          const unoResult = await actionSayUno();
-          if (unoResult?.error) log('⚠️ actionSayUno がエラーを返した →', unoResult.error);
-        }
-        log('UNOを出す →', card, isWild ? `(色: ${color})` : '');
-        const result = await actionUnoPlay(idx, color);
-        if (result?.error) log('⚠️ actionUnoPlay がエラーを返した →', result.error);
-      } else {
-        log('出せるUNOが無いため引く');
-        const result = await actionUnoDraw();
-        if (result?.error) log('⚠️ actionUnoDraw がエラーを返した →', result.error);
-      }
-      return;
-    }
+    // ★C2★ 思考は共有ロジック（decideBotPlan）に委譲し、実行は
+    // executeBotPlan に任せる。actorId を渡さない＝自分として操作。
+    const plan = decideBotPlan(g, trumpHand, unoHand, state.myId);
+    if (plan.kind === 'none') return;
+    log('プラン →', plan);
+    const result = await executeBotPlan(plan);
+    if (result?.error) log(`⚠️ ${plan.kind} がエラーを返した →`, result.error);
   } catch (err) {
     // ★バグ修正★ actionXxx が reject した場合、以前は step() 内で
     // 例外がキャッチされずに終わり、hand数などが一切変化しないまま
