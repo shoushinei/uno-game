@@ -710,11 +710,24 @@
   position: absolute;
   z-index: 70; /* 演出レイヤー(60)より前面 */
   display: none;
-  /* left/top は席中央上に JS で設定。中心を基準点にして席の真上へ出す */
+  /* left/top は席の位置から JS で設定。中心を基準点にして席の真上へ出す
+     （デフォルト）。上に余白が足りない席（縦が短い画面等）では
+     table-render.ts が .below を付けて席の下に表示を切り替える */
   transform: translate(-50%, calc(-100% - 10px));
 }
 
 #s-game-pc .pcg-reaction-menu.show { display: block; }
+
+/* 上に出す余白が無いときは席の下に表示（三角の向きも反転） */
+#s-game-pc .pcg-reaction-menu.below {
+  transform: translate(-50%, 10px);
+}
+#s-game-pc .pcg-reaction-menu.below .pcg-rm-card::after {
+  top: -7px;
+  bottom: auto;
+  border-top: none;
+  border-bottom: 7px solid #3a5c4c;
+}
 
 #s-game-pc .pcg-rm-card {
   background: #0e241b;

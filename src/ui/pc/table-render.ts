@@ -133,10 +133,16 @@ function isDirectedOnCooldown(): boolean {
   return Date.now() < directedCooldownUntil;
 }
 
-/** 席の対人リアクションメニューを開く（宛先席の中央上に配置） */
+/**
+ * 席の対人リアクションメニューを開く。
+ *
+ * 既定は席の真上（吹き出しが下向き）だが、縦の短い画面では上部の席で
+ * 上に十分な余白が無く画面外にはみ出すため、上に置ける高さが無ければ
+ * 席の下（吹き出しが上向き）に切り替える。横方向もフレーム幅内に収める。
+ */
 function openReactionMenu(seatEl: HTMLElement, targetId: string): void {
   const menu = document.getElementById('pcg-reaction-menu');
-  const frame = document.querySelector('.pcg-frame');
+  const frame = document.querySelector<HTMLElement>('.pcg-frame');
   if (!menu || !frame) return;
   const name = lastRoom?.players?.find((p: Player) => p.id === targetId)?.name ?? '?';
   menu.innerHTML = renderReactionMenuHtml(
@@ -145,11 +151,26 @@ function openReactionMenu(seatEl: HTMLElement, targetId: string): void {
     isReactorBlocked(targetId),
     isDirectedOnCooldown()
   );
+
   const sr = seatEl.getBoundingClientRect();
   const fr = frame.getBoundingClientRect();
-  menu.style.left = `${sr.left + sr.width / 2 - fr.left}px`;
-  menu.style.top = `${sr.top - fr.top}px`;
+
+  // 実際のメニュー高さ・幅を測るため、位置決め前に一旦表示する
+  // （offsetHeight/Width はレイアウト寸法なので transform の影響を受けない）
   menu.classList.add('show');
+  const menuH = menu.offsetHeight;
+  const menuW = menu.offsetWidth;
+  const margin = 8;
+
+  const spaceAbove = sr.top - fr.top;
+  const below = spaceAbove < menuH + margin;
+  menu.classList.toggle('below', below);
+  menu.style.top = below ? `${sr.bottom - fr.top}px` : `${sr.top - fr.top}px`;
+
+  const centerX = sr.left + sr.width / 2 - fr.left;
+  const clampedX = Math.min(Math.max(centerX, menuW / 2 + margin), fr.width - menuW / 2 - margin);
+  menu.style.left = `${clampedX}px`;
+
   openMenuTargetId = targetId;
 }
 
