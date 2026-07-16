@@ -397,15 +397,14 @@ function _renderTopbar(room: any, players: Player[], curId: string | undefined, 
     badges.push('<span class="pcg-badge pcg-badge-solo">🎴 UNO残り1人（+2/+4無効）</span>');
   }
 
-  const dirLabel = g.dir === 1 ? '⟳ 時計回り' : '⟲ 反時計回り';
-
+  // 回転方向は中央の場の上（renderFieldHtml）に記号で表示するため、
+  // 上部バーからは外した（目立たず見落としやすかったため）。
   // 情報部だけを再描画する（右端の操作ボタンは index.html の静的DOM）
   setZone('pcg-topbar-info', `
     <span class="pcg-room">ルーム ${state.roomId || '----'}</span>
     ${turnHtml}
     ${badges.join('')}
     <span class="pcg-spacer"></span>
-    <span class="pcg-dir">${dirLabel}</span>
   `);
 
   // ★クリック不能バグの修正★ 自動プレイボタンは innerHTML で作り直さず、

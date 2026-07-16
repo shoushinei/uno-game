@@ -97,11 +97,6 @@
 
 #s-game-pc .pcg-spacer { flex: 1; }
 
-#s-game-pc .pcg-dir {
-  font-size: 12px;
-  color: #cfe0d6;
-}
-
 #s-game-pc .pcg-btn {
   font-size: 12px;
   background: transparent;
@@ -405,6 +400,18 @@
   width: 400px;
   z-index: 1;
 }
+
+/* 回転方向（記号だけ・場の上）。時計回り⟳／反時計回り⟲ */
+#s-game-pc .pcg-field-dir {
+  text-align: center;
+  font-size: 30px;
+  line-height: 1;
+  margin-bottom: 6px;
+  color: #ffd166;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+/* 反時計回りは色でも区別する（⟳金 ／ ⟲青） */
+#s-game-pc .pcg-field-dir.ccw { color: #7fd0ff; }
 
 #s-game-pc .pcg-field-zone {
   display: flex;

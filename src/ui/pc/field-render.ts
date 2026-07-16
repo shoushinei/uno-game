@@ -37,8 +37,13 @@ export function renderFieldHtml(g: any, players: Player[]): string {
     ? `<span class="pcg-penalty">+${g.unoPenaltyAccum} 累積中！</span>`
     : '';
 
+  // 回転方向（記号だけ）。トランプ／UNOの場の上に置いて分かりやすくする
+  const isCW = g.dir === 1;
+  const dirHtml = `<div class="pcg-field-dir${isCW ? '' : ' ccw'}" title="${isCW ? '時計回り' : '反時計回り'}">${isCW ? '⟳' : '⟲'}</div>`;
+
   return `
     <div class="pcg-field">
+      ${dirHtml}
       <div class="pcg-field-zone pcg-field-trump${phase === 'trump' ? ' active' : ''}">
         <span class="pcg-field-label">①🃏 場</span>
         <div class="pcg-field-cards">${trumpCardsHtml}</div>
