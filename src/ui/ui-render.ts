@@ -89,9 +89,12 @@ export function renderLobby(room: any): void {
       ? '<span class="tag ready">✓ Ready</span>'
       : '<span class="tag not-ready">準備中</span>';
     if (!p.ready) allReady = false;
-    // ホストにはボット行に削除ボタンを出す
+    // ホストには自分以外の行に削除ボタンを出す。
+    // ボットは即削除、人間は kickPlayer 側で確認ダイアログを挟む
     const removeBtn = (iAmHost && p.isBot)
       ? `<button class="pi-remove" onclick="removeBot('${p.id}')" aria-label="ボットを削除">✕</button>`
+      : (iAmHost && p.id !== state.myId)
+      ? `<button class="pi-remove" onclick="kickPlayer('${p.id}')" aria-label="プレイヤーを退出させる">✕</button>`
       : '';
     el.innerHTML = `
       <div class="av" style="background:${AVATAR_COLORS[i % 5]}">${p.name[0].toUpperCase()}</div>

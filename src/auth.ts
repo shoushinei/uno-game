@@ -5,7 +5,7 @@
 // ========================================
 import { state, uid, newRoomId } from './state.js';
 import { fbGet, fbSet, fbUpdate, testConnection } from './db.js';
-import { canAddBot, canRemoveBot, makeBotPlayer } from './bot/lobby-bots.js';
+import { canAddBot, canRemoveBot, canKickPlayer, makeBotPlayer } from './bot/lobby-bots.js';
 import { auth, googleProvider } from './firebase-config.js';
 import { signInWithPopup, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { show, setHomeMsg, setLobbyMsg, setStatus, dbg, setLoading } from './ui/ui-render.js';
@@ -20,6 +20,7 @@ declare global {
     toggleReady: () => Promise<void>;
     addBot: () => Promise<void>;
     removeBot: (botId: string) => Promise<void>;
+    kickPlayer: (playerId: string) => Promise<void>;
     backToLobby: () => Promise<void>;
     leaveGame: () => Promise<void>;
     _startListening?: () => void;
@@ -260,6 +261,26 @@ window.removeBot = async function (botId: string) {
 };
 
 // ----------------------------------------
+// プレイヤーのキック（ホストのみ・ロビー中のみ）
+//
+// 人間プレイヤーを追い出すのは重い操作なので、ボット削除と違い
+// 確認ダイアログを挟む。追い出された側は自分が players から消えたことを
+// リスナーで検知してホーム画面へ戻る（app.ts）。
+// ----------------------------------------
+window.kickPlayer = async function (playerId: string) {
+  try {
+    const room = await fbGet('rooms/' + state.roomId);
+    if (!canKickPlayer(room, state.myId, playerId)) return;
+    const target = (room.players || []).find((p: any) => p.id === playerId);
+    const ok = window.confirm(`本当に「${target?.name ?? '?'}」をロビーから追い出しますか？`);
+    if (!ok) return;
+    const players: any[] = (room.players || []).filter((p: any) => p.id !== playerId);
+    await fbUpdate('rooms/' + state.roomId, { players });
+    dbg('プレイヤーをキック: ' + (target?.name ?? playerId));
+  } catch (e: any) { dbg('kickPlayer error: ' + e.message, true); }
+};
+
+// ----------------------------------------
 // lobbyへ戻る
 // ----------------------------------------
 window.backToLobby = async function () {
@@ -291,8 +312,9 @@ window.backToLobby = async function () {
 
 // ----------------------------------------
 // セッション情報とメモリ上の状態を消してホームへ戻る共通処理
+// （app.ts のキック検知からも使うため export）
 // ----------------------------------------
-function clearSessionAndGoHome(): void {
+export function clearSessionAndGoHome(): void {
   localStorage.removeItem('savedRoomId');
   localStorage.removeItem('savedMyId');
   localStorage.removeItem('savedMyName');

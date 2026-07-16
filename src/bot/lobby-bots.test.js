@@ -8,6 +8,7 @@ import {
   isBotPlayer,
   canAddBot,
   canRemoveBot,
+  canKickPlayer,
   botPlayerMap,
   MAX_ROOM_PLAYERS,
 } from './lobby-bots.js';
@@ -91,6 +92,36 @@ describe('canRemoveBot — 削除権限', () => {
   });
   it('ゲーム中は不可', () => {
     expect(canRemoveBot(room({ state: 'playing' }), 'h', 'bot-1')).toBe(false);
+  });
+});
+
+describe('canKickPlayer — プレイヤー追い出しの権限', () => {
+  const room = (over = {}) => ({
+    state: 'lobby', host: 'h',
+    players: [{ id: 'h', name: 'ホスト' }, { id: 'p2', name: '人間' }, { id: 'bot-1', name: '🤖ポンタ', isBot: true }],
+    ...over,
+  });
+
+  it('ホストがロビー中に他プレイヤーを追い出すのは可', () => {
+    expect(canKickPlayer(room(), 'h', 'p2')).toBe(true);
+  });
+  it('ボットも対象にできる（UI側は removeBot を使うが判定としては可）', () => {
+    expect(canKickPlayer(room(), 'h', 'bot-1')).toBe(true);
+  });
+  it('自分自身は追い出せない', () => {
+    expect(canKickPlayer(room(), 'h', 'h')).toBe(false);
+  });
+  it('ホスト以外は不可', () => {
+    expect(canKickPlayer(room(), 'p2', 'h')).toBe(false);
+  });
+  it('ゲーム中は不可', () => {
+    expect(canKickPlayer(room({ state: 'playing' }), 'h', 'p2')).toBe(false);
+  });
+  it('存在しないIDは不可', () => {
+    expect(canKickPlayer(room(), 'h', 'nope')).toBe(false);
+  });
+  it('room が null なら不可', () => {
+    expect(canKickPlayer(null, 'h', 'p2')).toBe(false);
   });
 });
 

@@ -40,6 +40,11 @@ export function toggleDrawer(): void {
   lsSet(LS_OPEN_KEY, open ? '1' : '0');
 }
 
+/** 引き出しを強制的に開く（上部バッジのルールジャンプ用） */
+export function openDrawer(): void {
+  if (!open) toggleDrawer();
+}
+
 export function setDrawerTab(next: string): void {
   tab = next === 'rules' ? 'rules' : 'log';
   lsSet(LS_TAB_KEY, tab);
@@ -125,15 +130,16 @@ function _logTabHtml(g: any): string {
 }
 
 function _rulesTabHtml(g: any): string {
-  // 今この瞬間に発動している状態を最上部で強調する
+  // 今この瞬間に発動している状態を最上部で強調する。
+  // id は上部バーのバッジからのジャンプ先（rule-jump）として使う
   const active: string[] = [];
-  if (g?.trumpRevolution) active.push('<div class="pcg-rule-active">🌀 <b>革命中</b> — カードの強さが全て逆転しています（3が最強側）</div>');
-  if (g?.trumpElevenBack) active.push('<div class="pcg-rule-active">🔄 <b>Jバック中</b> — この場が流れるまで強さが逆転しています</div>');
+  if (g?.trumpRevolution) active.push('<div class="pcg-rule-active" id="pcg-rule-rev">🌀 <b>革命中</b> — カードの強さが全て逆転しています（3が最強側）</div>');
+  if (g?.trumpElevenBack) active.push('<div class="pcg-rule-active" id="pcg-rule-jback">🔄 <b>Jバック中</b> — この場が流れるまで強さが逆転しています</div>');
   if (Array.isArray(g?.trumpSuitLock) && g.trumpSuitLock.length > 0) {
-    active.push(`<div class="pcg-rule-active">⛓ <b>${g.trumpSuitLock.join('')}しばり中</b> — 場が流れるまで同じマークしか出せません</div>`);
+    active.push(`<div class="pcg-rule-active" id="pcg-rule-lock">⛓ <b>${g.trumpSuitLock.join('')}しばり中</b> — 場が流れるまで同じマークしか出せません</div>`);
   }
   if (g && countUnoActivePlayers(g) === 1) {
-    active.push('<div class="pcg-rule-active">🎴 <b>UNO残り1人</b> — 引かせる相手がいないため、+2/+4を出してもドロー効果は発動しません（色変更などは有効）</div>');
+    active.push('<div class="pcg-rule-active" id="pcg-rule-solo">🎴 <b>UNO残り1人</b> — 引かせる相手がいないため、+2/+4を出してもドロー効果は発動しません（色変更などは有効）</div>');
   }
   const activeHtml = active.length > 0
     ? active.join('')

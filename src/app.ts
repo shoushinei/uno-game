@@ -10,13 +10,14 @@
 // この層に「ゲームルール」や「Firebase書き込みロジック」を書かない。
 // ========================================
 import './auth.js';
+import { clearSessionAndGoHome } from './auth.js';
 import { state } from './state.js';
 import { fbListen } from './db.js';
 import './bot/test-bot.js';
 import { startAbsentRunner } from './bot/absent-runner.js';
 import { botPlayerMap } from './bot/lobby-bots.js';
 import './replay/app.js'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
-import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg } from './ui/ui-render.js';
+import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg, setHomeMsg } from './ui/ui-render.js';
 import { isPcUi } from './ui/pc/ui-mode.js';
 import {
   actionStartGame,
@@ -98,6 +99,19 @@ export function startListening(): void {
     'rooms/' + state.roomId,
     (room) => {
       if (!room) return;
+
+      // ★キック対応★ ロビー中に自分が players から消えていたら、
+      // ホストに追い出されたということ。セッションを消してホームへ戻る
+      // （自分から退出した場合は先にリスナーを止めるので、ここには来ない）。
+      if (room.state === 'lobby' && state.myId &&
+          Array.isArray(room.players) &&
+          !room.players.some((p: any) => p.id === state.myId)) {
+        window._stopListening?.();
+        clearSessionAndGoHome();
+        setHomeMsg('ホストによってロビーから退出させられました');
+        return;
+      }
+
       state.isHost = (room.host === state.myId);
       localStorage.setItem('savedIsHost', String(state.isHost));
       window._currentGame = room.game || null;

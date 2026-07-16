@@ -90,6 +90,23 @@ export function canRemoveBot(
   return isBotPlayer(target);
 }
 
+/**
+ * 指定プレイヤー（人間）をロビーから追い出せるか
+ * （ホストだけ・ロビー中だけ・対象が実在・自分自身は不可）。
+ * ボットにも使えるが、ボットの削除は canRemoveBot（確認なし）を使う。
+ */
+export function canKickPlayer(
+  room: { state?: string; host?: string; players?: Player[] } | null,
+  myId: string,
+  targetId: string
+): boolean {
+  if (!room) return false;
+  if (room.state !== 'lobby') return false;
+  if (room.host !== myId) return false;
+  if (targetId === myId) return false;
+  return !!room.players?.some(p => p.id === targetId);
+}
+
 /** players から isBot 由来の { [id]: true } マップを作る（代行判定・描画用） */
 export function botPlayerMap(players: Player[] | undefined | null): Record<string, boolean> {
   const map: Record<string, boolean> = {};

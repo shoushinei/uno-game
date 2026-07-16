@@ -28,6 +28,7 @@ import {
   isUnoCardVisiblySelected,
 } from '../ui-input.js';
 import { othersInTurnOrder, seatPositions } from './seat-layout.js';
+import { AVATAR_COLORS } from '../../logic/game-init.js';
 import { renderSeatHtml } from './seat-render.js';
 import { renderFieldHtml } from './field-render.js';
 import { pcTrumpCardHtml, pcUnoCardHtml } from './cards.js';
@@ -35,6 +36,7 @@ import { deriveBarState, renderActionBarHtml } from './action-bar.js';
 import {
   renderDrawerHtml,
   toggleDrawer,
+  openDrawer,
   setDrawerTab,
   isDrawerOpen,
   mergeServerLog,
@@ -51,7 +53,7 @@ import {
   type EffectDescriptor,
 } from './effects/effect-derive.js';
 import { enqueueEffects, clearEffectQueue } from './effects/effect-queue.js';
-import { playEffect, flashTurnArrival, flashMyTurn, playReaction, playDirectedReaction, playHitToast } from './effects/effect-render.js';
+import { playEffect, flashTurnArrival, flashMyTurn, playReaction, playDirectedReaction, playHitToast, flashDirChange } from './effects/effect-render.js';
 import {
   renderReactionMenuHtml,
   isReactorBlocked,
@@ -88,6 +90,9 @@ let seenTrumpEffectTs: number | null = null;
 
 /** 手番着弾フラッシュ用: 前回の手番プレイヤー */
 let prevTurnId: string | null = null;
+
+/** 回転方向フラッシュ用: 前回の g.dir。null=未初期化（初回は演出しない） */
+let prevDir: number | null = null;
 
 /**
  * リアクション表示用: プレイヤーごとの最後に再生した ts。
@@ -224,6 +229,7 @@ function _renderGamePCInner(room: any): void {
     prevSnap = null;
     seenTrumpEffectTs = null;
     prevTurnId = null;
+    prevDir = null;
     prevReactionTs = null;
     clearEffectQueue();
   }
@@ -260,6 +266,7 @@ function _runEffects(room: any, g: any, players: Player[], curId: string | undef
     prevSnap = null;
     seenTrumpEffectTs = null;
     prevTurnId = null;
+    prevDir = null;
     clearEffectQueue();
   }
 
@@ -306,6 +313,13 @@ function _runEffects(room: any, g: any, players: Player[], curId: string | undef
     }
   }
   prevTurnId = curId ?? null;
+
+  // 回転方向が変わったら方向マークの位置で大きく点滅させる
+  // （リバース演出とは別に、マーク自体の変化もはっきり伝える）
+  if (prevDir !== null && typeof g.dir === 'number' && g.dir !== prevDir) {
+    flashDirChange(g.dir === 1);
+  }
+  prevDir = typeof g.dir === 'number' ? g.dir : prevDir;
 
   // リアクション表示（誰のリアクションも席の上にポップさせる）
   // ★「他プレイヤーのリアクションがPC UIで見えない」問題の修正★
@@ -386,15 +400,16 @@ function _renderTopbar(room: any, players: Player[], curId: string | undefined, 
     ? `<span class="pcg-turn pcg-turn-me">あなたのターン ${phaseLabel}</span>`
     : `<span class="pcg-turn">${curName} のターン ${phaseLabel}</span>`;
 
+  // バッジはクリックで引き出しのルールタブの該当説明へジャンプできる（rule-jump）
   const badges: string[] = [];
-  if (g.trumpRevolution) badges.push('<span class="pcg-badge pcg-badge-rev">🌀 革命中</span>');
-  if (g.trumpElevenBack) badges.push('<span class="pcg-badge pcg-badge-jback">🔄 Jバック</span>');
+  if (g.trumpRevolution) badges.push('<span class="pcg-badge pcg-badge-rev" data-action="rule-jump" data-rule="rev" title="クリックでルール説明を見る">🌀 革命中</span>');
+  if (g.trumpElevenBack) badges.push('<span class="pcg-badge pcg-badge-jback" data-action="rule-jump" data-rule="jback" title="クリックでルール説明を見る">🔄 Jバック</span>');
   if (Array.isArray(g.trumpSuitLock) && g.trumpSuitLock.length > 0) {
-    badges.push(`<span class="pcg-badge pcg-badge-lock">⛓ ${g.trumpSuitLock.join('')}しばり</span>`);
+    badges.push(`<span class="pcg-badge pcg-badge-lock" data-action="rule-jump" data-rule="lock" title="クリックでルール説明を見る">⛓ ${g.trumpSuitLock.join('')}しばり</span>`);
   }
   // ★ルール追加（UNO残り1人）★ +2/+4のドロー効果が無効になっている状態を明示
   if (countUnoActivePlayers(g) === 1) {
-    badges.push('<span class="pcg-badge pcg-badge-solo">🎴 UNO残り1人（+2/+4無効）</span>');
+    badges.push('<span class="pcg-badge pcg-badge-solo" data-action="rule-jump" data-rule="solo" title="クリックでルール説明を見る">🎴 UNO残り1人（+2/+4無効）</span>');
   }
 
   // 回転方向は中央の場の上（renderFieldHtml）に記号で表示するため、
@@ -428,12 +443,15 @@ function _renderTable(room: any): void {
   const leftPlayers: Record<string, boolean> = room.leftPlayers || {};
   const curId = g.order?.[g.ci];
 
-  // 自分以外を手番順（自分基準に回転）で上弧に配置する
-  const others = othersInTurnOrder(
-    Array.isArray(g.order) ? g.order : [],
-    players.map(p => p.id),
-    state.myId
-  );
+  // 自分以外を手番順（自分基準に回転）で上弧に配置する。
+  // ★席は動かさない★ g.order は上がったプレイヤーが抜けて縮むため、
+  // それを使うと誰かが上がるたびに席が詰まって混乱する。ゲーム開始時の
+  // 手番順（replayInitialState.order）で計算して席を固定する
+  // （古いルームで無い場合のみ g.order にフォールバック）。
+  const initialOrder: string[] = Array.isArray(room.replayInitialState?.order)
+    ? room.replayInitialState.order
+    : (Array.isArray(g.order) ? g.order : []);
+  const others = othersInTurnOrder(initialOrder, players.map(p => p.id), state.myId);
   const positions = seatPositions(others);
   const seatsHtml = positions
     .map(pos => renderSeatHtml(pos, { g, players, autoPlayers, leftPlayers, curId, actionLog: room.actionLog }))
@@ -469,9 +487,32 @@ function _renderOwn(room: any, canActTrump: boolean, canActUno: boolean, iFinish
   const autoAdvancing = maybeAutoAdvance(room, rerenderPc);
 
   setZone('pcg-own', `
+    ${_ownHeaderHtml(g, players)}
     ${_handRowsHtml(g, canActTrump, canActUno, iFinished)}
     ${renderActionBarHtml(bar, reactionOpen, autoAdvancing)}
   `);
+}
+
+/**
+ * 自分エリアのヘッダー（自分の名前の常時表示）。
+ * 「自分の席＝下部手札エリア」の空間原則に合わせて、席と同じ
+ * アバター＋名前＋👑（親のとき）をここに出す。
+ */
+function _ownHeaderHtml(g: any, players: Player[]): string {
+  const idx = players.findIndex(p => p.id === state.myId);
+  const name = idx !== -1 ? players[idx]!.name : (state.myName || '?');
+  const color = AVATAR_COLORS[Math.max(0, idx) % 5];
+  const isParent = g.hasParent === state.myId;
+  return `
+    <div class="pcg-own-head">
+      <span class="pcg-own-avatar" style="background:${color}">
+        ${name.slice(0, 1).toUpperCase()}
+        ${isParent ? '<span class="pcg-crown">👑</span>' : ''}
+      </span>
+      <span class="pcg-own-name">${name}</span>
+      <span class="pcg-own-you">あなた</span>
+    </div>
+  `;
 }
 
 function _handRowsHtml(g: any, canActTrump: boolean, canActUno: boolean, iFinished: boolean): string {
@@ -615,6 +656,21 @@ async function _handleAction(action: string, target: HTMLElement): Promise<void>
     case 'drawer-tab':
       setDrawerTab(target.dataset.tab!);
       break;
+    case 'rule-jump': {
+      // 上部バッジ→引き出しのルールタブを開き、該当説明へスクロール＆点滅
+      openDrawer();
+      setDrawerTab('rules');
+      const key = target.dataset.rule!;
+      // この後の rerenderPc() で引き出しが開いた状態のDOMになってから飛ぶ
+      setTimeout(() => {
+        const el = document.getElementById('pcg-rule-' + key);
+        if (!el) return;
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.classList.add('flash');
+        setTimeout(() => el.classList.remove('flash'), 1800);
+      }, 60);
+      break;
+    }
   }
   rerenderPc();
 }

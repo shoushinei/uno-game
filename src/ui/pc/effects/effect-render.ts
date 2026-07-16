@@ -507,6 +507,39 @@ export function playDirectedReaction(
 }
 
 /**
+ * 回転方向が変わったときのフラッシュ（キュー外・即時）。
+ * 場の上の方向マーク（.pcg-field-dir）の位置に大きな⟳/⟲を出して
+ * 拡大→縮小の点滅で「向きが変わった」ことをはっきり知らせる。
+ */
+export function flashDirChange(isCW: boolean): void {
+  const dirEl = document.querySelector('.pcg-field-dir');
+  const layerEl = layer();
+  let x: number, y: number;
+  if (dirEl && layerEl) {
+    const r = dirEl.getBoundingClientRect();
+    const lr = layerEl.getBoundingClientRect();
+    x = r.left + r.width / 2 - lr.left;
+    y = r.top + r.height / 2 - lr.top;
+  } else {
+    const c = anchorTrumpField();
+    x = c.x;
+    y = c.y - 80;
+  }
+  const el = spawn(isCW ? '⟳' : '⟲', x, y, `pcg-fx-dirflip${isCW ? '' : ' ccw'}`, 1200);
+  if (!el) return;
+  el.animate(
+    [
+      { transform: 'translate(-50%, -50%) scale(1)', opacity: 0.9 },
+      { transform: 'translate(-50%, -50%) scale(2.6)', opacity: 1, offset: 0.3 },
+      { transform: 'translate(-50%, -50%) scale(1.8)', opacity: 1, offset: 0.55 },
+      { transform: 'translate(-50%, -50%) scale(2.2)', opacity: 0.9, offset: 0.75 },
+      { transform: 'translate(-50%, -50%) scale(1)', opacity: 0 },
+    ],
+    { duration: 1200, easing: 'ease-in-out', fill: 'forwards' }
+  );
+}
+
+/**
  * 自分が対人リアクションの宛先になったときの被弾トースト。
  * 席の弧だけでは誰から投げられたか気づきにくいため、宛先本人には
  * 手札エリア上に「絵文字 〇〇 から！」をはっきり出す。
