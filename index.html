@@ -42,6 +42,11 @@
       <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px;">
       Googleアカウントでログイン
     </button>
+    <!-- ★Phase 1★ ゲストプレイ（匿名認証）。アカウント機能なしでプレイだけできる -->
+    <button class="btn" id="guest-login-btn"
+      style="background:#666;color:#fff;font-weight:600;margin:0 auto;">
+      👤 ゲストでプレイ（アカウントなし）
+    </button>
   </div>
 
   <div id="game-menu-area" style="display:none;width:100%;max-width:320px;">
@@ -50,6 +55,11 @@
     <div class="or">または</div>
     <input id="ri" placeholder="ルームID（4文字）を入力" maxlength="4" style="text-transform:uppercase">
     <button class="btn" id="join-btn" onclick="joinRoom()">ルームに参加する</button>
+    <!-- ゲスト中だけ表示される（auth.ts が表示制御）。戦績などのアカウント機能を使いたい人向け -->
+    <button class="btn" id="guest-to-google-btn"
+      style="display:none;background:#fff;color:#757575;border:1px solid #ddd;margin-top:8px;">
+      Googleアカウントに切り替える（戦績等が使えるように）
+    </button>
   </div>
 
   <p class="msg err" id="hm"></p>

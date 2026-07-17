@@ -1,0 +1,46 @@
+rules_version = '2';
+
+// ========================================
+// Cloud Firestore セキュリティルール（Phase 1: アカウント基盤）
+//
+// 信頼境界の方針（合意済み）:
+// - users/{uid} のプロフィール項目（表示名・アイコン・称号）は本人だけが書ける
+// - 戦績・実績（Phase 2以降）は Cloud Functions（Admin SDK＝ルール非適用）
+//   だけが書く。クライアントからの直接改ざんを構造的に防ぐため、
+//   本人であってもクライアントからは書けないフィールドにする
+// - 読み取りは認証済みユーザーなら誰でも可（フレンドのプロフィール表示等で使う）
+// ========================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      // 認証済み（ゲスト含む）なら誰のプロフィールも読める
+      allow read: if request.auth != null;
+
+      // 作成: 本人のみ。書けるフィールドはプロフィール項目に限定
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(
+             ['displayName', 'selectedIcon', 'selectedTitle', 'createdAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 12;
+
+      // 更新: 本人のみ。プロフィール項目以外（将来の戦績フィールド等）は変更不可
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+             ['displayName', 'selectedIcon', 'selectedTitle'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 12;
+
+      allow delete: if false;
+    }
+
+    // 上記以外はすべて拒否（Phase 2以降で必要になったら明示的に開ける）
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

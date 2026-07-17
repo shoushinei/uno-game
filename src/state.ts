@@ -28,10 +28,8 @@ export const state: AppState = {
   lastSentReaction: null,
 };
 
-/** ランダムな短いUID生成 */
-export function uid(): string {
-  return Math.random().toString(36).slice(2, 10);
-}
+// ★Phase 1（アカウント基盤）★ プレイヤーIDは Firebase Auth の uid を
+// 使うようになったため、旧ランダムID生成 uid() は廃止した。
 
 /** ランダムな4文字ルームID生成 */
 export function newRoomId(): string {

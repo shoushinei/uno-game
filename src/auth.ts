@@ -3,11 +3,12 @@
 // Google認証とルームのCRUD操作を担う。
 // ゲームロジックには依存しない。
 // ========================================
-import { state, uid, newRoomId } from './state.js';
+import { state, newRoomId } from './state.js';
 import { fbGet, fbSet, fbUpdate, testConnection } from './db.js';
 import { canAddBot, canRemoveBot, canKickPlayer, makeBotPlayer } from './bot/lobby-bots.js';
 import { auth, googleProvider } from './firebase-config.js';
-import { signInWithPopup, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { signInWithPopup, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { ensureUserDoc, saveDisplayName } from './account.js';
 import { show, setHomeMsg, setLobbyMsg, setStatus, dbg, setLoading } from './ui/ui-render.js';
 
 // window オブジェクトに生やす関数の型宣言
@@ -29,41 +30,87 @@ declare global {
 }
 
 // ----------------------------------------
-// Google ログイン
+// ログイン（Google / ゲスト）
+//
+// ★Phase 1（アカウント基盤）★
+// - Googleログイン = アカウントあり（Firestore users/{uid} を自動作成）
+// - ゲスト = Firebaseの匿名認証。uidは付くがアカウント機能は一切なし。
+//   後からGoogleログインしても戦績等の引き継ぎはしない（合意済みの仕様）
 // ----------------------------------------
+
+/** Firestoreに保存済みの表示名（ログイン時に読み込み。ゲスト・未取得は null） */
+let savedProfileName: string | null = null;
+
+async function loginWithGoogle(): Promise<void> {
+  try {
+    setStatus('Google ログイン画面を起動中...');
+    await signInWithPopup(auth, googleProvider);
+  } catch (e: any) {
+    setHomeMsg('ログイン失敗: ' + e.message);
+    setStatus('ログインエラー', 'err');
+    dbg('Googleログイン失敗: ' + e.message, true);
+  }
+}
+
 const loginButton = document.getElementById('login-btn');
-if (loginButton) {
-  loginButton.addEventListener('click', async () => {
+if (loginButton) loginButton.addEventListener('click', () => void loginWithGoogle());
+
+const guestButton = document.getElementById('guest-login-btn');
+if (guestButton) {
+  guestButton.addEventListener('click', async () => {
     try {
-      setStatus('Google ログイン画面を起動中...');
-      await signInWithPopup(auth, googleProvider);
+      setStatus('ゲストとして開始中...');
+      await signInAnonymously(auth);
     } catch (e: any) {
-      setHomeMsg('ログイン失敗: ' + e.message);
+      setHomeMsg('ゲスト開始に失敗: ' + e.message);
       setStatus('ログインエラー', 'err');
-      dbg('Googleログイン失敗: ' + e.message, true);
+      dbg('匿名ログイン失敗: ' + e.message, true);
     }
   });
 }
 
+// ゲスト中に「Googleアカウントに切り替える」ボタン（アカウント機能を使いたくなったら）
+const upgradeButton = document.getElementById('guest-to-google-btn');
+if (upgradeButton) upgradeButton.addEventListener('click', () => void loginWithGoogle());
+
 onAuthStateChanged(auth, async (user: any) => {
   const loginArea    = document.getElementById('login-area');
   const gameMenuArea = document.getElementById('game-menu-area');
+  const upgradeBtn   = document.getElementById('guest-to-google-btn');
   const niInput      = document.getElementById('ni') as HTMLInputElement | null;
   if (user) {
-    dbg('Google ログイン成功: ' + user.displayName);
+    const isGuest = !!user.isAnonymous;
+    dbg(isGuest ? 'ゲストとして開始: ' + user.uid : 'Google ログイン成功: ' + user.displayName);
     if (loginArea)    loginArea.style.display    = 'none';
     if (gameMenuArea) gameMenuArea.style.display = 'block';
-    if (niInput)      niInput.value = user.displayName ? user.displayName.slice(0, 12) : 'ゲスト';
+    // ゲストにだけ「Googleアカウントに切り替える」導線を出す
+    if (upgradeBtn) upgradeBtn.style.display = isGuest ? 'block' : 'none';
+
+    // ★Phase 1★ Googleユーザーはプロフィール（users/{uid}）を自動作成/取得し、
+    // 保存済みの表示名を名前欄にプリフィルする（毎回入力の廃止）。
+    // ゲストはアカウントを作らず従来どおり入力してもらう。
+    savedProfileName = null;
+    let prefill = 'ゲスト';
+    if (!isGuest) {
+      const profile = await ensureUserDoc(user);
+      savedProfileName = profile?.displayName ?? null;
+      prefill = savedProfileName || (user.displayName ? user.displayName.slice(0, 12) : 'プレイヤー');
+    }
+    if (niInput) niInput.value = prefill;
+
     setStatus('Firebase 接続テスト中...');
     const ok = await testConnection();
     if (ok) {
-      setStatus(`ログイン中: ${user.displayName} ✓`, 'ok');
+      setStatus(isGuest ? 'ゲストでプレイ中（アカウント機能なし）' : `ログイン中: ${prefill} ✓`, 'ok');
       dbg('Firebase 接続成功');
 
       // LocalStorageによるセッション復帰チェック
+      // ★Phase 1★ プレイヤーID=認証uidになったため、保存IDが今のuidと
+      // 一致する場合だけ復帰する（別アカウントでログインし直した場合や
+      // 旧ランダムID時代のセッションは復帰させない）
       const savedRoomId = localStorage.getItem('savedRoomId');
       const savedMyId   = localStorage.getItem('savedMyId');
-      if (savedRoomId && savedMyId) {
+      if (savedRoomId && savedMyId && savedMyId === user.uid) {
         try {
           setStatus('前のルームに復帰中...');
           const room = await fbGet('rooms/' + savedRoomId);
@@ -104,7 +151,7 @@ onAuthStateChanged(auth, async (user: any) => {
             // ステータス表示が固定されてしまい、後で leaveGame() 等で
             // ホーム画面に戻った際にそのまま表示され続けてしまっていた。
             // 復帰成功後は通常のログイン成功メッセージに更新する。
-            setStatus(`ログイン中: ${user.displayName} ✓`, 'ok');
+            setStatus(isGuest ? 'ゲストでプレイ中（アカウント機能なし）' : `ログイン中: ${prefill} ✓`, 'ok');
             if (gameMenuArea) gameMenuArea.style.display = 'none';
             return; // 復帰した場合は通常のホームメニュー表示をスキップ
           } else {
@@ -136,15 +183,23 @@ onAuthStateChanged(auth, async (user: any) => {
 window.createRoom = async function () {
   const nm = (document.getElementById('ni') as HTMLInputElement).value.trim();
   if (!nm) { setHomeMsg('名前を入力してください'); return; }
+  const user = auth.currentUser;
+  if (!user) { setHomeMsg('ログインしてください'); return; }
   setHomeMsg('');
   setLoading('create-btn', true, '作成中');
   try {
     const ok = await testConnection();
     if (!ok) { setHomeMsg('Firebase 接続に失敗しました'); return; }
+    // ★Phase 1★ プレイヤーID＝Firebase Authのuid（同一アカウント=同一ID）
     state.myName = nm;
-    state.myId   = uid();
+    state.myId   = user.uid;
     state.isHost = true;
     state.roomId = newRoomId();
+    // Googleユーザーが名前を変えていたらプロフィールにも保存（次回から新しい名前）
+    if (!user.isAnonymous && nm !== savedProfileName) {
+      savedProfileName = nm;
+      void saveDisplayName(user.uid, nm);
+    }
     const room = {
       state: 'lobby', host: state.myId,
       players: [{ id: state.myId, name: state.myName, bi: 0, ready: true }],
@@ -180,19 +235,59 @@ window.joinRoom = async function () {
   if (rid.length !== 4) { setHomeMsg('4文字のルームIDを入力してください'); return; }
   setHomeMsg('');
   setLoading('join-btn', true, '参加中');
+  const user = auth.currentUser;
+  if (!user) { setHomeMsg('ログインしてください'); return; }
   try {
     const room = await fbGet('rooms/' + rid);
-    if (!room)                  { setHomeMsg('ルームが見つかりません'); return; }
-    if (room.state !== 'lobby') { setHomeMsg('ゲームはすでに始まっています'); return; }
+    if (!room) { setHomeMsg('ルームが見つかりません'); return; }
     const players: any[] = room.players || [];
+
+    // ★Phase 1★ 同一アカウントの再入室＝元の席への復帰。
+    // プレイヤーID=認証uidになったため、別端末や再ログインでも
+    // ルームIDさえ入力すれば自分の席に戻れる（ゲーム中でも可）。
+    const mySeat = players.find(p => p.id === user.uid);
+    if (mySeat) {
+      state.myName = mySeat.name;
+      state.myId   = user.uid;
+      state.isHost = (room.host === user.uid);
+      state.roomId = rid;
+      // 退室（代行残留）していた場合は代行を解除して操作を取り戻す
+      if ((room.leftPlayers && room.leftPlayers[user.uid]) ||
+          (room.autoPlayers && room.autoPlayers[user.uid])) {
+        try {
+          await fbUpdate('rooms/' + rid, {
+            [`leftPlayers/${user.uid}`]: null,
+            [`autoPlayers/${user.uid}`]: null,
+          });
+        } catch { /* 失敗しても復帰自体は続行 */ }
+      }
+      localStorage.setItem('savedRoomId', state.roomId);
+      localStorage.setItem('savedMyId', state.myId);
+      localStorage.setItem('savedMyName', state.myName);
+      localStorage.setItem('savedIsHost', String(state.isHost));
+      document.getElementById('lrid')!.textContent = state.roomId;
+      if (room.state === 'playing') show('game');
+      else if (room.state === 'ended') show('result');
+      else show('lobby');
+      window._startListening?.();
+      dbg('自分の席へ復帰: ' + rid);
+      return;
+    }
+
+    if (room.state !== 'lobby') { setHomeMsg('ゲームはすでに始まっています'); return; }
     if (players.length >= 8)              { setHomeMsg('このルームは満員です（最大8人）'); return; }
     if (players.find(p => p.name === nm)) { setHomeMsg('この名前はすでに使われています'); return; }
     state.myName = nm;
-    state.myId   = uid();
+    state.myId   = user.uid;
     state.isHost = false;
     state.roomId = rid;
     players.push({ id: state.myId, name: state.myName, bi: players.length, ready: false });
     await fbUpdate('rooms/' + rid, { players });
+    // Googleユーザーが名前を変えていたらプロフィールにも保存
+    if (!user.isAnonymous && nm !== savedProfileName) {
+      savedProfileName = nm;
+      void saveDisplayName(user.uid, nm);
+    }
 
     // LocalStorageにセッション情報を保存
     localStorage.setItem('savedRoomId', state.roomId);

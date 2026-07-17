@@ -4,6 +4,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, connectDatabaseEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 interface FirebaseConfig {
   apiKey: string;
@@ -33,6 +34,11 @@ export const db = getDatabase(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
+// アカウント機能（users/ 等）用の Cloud Firestore。
+// ゲームのリアルタイム同期は従来どおり Realtime Database（rooms/）を使い、
+// アカウント・戦績・実績・フレンドは Firestore に分ける（Phase 1〜）。
+export const firestore = getFirestore(app);
+
 // ========================================
 // ★デバッグ用★ ローカルで開いている時だけ Database Emulator に接続する
 // GitHub Pages（本番）にデプロイした際は location.hostname が
@@ -40,5 +46,6 @@ export const googleProvider = new GoogleAuthProvider();
 // ========================================
 if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
   connectDatabaseEmulator(db, "127.0.0.1", 9000);
-  console.log("🔧 Database Emulator に接続しました（本番データではありません）");
+  connectFirestoreEmulator(firestore, "127.0.0.1", 8080);
+  console.log("🔧 Database/Firestore Emulator に接続しました（本番データではありません）");
 }
