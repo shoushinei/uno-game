@@ -62,9 +62,15 @@ if (guestButton) {
       setStatus('ゲストとして開始中...');
       await signInAnonymously(auth);
     } catch (e: any) {
-      setHomeMsg('ゲスト開始に失敗: ' + e.message);
+      // admin-restricted-operation / operation-not-allowed は
+      // 「コンソールで匿名認証プロバイダが未有効」のときの定番エラー
+      const notEnabled = e?.code === 'auth/admin-restricted-operation' ||
+                         e?.code === 'auth/operation-not-allowed';
+      setHomeMsg(notEnabled
+        ? 'ゲストプレイは現在準備中です。Googleアカウントでログインしてください'
+        : 'ゲスト開始に失敗: ' + e.message);
       setStatus('ログインエラー', 'err');
-      dbg('匿名ログイン失敗: ' + e.message, true);
+      dbg('匿名ログイン失敗: ' + (e.code ?? e.message), true);
     }
   });
 }
