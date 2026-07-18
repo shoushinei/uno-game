@@ -32,6 +32,9 @@ const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
 
 export const auth = getAuth(app);
+// 認証系メール（メールリンクログイン等）をFirebase内蔵の日本語テンプレートで
+// 送信させる（既定は英語で、日本のユーザーには不親切＋迷惑メール判定されやすい）
+auth.languageCode = 'ja';
 export const googleProvider = new GoogleAuthProvider();
 
 // アカウント機能（users/ 等）用の Cloud Firestore。
