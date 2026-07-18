@@ -7,7 +7,14 @@ import { state, newRoomId } from './state.js';
 import { fbGet, fbSet, fbUpdate, testConnection } from './db.js';
 import { canAddBot, canRemoveBot, canKickPlayer, makeBotPlayer } from './bot/lobby-bots.js';
 import { auth, googleProvider } from './firebase-config.js';
-import { signInWithPopup, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {
+  signInWithPopup,
+  signInAnonymously,
+  onAuthStateChanged,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { ensureUserDoc, saveDisplayName } from './account.js';
 import { show, setHomeMsg, setLobbyMsg, setStatus, dbg, setLoading } from './ui/ui-render.js';
 
@@ -79,6 +86,98 @@ if (guestButton) {
 const upgradeButton = document.getElementById('guest-to-google-btn');
 if (upgradeButton) upgradeButton.addEventListener('click', () => void loginWithGoogle());
 
+// ----------------------------------------
+// メールリンク認証（Phase 1.5）
+//
+// パスワードレスの第3の入り口。メールアドレスにログインリンクを送り、
+// リンクを踏むとログイン完了（1メールアドレス=1アカウント）。
+// Googleアカウントと同じメールアドレスの場合は同じアカウントに入る
+// （Firebaseの既定「1メールアドレス=1アカウント」設定のまま＝本人なら
+//   入り口が違っても戦績が分かれない、を意図した仕様）。
+// ----------------------------------------
+
+/** リンクを踏んで戻ってきたときにメールアドレスを照合するための保存キー */
+const EMAIL_LS_KEY = 'emailForSignIn';
+
+function setEmailMsg(text: string, isErr = false): void {
+  const el = document.getElementById('email-msg');
+  if (el) {
+    el.textContent = text;
+    el.className = 'msg' + (isErr ? ' err' : '');
+  }
+}
+
+const emailButton = document.getElementById('email-login-btn');
+if (emailButton) {
+  emailButton.addEventListener('click', async () => {
+    const input = document.getElementById('email-input') as HTMLInputElement | null;
+    const email = (input?.value || '').trim();
+    if (!email || !email.includes('@') || email.length < 5) {
+      setEmailMsg('メールアドレスを入力してください', true);
+      return;
+    }
+    try {
+      setStatus('ログインリンクを送信中...');
+      await sendSignInLinkToEmail(auth, email, {
+        // 戻り先は今開いているページ（GitHub Pagesの /uno-game/ もローカルも同じ式でOK）
+        url: location.origin + location.pathname,
+        handleCodeInApp: true,
+      });
+      localStorage.setItem(EMAIL_LS_KEY, email);
+      setEmailMsg('✉️ ログインリンクを送信しました。メールのリンクを開いてください（届かない場合は迷惑メールフォルダも確認）');
+      setStatus('メールを確認してください', 'ok');
+    } catch (e: any) {
+      const notEnabled = e?.code === 'auth/operation-not-allowed' ||
+                         e?.code === 'auth/admin-restricted-operation';
+      setEmailMsg(
+        notEnabled ? 'メールリンクログインは現在準備中です'
+        : e?.code === 'auth/invalid-email' ? 'メールアドレスの形式が正しくありません'
+        : e?.code === 'auth/too-many-requests' ? '送信が多すぎます。しばらく待ってから再試行してください'
+        : '送信に失敗: ' + e.message,
+        true
+      );
+      setStatus('ログインエラー', 'err');
+      dbg('メールリンク送信失敗: ' + (e.code ?? e.message), true);
+    }
+  });
+}
+
+/**
+ * メールのリンクを踏んでページに戻ってきたときのログイン完了処理
+ * （モジュール読み込み時に1回だけ判定。通常アクセスでは何もしない）。
+ */
+async function completeEmailLinkSignIn(): Promise<void> {
+  if (!isSignInWithEmailLink(auth, location.href)) return;
+  // 送信時に保存したアドレスで照合。別端末でリンクを開いた場合は無いので
+  // セキュリティ上、本人に再入力してもらう
+  let email = localStorage.getItem(EMAIL_LS_KEY);
+  if (!email) {
+    email = window.prompt('確認のため、ログインに使ったメールアドレスを入力してください') || '';
+  }
+  try {
+    if (!email) {
+      setHomeMsg('メールアドレスが確認できなかったためログインを中止しました');
+      return;
+    }
+    setStatus('メールリンクでログイン中...');
+    await signInWithEmailLink(auth, email, location.href);
+    localStorage.removeItem(EMAIL_LS_KEY);
+    dbg('メールリンクログイン成功');
+  } catch (e: any) {
+    setHomeMsg(
+      e?.code === 'auth/invalid-action-code'
+        ? 'ログインリンクが無効です（使用済みか期限切れ）。もう一度送信してください'
+        : 'メールリンクログインに失敗: ' + e.message
+    );
+    setStatus('ログインエラー', 'err');
+    dbg('メールリンクログイン失敗: ' + (e.code ?? e.message), true);
+  } finally {
+    // リンクのパラメータをURLから消す（リロード時の再処理・履歴共有事故を防ぐ）
+    history.replaceState(null, '', location.pathname);
+  }
+}
+void completeEmailLinkSignIn();
+
 onAuthStateChanged(auth, async (user: any) => {
   const loginArea    = document.getElementById('login-area');
   const gameMenuArea = document.getElementById('game-menu-area');
@@ -86,21 +185,24 @@ onAuthStateChanged(auth, async (user: any) => {
   const niInput      = document.getElementById('ni') as HTMLInputElement | null;
   if (user) {
     const isGuest = !!user.isAnonymous;
-    dbg(isGuest ? 'ゲストとして開始: ' + user.uid : 'Google ログイン成功: ' + user.displayName);
+    dbg(isGuest ? 'ゲストとして開始: ' + user.uid : 'ログイン成功: ' + (user.displayName || user.email || user.uid));
     if (loginArea)    loginArea.style.display    = 'none';
     if (gameMenuArea) gameMenuArea.style.display = 'block';
     // ゲストにだけ「Googleアカウントに切り替える」導線を出す
     if (upgradeBtn) upgradeBtn.style.display = isGuest ? 'block' : 'none';
 
-    // ★Phase 1★ Googleユーザーはプロフィール（users/{uid}）を自動作成/取得し、
-    // 保存済みの表示名を名前欄にプリフィルする（毎回入力の廃止）。
-    // ゲストはアカウントを作らず従来どおり入力してもらう。
+    // ★Phase 1★ アカウントあり（Google/メールリンク）のユーザーはプロフィール
+    // （users/{uid}）を自動作成/取得し、保存済みの表示名を名前欄にプリフィル
+    // する（毎回入力の廃止）。ゲストはアカウントを作らず従来どおり入力。
+    // メールリンクユーザーは displayName が無いので、メールの@より前を初期名にする。
     savedProfileName = null;
     let prefill = 'ゲスト';
     if (!isGuest) {
-      const profile = await ensureUserDoc(user);
+      const defaultName: string =
+        (user.displayName || (user.email ? user.email.split('@')[0] : '') || 'プレイヤー').slice(0, 12);
+      const profile = await ensureUserDoc({ uid: user.uid, displayName: defaultName, isAnonymous: false });
       savedProfileName = profile?.displayName ?? null;
-      prefill = savedProfileName || (user.displayName ? user.displayName.slice(0, 12) : 'プレイヤー');
+      prefill = savedProfileName || defaultName;
     }
     if (niInput) niInput.value = prefill;
 

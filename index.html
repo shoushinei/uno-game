@@ -47,6 +47,16 @@
       style="background:#666;color:#fff;font-weight:600;margin:0 auto;">
       👤 ゲストでプレイ（アカウントなし）
     </button>
+    <!-- ★Phase 1.5★ メールリンク認証（パスワードレス）。
+         Googleアカウントを持たない人向けのアカウント作成手段 -->
+    <div class="or">または</div>
+    <input id="email-input" type="email" placeholder="メールアドレスでログイン" maxlength="254"
+      style="width:100%;box-sizing:border-box;margin-bottom:8px;">
+    <button class="btn" id="email-login-btn"
+      style="background:#2e86de;color:#fff;font-weight:600;margin:0 auto;">
+      ✉️ ログインリンクを送信
+    </button>
+    <p class="msg" id="email-msg" style="margin-top:6px;"></p>
   </div>
 
   <div id="game-menu-area" style="display:none;width:100%;max-width:320px;">
