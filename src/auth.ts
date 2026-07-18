@@ -3,7 +3,7 @@
 // Google認証とルームのCRUD操作を担う。
 // ゲームロジックには依存しない。
 // ========================================
-import { state, newRoomId } from './state.js';
+import { state, newRoomId, randomGuestName } from './state.js';
 import { fbGet, fbSet, fbUpdate, testConnection } from './db.js';
 import { canAddBot, canRemoveBot, canKickPlayer, makeBotPlayer } from './bot/lobby-bots.js';
 import { auth, googleProvider } from './firebase-config.js';
@@ -47,6 +47,9 @@ declare global {
 
 /** Firestoreに保存済みの表示名（ログイン時に読み込み。ゲスト・未取得は null） */
 let savedProfileName: string | null = null;
+
+/** ゲストセッション中の表示名（初回に1度だけ生成して使い回す） */
+let guestName: string | null = null;
 
 async function loginWithGoogle(): Promise<void> {
   try {
@@ -199,8 +202,14 @@ onAuthStateChanged(auth, async (user: any) => {
     // する（毎回入力の廃止）。ゲストはアカウントを作らず従来どおり入力。
     // メールリンクユーザーは displayName が無いので、メールの@より前を初期名にする。
     savedProfileName = null;
-    let prefill = 'ゲスト';
-    if (!isGuest) {
+    let prefill: string;
+    if (isGuest) {
+      // ゲストは「ゲスト+乱数」の名前を1度だけ生成して使い回す
+      // （onAuthStateChanged が再発火しても名前が変わらないように）
+      if (!guestName) guestName = randomGuestName();
+      prefill = guestName;
+    } else {
+      guestName = null;
       const defaultName: string =
         (user.displayName || (user.email ? user.email.split('@')[0] : '') || 'プレイヤー').slice(0, 12);
       const profile = await ensureUserDoc({ uid: user.uid, displayName: defaultName, isAnonymous: false });

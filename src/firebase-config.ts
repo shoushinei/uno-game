@@ -3,7 +3,7 @@
 // ========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, connectDatabaseEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 interface FirebaseConfig {
@@ -50,5 +50,8 @@ export const firestore = getFirestore(app);
 if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
   connectDatabaseEmulator(db, "127.0.0.1", 9000);
   connectFirestoreEmulator(firestore, "127.0.0.1", 8080);
-  console.log("🔧 Database/Firestore Emulator に接続しました（本番データではありません）");
+  // 認証もエミュレータへ（ローカルで Google/匿名ログインを検証できるようにする。
+  // 本番の apiKey はリファラー制限で localhost からは弾かれるため）
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  console.log("🔧 Auth/Database/Firestore Emulator に接続しました（本番データではありません）");
 }
