@@ -248,3 +248,67 @@
   padding: 0 6px;
 }
 .profile-rank-chip.win { background: #ffe9c7; border-color: #eecf9a; }
+
+/* ---- 実績（プロフィールモーダル内） ★Phase 3★ ---- */
+.profile-achv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.profile-achv {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: var(--color-background-secondary, #f6f7f8);
+  border: 1px solid var(--color-border-tertiary, #e5e7e9);
+  opacity: 0.55;
+  filter: grayscale(0.9);
+}
+.profile-achv.unlocked {
+  opacity: 1;
+  filter: none;
+  background: #fff7e6;
+  border-color: #f0d69a;
+}
+.profile-achv-emoji { font-size: 20px; flex-shrink: 0; }
+.profile-achv-name { font-size: 11.5px; font-weight: 600; line-height: 1.2; }
+
+/* ---- 実績解除トースト ★Phase 3★ ---- */
+.achv-toast-host {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.achv-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #2c3e50, #34495e);
+  color: #fff;
+  border: 1.5px solid #ffd166;
+  border-radius: 12px;
+  padding: 10px 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: achvToastIn 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.achv-toast.leaving { animation: achvToastOut 0.4s ease forwards; }
+.achv-toast-emoji { font-size: 28px; }
+.achv-toast-text { font-size: 12px; line-height: 1.35; }
+.achv-toast-text b { color: #ffd166; font-size: 12.5px; }
+
+@keyframes achvToastIn {
+  from { transform: translateY(-24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes achvToastOut {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(-24px); opacity: 0; }
+}

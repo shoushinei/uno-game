@@ -78,6 +78,18 @@ async function main() {
         { id: 'acc-alice', name: 'アリス' },   // 4位
       ],
     },
+    // 実績判定用（Phase 3）: ボブが 8切り＋同一ターン上がり＋UNO宣言1回
+    replayInitialState: {
+      trumpHands: {
+        'acc-bob': [{ s: '♠', v: '8', id: '♠8' }],
+        'acc-alice': [{ s: '♥', v: 'K', id: '♥K' }],
+      },
+    },
+    actionLog: [
+      { type: 'trumpPlay', playerId: 'acc-bob', args: { cardIds: ['♠8'] }, ts: 1 }, // 8切り＆トランプ出し切り
+      { type: 'sayUno', playerId: 'acc-bob', args: {}, ts: 2 },
+      { type: 'unoPlay', playerId: 'acc-bob', args: {}, ts: 3 },                     // 同一ターンでUNOも出して上がり
+    ],
   };
   await db.ref('rooms/' + roomId).set(room);
   await db.ref(`rooms/${roomId}/state`).set('ended');
@@ -115,6 +127,18 @@ async function main() {
 
   const marker = await fs.doc('processedGames/' + gameId).get();
   check('冪等マーカーが作られている', marker.exists);
+
+  // ---- 実績（Phase 3）----
+  const bobAchv = bob?.achievements ?? {};
+  check('ボブに first-game / first-win が付与される',
+    bobAchv['first-game'] !== undefined && bobAchv['first-win'] !== undefined,
+    JSON.stringify(Object.keys(bobAchv)));
+  check('ボブに eight-cut（8切り）が付与される', bobAchv['eight-cut'] !== undefined);
+  check('ボブに double-finish（同一ターン上がり）が付与される', bobAchv['double-finish'] !== undefined);
+  check('ボブの累計UNO宣言 counters.sayUno=1', bob?.counters?.sayUno === 1, JSON.stringify(bob?.counters));
+  check('アリス(4位・8切りなし)に eight-cut は付かない',
+    (alice?.achievements ?? {})['eight-cut'] === undefined,
+    JSON.stringify(Object.keys(alice?.achievements ?? {})));
 
   // ---- 二重発火テスト: lobby に戻して再度 ended ----
   await db.ref(`rooms/${roomId}/state`).set('lobby');

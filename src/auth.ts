@@ -16,6 +16,7 @@ import {
   signInWithEmailLink,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { ensureUserDoc, saveDisplayName } from './account.js';
+import { startAchievementWatch, stopAchievementWatch } from './ui/achievement-toast.js';
 import { show, setHomeMsg, setLobbyMsg, setStatus, dbg, setLoading } from './ui/ui-render.js';
 
 // window オブジェクトに生やす関数の型宣言
@@ -218,6 +219,10 @@ onAuthStateChanged(auth, async (user: any) => {
     }
     if (niInput) niInput.value = prefill;
 
+    // ★Phase 3★ 実績解除トーストの監視（アカウント保持者のみ）
+    if (isGuest) stopAchievementWatch();
+    else startAchievementWatch(user.uid);
+
     setStatus('Firebase 接続テスト中...');
     const ok = await testConnection();
     if (ok) {
@@ -294,6 +299,7 @@ onAuthStateChanged(auth, async (user: any) => {
     if (gameMenuArea) gameMenuArea.style.display = 'none';
     setStatus('Googleアカウントでログインしてください');
     dbg('未ログイン状態');
+    stopAchievementWatch();
   }
 });
 

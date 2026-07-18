@@ -26,14 +26,19 @@ service cloud.firestore {
         && request.resource.data.displayName.size() >= 1
         && request.resource.data.displayName.size() <= 12;
 
-      // 更新: 本人のみ。プロフィール項目以外（将来の戦績フィールド等）は変更不可
+      // 更新: 本人のみ。プロフィール項目と reactedFirstAt（対人リアクション初送信
+      // の実績＝唯一のクライアント記録）だけ変更可。stats/achievements/counters
+      // など戦績・実績本体は Functions のみ（クライアントからは変更不可）。
       allow update: if request.auth != null
         && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ['displayName', 'selectedIcon', 'selectedTitle'])
-        && request.resource.data.displayName is string
-        && request.resource.data.displayName.size() >= 1
-        && request.resource.data.displayName.size() <= 12;
+             ['displayName', 'selectedIcon', 'selectedTitle', 'reactedFirstAt'])
+        && (!('displayName' in request.resource.data.diff(resource.data).affectedKeys())
+            || (request.resource.data.displayName is string
+                && request.resource.data.displayName.size() >= 1
+                && request.resource.data.displayName.size() <= 12))
+        && (!('reactedFirstAt' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.reactedFirstAt is number);
 
       allow delete: if false;
 

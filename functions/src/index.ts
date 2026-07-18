@@ -18,6 +18,11 @@ import { setGlobalOptions } from 'firebase-functions/v2';
 import * as logger from 'firebase-functions/logger';
 import * as admin from 'firebase-admin';
 import { applyGameResult } from './stats-logic';
+import {
+  analyzePlayerActions,
+  buildCardById,
+  evaluateAchievements,
+} from './achievements-logic';
 
 admin.initializeApp();
 
@@ -77,6 +82,10 @@ export const onGameEnded = onValueWritten(
     const playerCount = rankings.length;
     const finishedAt = Date.now();
 
+    // ★Phase 3★ 実績判定用: actionLog と初期トランプ札の対応表
+    const actionLog: any[] = Array.isArray(room.actionLog) ? room.actionLog : [];
+    const cardById = buildCardById(room.replayInitialState?.trumpHands);
+
     const fs = admin.firestore();
     const processed = await fs.runTransaction(async (tx) => {
       // 冪等ガード: 既に処理済みの gameId なら何もしない
@@ -89,10 +98,36 @@ export const onGameEnded = onValueWritten(
 
       tx.create(marker, { roomId, finishedAt });
       accountRanks.forEach((r, i) => {
-        const prevStats = userSnaps[i].exists ? (userSnaps[i].data()?.stats ?? null) : null;
+        const data = userSnaps[i].exists ? userSnaps[i].data() : null;
+        const prevStats = data?.stats ?? null;
         const stats = applyGameResult(prevStats, { rank: r.rank, playerCount, at: finishedAt });
+
+        // ---- 実績（Phase 3）----
+        const acts = analyzePlayerActions(actionLog, r.uid, cardById, true /* rankings入り=上がり */);
+        const prevSayUno = typeof data?.counters?.sayUno === 'number' ? data.counters.sayUno : 0;
+        const sayUnoCumulative = prevSayUno + acts.sayUnoCount;
+        const unlockedNow = evaluateAchievements({
+          statsBefore: prevStats,
+          statsAfter: stats,
+          rank: r.rank,
+          sayUnoCumulative,
+          actions: acts,
+        });
+        // 既に解除済みの実績は上書きしない（解除日時を保つ）。新規分だけ追記
+        const existing = (data?.achievements ?? {}) as Record<string, number>;
+        const achievements: Record<string, number> = {};
+        for (const id of unlockedNow) {
+          if (existing[id] === undefined) achievements[id] = finishedAt;
+        }
+
+        const userUpdate: any = {
+          stats,
+          counters: { sayUno: sayUnoCumulative },
+        };
+        if (Object.keys(achievements).length > 0) userUpdate.achievements = achievements;
+
         // users/{uid} が無い場合（プロフィール作成失敗など）でも merge で作る
-        tx.set(userRefs[i], { stats }, { merge: true });
+        tx.set(userRefs[i], userUpdate, { merge: true });
         tx.set(fs.doc(`users/${r.uid}/games/${gameId}`), {
           roomId,
           rank: r.rank,
@@ -105,7 +140,7 @@ export const onGameEnded = onValueWritten(
     });
 
     if (processed) {
-      logger.info(`${gameId}: 戦績を記録しました（${accountRanks.length}人分 / 卓${playerCount}人）`);
+      logger.info(`${gameId}: 戦績・実績を記録しました（${accountRanks.length}人分 / 卓${playerCount}人）`);
     } else {
       logger.info(`${gameId}: 処理済みのためスキップ`);
     }

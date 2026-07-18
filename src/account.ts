@@ -17,6 +17,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  onSnapshot,
   serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
@@ -87,13 +88,19 @@ export interface UserStats {
   recent: { rank: number; playerCount: number; at: number }[];
 }
 
+/** プロフィール画面が使うユーザードキュメントの読み取り形 */
+export interface ProfileData {
+  displayName: string | null;
+  stats: UserStats | null;
+  achievements: Record<string, number> | null;
+  reactedFirstAt: number | null;
+}
+
 /**
- * プロフィール画面用に表示名と戦績を取得する。
+ * プロフィール画面用に表示名・戦績・実績を取得する。
  * ドキュメントが無い・失敗時は null（画面側で「記録なし」表示）。
  */
-export async function fetchProfileStats(
-  uid: string
-): Promise<{ displayName: string | null; stats: UserStats | null } | null> {
+export async function fetchProfileStats(uid: string): Promise<ProfileData | null> {
   try {
     const snap = await getDoc(doc(firestore, 'users', uid));
     if (!snap.exists()) return null;
@@ -101,9 +108,54 @@ export async function fetchProfileStats(
     return {
       displayName: typeof d.displayName === 'string' ? d.displayName : null,
       stats: d.stats ?? null,
+      achievements: d.achievements ?? null,
+      reactedFirstAt: typeof d.reactedFirstAt === 'number' ? d.reactedFirstAt : null,
     };
   } catch (e) {
     console.warn('戦績の取得に失敗:', e);
     return null;
+  }
+}
+
+// ----------------------------------------
+// 実績（Phase 3）
+// ----------------------------------------
+
+/**
+ * 対人リアクション初送信の実績（reaction-first）を立てる。
+ * サーバー判定ではなくクライアント記録（合意済みの唯一の例外）。
+ * 既に立っていれば何もしない。失敗は無視。
+ */
+export async function markReactionFirst(uid: string): Promise<void> {
+  try {
+    const ref = doc(firestore, 'users', uid);
+    const snap = await getDoc(ref);
+    if (snap.exists() && typeof snap.data().reactedFirstAt === 'number') return; // 既に解除済み
+    await setDoc(ref, { reactedFirstAt: Date.now() }, { merge: true });
+  } catch (e) {
+    console.warn('reaction-first 実績の記録に失敗:', e);
+  }
+}
+
+/**
+ * ユーザードキュメントの変化を購読する（実績解除トースト用）。
+ * コールバックには achievements マップと reactedFirstAt を渡す。
+ * 返り値の unsubscribe を呼ぶまで購読を続ける。失敗時は no-op を返す。
+ */
+export function listenUserAchievements(
+  uid: string,
+  cb: (data: { achievements: Record<string, number>; reactedFirstAt: number | null }) => void
+): () => void {
+  try {
+    return onSnapshot(doc(firestore, 'users', uid), (snap: any) => {
+      const d = snap.exists() ? snap.data() : {};
+      cb({
+        achievements: (d.achievements ?? {}) as Record<string, number>,
+        reactedFirstAt: typeof d.reactedFirstAt === 'number' ? d.reactedFirstAt : null,
+      });
+    }, (e: any) => console.warn('実績購読エラー:', e));
+  } catch (e) {
+    console.warn('実績購読の開始に失敗:', e);
+    return () => {};
   }
 }

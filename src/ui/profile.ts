@@ -8,7 +8,8 @@
 // 追加していく前提の骨組み。
 // ========================================
 import { auth } from '../firebase-config.js';
-import { fetchProfileStats, type UserStats } from '../account.js';
+import { fetchProfileStats, type UserStats, type ProfileData } from '../account.js';
+import { buildAchievementViews, type AchievementView } from '../achievements.js';
 
 declare global {
   interface Window {
@@ -30,7 +31,7 @@ window.openProfile = async () => {
     return;
   }
   const data = await fetchProfileStats(user.uid);
-  body.innerHTML = renderProfileHtml(data?.displayName ?? null, data?.stats ?? null);
+  body.innerHTML = renderProfileHtml(data?.displayName ?? null, data?.stats ?? null, data ?? null);
 };
 
 window.closeProfile = () => {
@@ -45,13 +46,35 @@ function rankChip(rank: number, playerCount: number): string {
   return `<span class="profile-rank-chip${cls}" title="${playerCount}人戦で${rank}位">${label}</span>`;
 }
 
+/** 実績バッジ1個のHTML（未解除はグレーでヒント表示） */
+function achievementBadge(a: AchievementView): string {
+  return `
+    <div class="profile-achv${a.unlocked ? ' unlocked' : ''}" title="${a.desc}">
+      <span class="profile-achv-emoji">${a.emoji}</span>
+      <span class="profile-achv-name">${a.unlocked ? a.name : '???'}</span>
+    </div>
+  `;
+}
+
 /** モーダル本文のHTML生成（純粋関数・ブラウザ検証やテストから直接呼べるよう export） */
-export function renderProfileHtml(displayName: string | null, stats: UserStats | null): string {
+export function renderProfileHtml(
+  displayName: string | null,
+  stats: UserStats | null,
+  data: Pick<ProfileData, 'achievements' | 'reactedFirstAt'> | null = null
+): string {
   const name = displayName ?? 'プレイヤー';
+  const views = buildAchievementViews(data);
+  const unlockedCount = views.filter(v => v.unlocked).length;
+  const achvHtml = `
+    <div class="profile-sec">実績 ${unlockedCount} / ${views.length}</div>
+    <div class="profile-achv-grid">${views.map(achievementBadge).join('')}</div>
+  `;
+
   if (!stats || !stats.games) {
     return `
       <div class="profile-name">${name}</div>
       <p class="profile-note">まだ対局記録がありません。<br>ゲームを最後までプレイすると記録されます。</p>
+      ${achvHtml}
     `;
   }
   const rate = Math.round((stats.wins / stats.games) * 100);
@@ -72,5 +95,6 @@ export function renderProfileHtml(displayName: string | null, stats: UserStats |
     </div>
     <div class="profile-sec">直近${(stats.recent ?? []).length}戦（新しい順）</div>
     <div class="profile-recent">${recent || '<span class="profile-note">なし</span>'}</div>
+    ${achvHtml}
   `;
 }

@@ -11,6 +11,8 @@
 // ========================================
 import './auth.js';
 import { clearSessionAndGoHome } from './auth.js';
+import { auth } from './firebase-config.js';
+import { markReactionFirst } from './account.js';
 import { state } from './state.js';
 import { fbListen } from './db.js';
 import './bot/test-bot.js';
@@ -300,6 +302,12 @@ window.sendReaction = async (emoji, targetId) => {
   if (!isPcUi()) flashReactionBtn(emoji);
   const result = await actionSendReaction(emoji, targetId);
   if (result?.error) { dbg(result.error, true); logSnapshot(result.error); } // ★ログ追加
+  // ★Phase 3★ 対人リアクション（targetId付き）初送信の実績を立てる
+  // （アカウント保持者のみ。ゲスト＝匿名は対象外）
+  if (targetId && !result?.error) {
+    const u = auth.currentUser;
+    if (u && !u.isAnonymous) void markReactionFirst(u.uid);
+  }
   setTimeout(() => { state.reactionCooldown = false; }, 2000);
 };
 
