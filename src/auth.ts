@@ -190,6 +190,9 @@ onAuthStateChanged(auth, async (user: any) => {
     if (gameMenuArea) gameMenuArea.style.display = 'block';
     // ゲストにだけ「Googleアカウントに切り替える」導線を出す
     if (upgradeBtn) upgradeBtn.style.display = isGuest ? 'block' : 'none';
+    // ★Phase 2★ プロフィール（戦績）はアカウント保持者だけ
+    const profileBtn = document.getElementById('profile-btn');
+    if (profileBtn) profileBtn.style.display = isGuest ? 'none' : 'block';
 
     // ★Phase 1★ アカウントあり（Google/メールリンク）のユーザーはプロフィール
     // （users/{uid}）を自動作成/取得し、保存済みの表示名を名前欄にプリフィル

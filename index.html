@@ -60,6 +60,11 @@
   </div>
 
   <div id="game-menu-area" style="display:none;width:100%;max-width:320px;">
+    <!-- ★Phase 2★ プロフィール（戦績）。ゲストには表示しない（auth.ts が制御） -->
+    <button class="btn" id="profile-btn" onclick="openProfile()"
+      style="display:none;background:#16a085;color:#fff;margin-bottom:8px;">
+      📊 プロフィール（戦績）
+    </button>
     <input id="ni" placeholder="あなたの名前を入力" maxlength="12">
     <button class="btn red" id="create-btn" onclick="createRoom()">新しいルームを作る</button>
     <div class="or">または</div>
@@ -374,6 +379,17 @@
     <!-- 再生ビュー（場・全員の手札・ログが描画される） -->
     <div id="replay-view" style="width:100%;max-width:560px"></div>
 
+  </div>
+</div>
+
+<!-- ★Phase 2★ プロフィール（戦績）モーダル。中身は src/ui/profile.ts が描画する -->
+<div id="profile-modal" class="modal-overlay" onclick="closeProfile()" style="display:none;">
+  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:360px;">
+    <div class="modal-header">
+      <h3>📊 プロフィール</h3>
+      <button class="modal-close-x" onclick="closeProfile()">&times;</button>
+    </div>
+    <div class="modal-body" id="profile-body"></div>
   </div>
 </div>
 

@@ -2,12 +2,26 @@
   "firestore": {
     "rules": "firestore.rules"
   },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs20",
+      "predeploy": ["npm --prefix functions run build"]
+    }
+  ],
   "emulators": {
     "database": {
       "port": 9000
     },
     "firestore": {
       "port": 8080
+    },
+    "functions": {
+      "port": 5001
+    },
+    "auth": {
+      "port": 9099
     },
     "ui": {
       "enabled": true,

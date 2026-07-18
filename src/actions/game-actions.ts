@@ -84,6 +84,10 @@ export async function actionStartGame(): Promise<ActionResult | undefined> {
   await fbUpdate('rooms/' + state.roomId, {
     state: 'playing',
     game,
+    // ★Phase 2（戦績）★ 対局ごとの一意ID。Cloud Functions がゲーム終了時の
+    // 戦績書き込みの冪等性（同じゲームの二重記録防止）に使う。
+    // 同じルームで再戦しても毎回新しいIDになる。
+    gameId: `${state.roomId}-${Date.now()}`,
     log: ['🎮 大富豪×UNO 融合ゲーム開始！'],
     trumpPassCount: 0,
     // ★リプレイ機能で追加★

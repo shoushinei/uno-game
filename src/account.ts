@@ -73,3 +73,37 @@ export async function saveDisplayName(uid: string, name: string): Promise<void> 
     console.warn('表示名の保存に失敗:', e);
   }
 }
+
+// ----------------------------------------
+// 戦績（Phase 2）
+// ----------------------------------------
+
+/** Cloud Functions が書き込む users/{uid}.stats の形（functions/src/stats-logic.ts と対応） */
+export interface UserStats {
+  games: number;
+  wins: number;
+  winStreak: number;
+  loseStreak: number;
+  recent: { rank: number; playerCount: number; at: number }[];
+}
+
+/**
+ * プロフィール画面用に表示名と戦績を取得する。
+ * ドキュメントが無い・失敗時は null（画面側で「記録なし」表示）。
+ */
+export async function fetchProfileStats(
+  uid: string
+): Promise<{ displayName: string | null; stats: UserStats | null } | null> {
+  try {
+    const snap = await getDoc(doc(firestore, 'users', uid));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    return {
+      displayName: typeof d.displayName === 'string' ? d.displayName : null,
+      stats: d.stats ?? null,
+    };
+  } catch (e) {
+    console.warn('戦績の取得に失敗:', e);
+    return null;
+  }
+}

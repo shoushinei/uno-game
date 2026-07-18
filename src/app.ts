@@ -17,6 +17,7 @@ import './bot/test-bot.js';
 import { startAbsentRunner } from './bot/absent-runner.js';
 import { botPlayerMap } from './bot/lobby-bots.js';
 import './replay/app.js'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
+import './ui/profile.js'; // ★Phase 2★ プロフィール画面（openProfile/closeProfile）を登録する
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg, setHomeMsg } from './ui/ui-render.js';
 import { isPcUi } from './ui/pc/ui-mode.js';
 import {

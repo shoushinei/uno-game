@@ -36,6 +36,18 @@ service cloud.firestore {
         && request.resource.data.displayName.size() <= 12;
 
       allow delete: if false;
+
+      // ★Phase 2★ 対局履歴（Cloud Functions のみが書く）。
+      // 読み取りは本人だけ（Phase 4 の「直近一緒に遊んだ人」表示に使う）
+      match /games/{gameId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+    }
+
+    // ★Phase 2★ 戦績書き込みの冪等マーカー（Functions 専用・クライアント不可視）
+    match /processedGames/{gameId} {
+      allow read, write: if false;
     }
 
     // 上記以外はすべて拒否（Phase 2以降で必要になったら明示的に開ける）
