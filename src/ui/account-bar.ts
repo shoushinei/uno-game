@@ -42,9 +42,11 @@ export function syncAccountBar(screenId: string = activeScreenId()): void {
   const nameEl = document.getElementById('account-bar-name');
   if (nameEl) nameEl.textContent = displayName || (isGuest ? 'ゲスト' : 'プレイヤー');
 
-  // ゲストはプロフィール（戦績・実績）を持たないのでボタンを隠し、印を出す
+  // ゲストはプロフィール・フレンドを持たないのでボタンを隠し、印を出す
   const profileBtn = document.getElementById('account-bar-profile');
   if (profileBtn) profileBtn.style.display = isGuest ? 'none' : 'inline-flex';
+  const friendsBtn = document.getElementById('account-bar-friends');
+  if (friendsBtn) friendsBtn.style.display = isGuest ? 'none' : 'inline-flex';
   const guestTag = document.getElementById('account-bar-guest');
   if (guestTag) guestTag.style.display = isGuest ? 'inline-flex' : 'none';
 

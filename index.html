@@ -20,6 +20,9 @@
   <span class="account-bar-avatar">👤</span>
   <span id="account-bar-name" class="account-bar-name"></span>
   <span id="account-bar-guest" class="account-bar-guest">ゲスト</span>
+  <button id="account-bar-friends" class="account-bar-btn" onclick="openFriends()" title="フレンド" style="position:relative">
+    🤝<span id="friends-badge" class="friends-badge" style="display:none">0</span>
+  </button>
   <button id="account-bar-profile" class="account-bar-btn" onclick="openProfile()" title="戦績・実績">📊</button>
 </div>
 
@@ -390,6 +393,17 @@
     <!-- 再生ビュー（場・全員の手札・ログが描画される） -->
     <div id="replay-view" style="width:100%;max-width:560px"></div>
 
+  </div>
+</div>
+
+<!-- ★Phase 4★ フレンドモーダル。中身は src/ui/friends-ui.ts が描画する -->
+<div id="friends-modal" class="modal-overlay" onclick="closeFriends()" style="display:none;">
+  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:360px;">
+    <div class="modal-header">
+      <h3>🤝 フレンド</h3>
+      <button class="modal-close-x" onclick="closeFriends()">&times;</button>
+    </div>
+    <div class="modal-body" id="friends-body"></div>
   </div>
 </div>
 
