@@ -13,6 +13,17 @@
 <body>
 
 <!-- =====================================================
+     アカウント状態欄（右上固定チップ・ログイン中のみ表示）
+     src/ui/account-bar.ts が表示/非表示と中身を制御する
+     ===================================================== -->
+<div id="account-bar" style="display:none">
+  <span class="account-bar-avatar">👤</span>
+  <span id="account-bar-name" class="account-bar-name"></span>
+  <span id="account-bar-guest" class="account-bar-guest">ゲスト</span>
+  <button id="account-bar-profile" class="account-bar-btn" onclick="openProfile()" title="戦績・実績">📊</button>
+</div>
+
+<!-- =====================================================
      ホーム画面
      ===================================================== -->
 <div id="s-home" class="screen active">

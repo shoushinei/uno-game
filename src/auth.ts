@@ -17,6 +17,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { ensureUserDoc, saveDisplayName } from './account.js';
 import { startAchievementWatch, stopAchievementWatch } from './ui/achievement-toast.js';
+import { setAccountBarName, syncAccountBar } from './ui/account-bar.js';
 import { show, setHomeMsg, setLobbyMsg, setStatus, dbg, setLoading } from './ui/ui-render.js';
 
 // window オブジェクトに生やす関数の型宣言
@@ -219,6 +220,9 @@ onAuthStateChanged(auth, async (user: any) => {
     }
     if (niInput) niInput.value = prefill;
 
+    // アカウント状態欄（右上チップ）に名前を反映して表示する
+    setAccountBarName(prefill);
+
     // ★Phase 3★ 実績解除トーストの監視（アカウント保持者のみ）
     if (isGuest) stopAchievementWatch();
     else startAchievementWatch(user.uid);
@@ -300,6 +304,8 @@ onAuthStateChanged(auth, async (user: any) => {
     setStatus('Googleアカウントでログインしてください');
     dbg('未ログイン状態');
     stopAchievementWatch();
+    setAccountBarName('');
+    syncAccountBar(); // ログアウトでチップを隠す
   }
 });
 

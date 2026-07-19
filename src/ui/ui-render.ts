@@ -16,6 +16,7 @@ import type { GameState, Player, UnoCard } from '../logic/types';
 import type { TrumpCard, TrumpEffect } from '../logic/trump-logic.js';
 import { isPcUi } from './pc/ui-mode.js';
 import { renderGamePC } from './pc/table-render.js';
+import { syncAccountBar } from './account-bar.js';
 
 /** 他プレイヤーのリアクション表示（Firebaseの rooms/{id}/reactions/{playerId}） */
 interface Reaction {
@@ -37,6 +38,8 @@ export function show(id: string): void {
   if (id === 'game' && isPcUi()) id = 'game-pc';
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('s-' + id)!.classList.add('active');
+  // アカウント状態欄の表示/非表示を画面に合わせて更新
+  syncAccountBar(id);
 }
 
 // ----------------------------------------
