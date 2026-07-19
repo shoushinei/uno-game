@@ -7,6 +7,7 @@
 // ゲーム中（#s-game / #s-game-pc）やリプレイ中は盤面の邪魔になるため隠す。
 // ========================================
 import { auth } from '../firebase-config.js';
+import { state } from '../state.js';
 
 /** チップを出す画面（それ以外の画面では隠す） */
 const SHOW_ON = new Set(['home', 'lobby', 'result']);
@@ -41,6 +42,16 @@ export function syncAccountBar(screenId: string = activeScreenId()): void {
   const isGuest = !!user.isAnonymous;
   const nameEl = document.getElementById('account-bar-name');
   if (nameEl) nameEl.textContent = displayName || (isGuest ? 'ゲスト' : 'プレイヤー');
+
+  // ★Phase 5★ 選択中のアイコンを 👤 の代わりに、称号を名前の後ろに出す
+  const avatarEl = document.getElementById('account-bar-avatar-slot');
+  if (avatarEl) avatarEl.textContent = (!isGuest && state.myIcon) ? state.myIcon : '👤';
+  const titleEl = document.getElementById('account-bar-title');
+  if (titleEl) {
+    const t = (!isGuest && state.myTitle) ? state.myTitle : '';
+    titleEl.textContent = t;
+    titleEl.style.display = t ? 'inline-flex' : 'none';
+  }
 
   // ゲストはプロフィール・フレンドを持たないのでボタンを隠し、印を出す
   const profileBtn = document.getElementById('account-bar-profile');

@@ -17,8 +17,9 @@
      src/ui/account-bar.ts が表示/非表示と中身を制御する
      ===================================================== -->
 <div id="account-bar" style="display:none">
-  <span class="account-bar-avatar">👤</span>
+  <span id="account-bar-avatar-slot" class="account-bar-avatar">👤</span>
   <span id="account-bar-name" class="account-bar-name"></span>
+  <span id="account-bar-title" class="account-bar-title" style="display:none"></span>
   <span id="account-bar-guest" class="account-bar-guest">ゲスト</span>
   <button id="account-bar-friends" class="account-bar-btn" onclick="openFriends()" title="フレンド" style="position:relative">
     🤝<span id="friends-badge" class="friends-badge" style="display:none">0</span>

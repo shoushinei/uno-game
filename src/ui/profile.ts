@@ -8,15 +8,23 @@
 // 追加していく前提の骨組み。
 // ========================================
 import { auth } from '../firebase-config.js';
-import { fetchProfileStats, type UserStats, type ProfileData } from '../account.js';
+import { state } from '../state.js';
+import { fetchProfileStats, saveCosmetics, type UserStats, type ProfileData } from '../account.js';
 import { buildAchievementViews, type AchievementView } from '../achievements.js';
+import { ICONS, TITLES, isUnlocked, unlockedAchievementSet } from '../cosmetics.js';
+import { syncAccountBar } from './account-bar.js';
 
 declare global {
   interface Window {
     openProfile: () => Promise<void>;
     closeProfile: (event?: Event) => void;
+    selectIcon: (emoji: string) => Promise<void>;
+    selectTitle: (title: string) => Promise<void>;
   }
 }
+
+/** 直近に取得したプロフィールデータ（アイコン・称号の選択で再描画に使う） */
+let lastData: ProfileData | null = null;
 
 window.openProfile = async () => {
   const modal = document.getElementById('profile-modal');
@@ -31,12 +39,41 @@ window.openProfile = async () => {
     return;
   }
   const data = await fetchProfileStats(user.uid);
-  body.innerHTML = renderProfileHtml(data?.displayName ?? null, data?.stats ?? null, data ?? null);
+  lastData = data;
+  renderProfileBody();
 };
 
 window.closeProfile = () => {
   const modal = document.getElementById('profile-modal');
   if (modal) modal.style.display = 'none';
+};
+
+function renderProfileBody(): void {
+  const body = document.getElementById('profile-body');
+  if (body) body.innerHTML = renderProfileHtml(lastData?.displayName ?? null, lastData?.stats ?? null, lastData);
+}
+
+// ---- アイコン・称号の選択（Phase 5） ----
+window.selectIcon = async (emoji) => {
+  const u = auth.currentUser;
+  if (!u || u.isAnonymous) return;
+  const next = state.myIcon === emoji ? null : emoji; // もう一度押すと解除
+  state.myIcon = next;
+  if (lastData) lastData.selectedIcon = next;
+  syncAccountBar();
+  renderProfileBody();
+  await saveCosmetics(u.uid, { selectedIcon: next });
+};
+
+window.selectTitle = async (title) => {
+  const u = auth.currentUser;
+  if (!u || u.isAnonymous) return;
+  const next = (!title || state.myTitle === title) ? null : title; // 「なし」/再選択で解除
+  state.myTitle = next;
+  if (lastData) lastData.selectedTitle = next;
+  syncAccountBar();
+  renderProfileBody();
+  await saveCosmetics(u.uid, { selectedTitle: next });
 };
 
 /** 順位の表示チップ（1〜3位はメダル・それ以外は数字） */
@@ -56,11 +93,38 @@ function achievementBadge(a: AchievementView): string {
   `;
 }
 
+/** アイコン・称号の選択UI（解除済みのみ選べる・未解除は🔒） */
+function cosmeticsHtml(data: Pick<ProfileData, 'achievements' | 'reactedFirstAt' | 'selectedIcon' | 'selectedTitle'> | null): string {
+  const unlocked = unlockedAchievementSet(data);
+  const curIcon = data?.selectedIcon ?? null;
+  const curTitle = data?.selectedTitle ?? null;
+
+  const iconBtns = ICONS.map(c => {
+    const ok = isUnlocked(c, unlocked);
+    const sel = curIcon === c.value;
+    return `<button class="profile-cos-icon${sel ? ' sel' : ''}${ok ? '' : ' locked'}"${ok ? ` onclick="selectIcon('${c.value}')"` : ' disabled'} title="${ok ? '' : '実績で解除'}">${ok ? c.value : '🔒'}</button>`;
+  }).join('');
+
+  const titleBtns = [`<button class="profile-cos-title${!curTitle ? ' sel' : ''}" onclick="selectTitle('')">なし</button>`]
+    .concat(TITLES.map(c => {
+      const ok = isUnlocked(c, unlocked);
+      const sel = curTitle === c.value;
+      return `<button class="profile-cos-title${sel ? ' sel' : ''}${ok ? '' : ' locked'}"${ok ? ` onclick="selectTitle('${c.value}')"` : ' disabled'}>${ok ? c.value : '🔒 ' + c.value}</button>`;
+    })).join('');
+
+  return `
+    <div class="profile-sec">アイコン</div>
+    <div class="profile-cos-icons">${iconBtns}</div>
+    <div class="profile-sec">称号</div>
+    <div class="profile-cos-titles">${titleBtns}</div>
+  `;
+}
+
 /** モーダル本文のHTML生成（純粋関数・ブラウザ検証やテストから直接呼べるよう export） */
 export function renderProfileHtml(
   displayName: string | null,
   stats: UserStats | null,
-  data: Pick<ProfileData, 'achievements' | 'reactedFirstAt'> | null = null
+  data: Pick<ProfileData, 'achievements' | 'reactedFirstAt' | 'selectedIcon' | 'selectedTitle'> | null = null
 ): string {
   const name = displayName ?? 'プレイヤー';
   const views = buildAchievementViews(data);
@@ -68,6 +132,7 @@ export function renderProfileHtml(
   const achvHtml = `
     <div class="profile-sec">実績 ${unlockedCount} / ${views.length}</div>
     <div class="profile-achv-grid">${views.map(achievementBadge).join('')}</div>
+    ${cosmeticsHtml(data)}
   `;
 
   if (!stats || !stats.games) {

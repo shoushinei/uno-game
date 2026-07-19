@@ -13,6 +13,11 @@ export interface AppState {
   // リアクション送信クールダウン管理
   reactionCooldown: boolean;
   lastSentReaction: string | null;
+
+  // ★Phase 5★ 自分が選んでいるアイコン(絵文字)・称号（ルーム参加時に
+  // players[] へ埋め込んで配る。未選択は null）
+  myIcon: string | null;
+  myTitle: string | null;
 }
 
 export const state: AppState = {
@@ -26,6 +31,10 @@ export const state: AppState = {
   // リアクション送信クールダウン管理
   reactionCooldown: false,
   lastSentReaction: null,
+
+  // ★Phase 5★ アイコン・称号
+  myIcon: null,
+  myTitle: null,
 };
 
 // ★Phase 1（アカウント基盤）★ プレイヤーIDは Firebase Auth の uid を

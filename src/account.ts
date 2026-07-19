@@ -94,6 +94,23 @@ export interface ProfileData {
   stats: UserStats | null;
   achievements: Record<string, number> | null;
   reactedFirstAt: number | null;
+  selectedIcon: string | null;
+  selectedTitle: string | null;
+}
+
+/** ★Phase 5★ アイコン・称号を保存する（本人のみ・ルールで許可済み） */
+export async function saveCosmetics(
+  uid: string,
+  cosmetics: { selectedIcon?: string | null; selectedTitle?: string | null }
+): Promise<void> {
+  try {
+    const payload: Record<string, string | null> = {};
+    if ('selectedIcon' in cosmetics) payload.selectedIcon = cosmetics.selectedIcon ?? null;
+    if ('selectedTitle' in cosmetics) payload.selectedTitle = cosmetics.selectedTitle ?? null;
+    await updateDoc(doc(firestore, 'users', uid), payload);
+  } catch (e) {
+    console.warn('アイコン・称号の保存に失敗:', e);
+  }
 }
 
 /**
@@ -110,6 +127,8 @@ export async function fetchProfileStats(uid: string): Promise<ProfileData | null
       stats: d.stats ?? null,
       achievements: d.achievements ?? null,
       reactedFirstAt: typeof d.reactedFirstAt === 'number' ? d.reactedFirstAt : null,
+      selectedIcon: typeof d.selectedIcon === 'string' ? d.selectedIcon : null,
+      selectedTitle: typeof d.selectedTitle === 'string' ? d.selectedTitle : null,
     };
   } catch (e) {
     console.warn('戦績の取得に失敗:', e);

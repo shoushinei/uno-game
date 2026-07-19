@@ -13,6 +13,10 @@ export interface Player {
   name: string;
   /** ロビーでホストが追加したボット。手番はホストのクライアントが代行実行する */
   isBot?: boolean;
+  /** ★Phase 5★ 選択中のアイコン絵文字（参加時に埋め込む・任意） */
+  icon?: string;
+  /** ★Phase 5★ 選択中の称号テキスト（参加時に埋め込む・任意） */
+  title?: string;
 }
 
 export interface UnoCard {

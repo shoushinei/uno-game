@@ -100,8 +100,8 @@ export function renderLobby(room: any): void {
       ? `<button class="pi-remove" onclick="kickPlayer('${p.id}')" aria-label="プレイヤーを退出させる">✕</button>`
       : '';
     el.innerHTML = `
-      <div class="av" style="background:${AVATAR_COLORS[i % 5]}">${p.name[0].toUpperCase()}</div>
-      <span class="pi-name">${p.name}</span>
+      <div class="av" style="background:${AVATAR_COLORS[i % 5]}">${p.icon ? p.icon : p.name[0].toUpperCase()}</div>
+      <span class="pi-name">${p.name}${p.title ? ` <span class="pi-title">${p.title}</span>` : ''}</span>
       <div class="pi-tags">${tags}</div>
       ${removeBtn}
     `;
@@ -324,7 +324,8 @@ function _renderOtherPlayers(
     el.className = 'op' + (active ? ' cur' : '');
     el.innerHTML = `
       ${reactHtml}
-      <div class="on">${p.name}</div>
+      <div class="on">${p.icon ? p.icon + ' ' : ''}${p.name}</div>
+      ${p.title ? `<div class="op-title">${p.title}</div>` : ''}
       ${autoHtml}
       ${rIdx !== -1
         ? `<div class="oc finish-badge">🏁${rIdx + 1}位</div>`

@@ -68,10 +68,11 @@ export function renderSeatHtml(pos: SeatPosition, ctx: SeatContext): string {
          data-seat-id="${pos.id}"
          style="left:${pos.xPercent}%;top:${pos.yPercent}%">
       <div class="pcg-avatar" style="background:${avatarColor}">
-        ${name.slice(0, 1).toUpperCase()}
+        ${player?.icon ? `<span class="pcg-avatar-icon">${player.icon}</span>` : name.slice(0, 1).toUpperCase()}
         ${isParent ? '<span class="pcg-crown">👑</span>' : ''}
       </div>
       <div class="pcg-seat-name">${name}</div>
+      ${player?.title ? `<div class="pcg-seat-title">${player.title}</div>` : ''}
       ${countsHtml}
       ${phaseChip}
       ${statusChips.join('')}

@@ -503,13 +503,15 @@ function _ownHeaderHtml(g: any, players: Player[]): string {
   const name = idx !== -1 ? players[idx]!.name : (state.myName || '?');
   const color = AVATAR_COLORS[Math.max(0, idx) % 5];
   const isParent = g.hasParent === state.myId;
+  const me = idx !== -1 ? players[idx] : undefined;
   return `
     <div class="pcg-own-head">
       <span class="pcg-own-avatar" style="background:${color}">
-        ${name.slice(0, 1).toUpperCase()}
+        ${me?.icon ? `<span class="pcg-avatar-icon">${me.icon}</span>` : name.slice(0, 1).toUpperCase()}
         ${isParent ? '<span class="pcg-crown">👑</span>' : ''}
       </span>
       <span class="pcg-own-name">${name}</span>
+      ${me?.title ? `<span class="pcg-own-title">${me.title}</span>` : ''}
       <span class="pcg-own-you">あなた</span>
     </div>
   `;

@@ -384,3 +384,62 @@
 .friend-presence.on   { background: #e3f7ec; color: #1c8c54; }
 .friend-presence.room { background: #fff1d6; color: #a56100; }
 .friend-presence.off  { background: #eef0f2; color: #98a0a6; }
+
+/* ---- アイコン・称号（Phase 5） ---- */
+.account-bar-title {
+  font-size: 10px;
+  background: #34495e;
+  color: #fff;
+  border-radius: 8px;
+  padding: 1px 7px;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  align-items: center;
+}
+.pi-title {
+  font-size: 10px;
+  background: #34495e;
+  color: #fff;
+  border-radius: 8px;
+  padding: 1px 6px;
+  margin-left: 4px;
+}
+.op-title {
+  font-size: 10px;
+  color: #8e44ad;
+  font-weight: 600;
+}
+/* プロフィールモーダルの選択UI */
+.profile-cos-icons {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 5px;
+  margin-bottom: 4px;
+}
+.profile-cos-icon {
+  font-size: 19px;
+  aspect-ratio: 1;
+  border: 1px solid var(--color-border-tertiary, #e2e4e7);
+  background: var(--color-background-secondary, #f6f7f8);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.profile-cos-icon.sel { border-color: #16a085; background: #e3f7ec; box-shadow: 0 0 0 2px #16a08544; }
+.profile-cos-icon.locked { opacity: 0.5; cursor: not-allowed; font-size: 14px; }
+.profile-cos-titles { display: flex; flex-wrap: wrap; gap: 6px; }
+.profile-cos-title {
+  font-size: 11.5px;
+  border: 1px solid var(--color-border-tertiary, #e2e4e7);
+  background: #fff;
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.profile-cos-title.sel { border-color: #16a085; background: #e3f7ec; color: #0f6b57; font-weight: 700; }
+.profile-cos-title.locked { opacity: 0.5; cursor: not-allowed; }

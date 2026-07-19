@@ -1151,3 +1151,20 @@
   background: radial-gradient(ellipse at center, rgba(255, 209, 102, 0.5) 0%, rgba(214, 69, 65, 0.35) 100%);
   z-index: 3;
 }
+
+/* ---- アイコン・称号（Phase 5） ---- */
+#s-game-pc .pcg-avatar-icon { font-size: 20px; line-height: 1; }
+#s-game-pc .pcg-seat-title {
+  font-size: 10px;
+  color: #ffd166;
+  font-weight: 600;
+  margin-top: 1px;
+}
+#s-game-pc .pcg-own-avatar .pcg-avatar-icon { font-size: 17px; }
+#s-game-pc .pcg-own-title {
+  font-size: 11px;
+  background: #34495e;
+  color: #fff;
+  border-radius: 8px;
+  padding: 1px 8px;
+}

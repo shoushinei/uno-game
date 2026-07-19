@@ -206,6 +206,8 @@ onAuthStateChanged(auth, async (user: any) => {
     // する（毎回入力の廃止）。ゲストはアカウントを作らず従来どおり入力。
     // メールリンクユーザーは displayName が無いので、メールの@より前を初期名にする。
     savedProfileName = null;
+    state.myIcon = null;
+    state.myTitle = null;
     let prefill: string;
     if (isGuest) {
       // ゲストは「ゲスト+乱数」の名前を1度だけ生成して使い回す
@@ -219,6 +221,9 @@ onAuthStateChanged(auth, async (user: any) => {
       const profile = await ensureUserDoc({ uid: user.uid, displayName: defaultName, isAnonymous: false });
       savedProfileName = profile?.displayName ?? null;
       prefill = savedProfileName || defaultName;
+      // ★Phase 5★ 選択中のアイコン・称号を保持（ルーム参加時に配る／状態欄表示）
+      state.myIcon = profile?.selectedIcon ?? null;
+      state.myTitle = profile?.selectedTitle ?? null;
     }
     if (niInput) niInput.value = prefill;
 
@@ -319,6 +324,15 @@ onAuthStateChanged(auth, async (user: any) => {
   }
 });
 
+// ★Phase 5★ players[] へ埋め込むアイコン・称号を作る。
+// Realtime Database は undefined を拒否するため、設定済みのキーだけ返す。
+function myCosmetics(): { icon?: string; title?: string } {
+  const c: { icon?: string; title?: string } = {};
+  if (state.myIcon) c.icon = state.myIcon;
+  if (state.myTitle) c.title = state.myTitle;
+  return c;
+}
+
 // ----------------------------------------
 // ルーム作成
 // ----------------------------------------
@@ -344,7 +358,7 @@ window.createRoom = async function () {
     }
     const room = {
       state: 'lobby', host: state.myId,
-      players: [{ id: state.myId, name: state.myName, bi: 0, ready: true }],
+      players: [{ id: state.myId, name: state.myName, bi: 0, ready: true, ...myCosmetics() }],
       game: null, log: [], ts: Date.now(), reactions: {}, trumpPassCount: 0,
     };
     await fbSet('rooms/' + state.roomId, room);
@@ -423,7 +437,7 @@ window.joinRoom = async function () {
     state.myId   = user.uid;
     state.isHost = false;
     state.roomId = rid;
-    players.push({ id: state.myId, name: state.myName, bi: players.length, ready: false });
+    players.push({ id: state.myId, name: state.myName, bi: players.length, ready: false, ...myCosmetics() });
     await fbUpdate('rooms/' + rid, { players });
     // Googleユーザーが名前を変えていたらプロフィールにも保存
     if (!user.isAnonymous && nm !== savedProfileName) {
