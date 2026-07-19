@@ -174,6 +174,9 @@ export function startListening(): void {
           show('result');
         }
         renderResult(room);
+        // ★修正★ ゲーム終了で自動プレイをOFFにする（次のゲームへ引き継がない）。
+        // ローカルのボットタイマーと autoPlayers/{myId} を落とす
+        window.stopAutoPlayOnGameEnd?.();
       }
       } catch (e: any) {
         console.error('画面描画でエラーが発生しました（同期は継続します）:', e);

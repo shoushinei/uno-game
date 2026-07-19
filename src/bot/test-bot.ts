@@ -76,6 +76,8 @@ declare global {
     _botActive?: boolean;
     toggleTestBot: () => void;
     toggleMonkeyPlay: () => void;
+    /** ゲーム終了時に自動プレイをOFFにする（次のゲームへ引き継がせない） */
+    stopAutoPlayOnGameEnd: () => void;
   }
 }
 
@@ -176,21 +178,26 @@ async function step(): Promise<void> {
 // ON/OFF切り替え（既存のボタン onclick="toggleMonkeyPlay()" からも
 // そのまま呼べるよう、旧名にもエイリアスしておく）
 // ----------------------------------------
+/** 自動プレイを停止する（ローカルのタイマー＋即時フラグ＋サーバーの
+ *  autoPlayers を確実に落とす）。既にOFFなら何もしない。 */
+function turnAutoPlayOff(): void {
+  const btn = document.getElementById('monkey-toggle-btn');
+  if (!botTimer) return;
+  clearInterval(botTimer);
+  botTimer = null;
+  lastSignature = '';
+  lastChangeAt = 0;
+  isProcessing = false;
+  window._botActive = false; // 即時フラグ（auto-advance の二重発火防止用）
+  if (btn) { btn.textContent = '🐒 自動ON'; btn.style.background = '#ff9800'; }
+  log('停止しました');
+  // 他プレイヤーにも自動プレイOFFを知らせる（🐒バッジを消す）
+  void actionSetAutoPlay(false);
+}
+
 window.toggleTestBot = (): void => {
   const btn = document.getElementById('monkey-toggle-btn');
-  if (botTimer) {
-    clearInterval(botTimer);
-    botTimer = null;
-    lastSignature = '';
-    lastChangeAt = 0;
-    isProcessing = false;
-    window._botActive = false; // 即時フラグ（auto-advance の二重発火防止用）
-    if (btn) { btn.textContent = '🐒 自動ON'; btn.style.background = '#ff9800'; }
-    log('停止しました');
-    // ★機能追加★ 他プレイヤーにも自動プレイOFFを知らせる
-    void actionSetAutoPlay(false);
-    return;
-  }
+  if (botTimer) { turnAutoPlayOff(); return; }
   if (btn) { btn.textContent = '🐒 自動OFF'; btn.style.background = '#e74c3c'; }
   log('開始しました（出せるカードがあれば必ず出す greedy AI）');
   window._botActive = true; // 即時フラグ（auto-advance の二重発火防止用）
@@ -202,3 +209,8 @@ window.toggleTestBot = (): void => {
 };
 
 window.toggleMonkeyPlay = window.toggleTestBot;
+
+// ★修正★ 自動プレイがゲームをまたいで引き継がれないようにする。
+// ゲームが終了（state=ended）したら自動プレイを自動でOFFにする
+// （ローカルのタイマーとサーバーの autoPlayers/{myId} を両方落とす）。
+window.stopAutoPlayOnGameEnd = turnAutoPlayOff;

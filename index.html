@@ -75,11 +75,8 @@
   </div>
 
   <div id="game-menu-area" style="display:none;width:100%;max-width:320px;">
-    <!-- ★Phase 2★ プロフィール（戦績）。ゲストには表示しない（auth.ts が制御） -->
-    <button class="btn" id="profile-btn" onclick="openProfile()"
-      style="display:none;background:#16a085;color:#fff;margin-bottom:8px;">
-      📊 プロフィール（戦績）
-    </button>
+    <!-- プロフィール（戦績・実績）は右上のアカウント状態欄に集約したので、
+         ホーム画面のボタンは廃止（重複を避ける） -->
     <input id="ni" placeholder="あなたの名前を入力" maxlength="12">
     <button class="btn red" id="create-btn" onclick="createRoom()">新しいルームを作る</button>
     <div class="or">または</div>

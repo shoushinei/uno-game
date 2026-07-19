@@ -197,9 +197,8 @@ onAuthStateChanged(auth, async (user: any) => {
     if (gameMenuArea) gameMenuArea.style.display = 'block';
     // ゲストにだけ「Googleアカウントに切り替える」導線を出す
     if (upgradeBtn) upgradeBtn.style.display = isGuest ? 'block' : 'none';
-    // ★Phase 2★ プロフィール（戦績）はアカウント保持者だけ
-    const profileBtn = document.getElementById('profile-btn');
-    if (profileBtn) profileBtn.style.display = isGuest ? 'none' : 'block';
+    // プロフィール（戦績・実績）は右上のアカウント状態欄からのみ開く
+    // （ホーム画面のボタンは廃止済み）
 
     // ★Phase 1★ アカウントあり（Google/メールリンク）のユーザーはプロフィール
     // （users/{uid}）を自動作成/取得し、保存済みの表示名を名前欄にプリフィル
@@ -545,6 +544,10 @@ window.backToLobby = async function () {
       const players = (room.players || []).map((p: any) => ({ ...p, ready: p.isBot || p.id === room.host }));
       await fbUpdate('rooms/' + state.roomId, {
         state: 'lobby', game: null, log: [], players, reactions: {}, trumpPassCount: 0,
+        // ★修正★ 自動プレイ(autoPlayers)を次のゲームへ引き継がないよう、
+        // ロビーに戻る時点でリセットする（各クライアントはゲーム終了時に
+        // 自分の分をOFFにするが、ここでも念のためまとめてクリアする）。
+        autoPlayers: null,
         // ★リプレイ機能で追加★
         // ロビーに戻るタイミングで、前のゲームのリプレイ用データ（配り終わった
         // 直後の状態・操作履歴）は不要になるので、放置してストレージに
