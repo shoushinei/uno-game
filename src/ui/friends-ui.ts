@@ -12,11 +12,13 @@
 // 状態欄のバッジに出す。
 // ========================================
 import { auth } from '../firebase-config.js';
+import { state } from '../state.js';
 import {
   listenFriendships, ensureFriendCode, resolveFriendCode, sendFriendRequest,
   acceptFriend, removeFriendship, fetchNames, recentCoPlayers,
   type Friendship,
 } from '../friends.js';
+import { watchPresence, type PresenceInfo } from '../presence.js';
 
 declare global {
   interface Window {
@@ -28,6 +30,8 @@ declare global {
     rejectFriendReq: (pairId: string) => Promise<void>;
     cancelFriendReq: (pairId: string) => Promise<void>;
     unfriend: (pairId: string) => Promise<void>;
+    joinFriendRoom: (roomId: string) => Promise<void>;
+    joinRoom: () => Promise<void>;
   }
 }
 
@@ -37,6 +41,9 @@ let friendships: Friendship[] = [];
 let names: Record<string, string> = {};
 let myFriendCode: string | null = null;
 let recent: { uid: string; name: string }[] = [];
+/** フレンドの在席購読（uid → 解除関数）と最新の在席情報 */
+const presenceWatchers = new Map<string, () => void>();
+const presenceData = new Map<string, PresenceInfo | null>();
 
 function myUid(): string { return auth.currentUser?.uid ?? ''; }
 function isModalOpen(): boolean {
@@ -69,15 +76,40 @@ export function startFriendsWatch(uid: string): void {
     const others = [...new Set(list.flatMap(f => f.members).filter(u => u !== uid))];
     const missing = others.filter(u => !(u in names));
     if (missing.length) Object.assign(names, await fetchNames(missing));
+    syncPresenceWatchers(uid);
     updateBadge();
     if (isModalOpen()) renderFriends();
   });
+}
+
+/** 承認済みフレンドの在席購読を張り直す（増えた分は購読・減った分は解除） */
+function syncPresenceWatchers(myUidVal: string): void {
+  const friendUids = new Set(
+    friendships.filter(f => f.status === 'accepted')
+      .map(f => f.members.find(u => u !== myUidVal) ?? '')
+      .filter(Boolean)
+  );
+  // 不要になった購読を解除
+  for (const [uid, off] of presenceWatchers) {
+    if (!friendUids.has(uid)) { off(); presenceWatchers.delete(uid); presenceData.delete(uid); }
+  }
+  // 新しいフレンドの在席を購読
+  for (const uid of friendUids) {
+    if (presenceWatchers.has(uid)) continue;
+    presenceWatchers.set(uid, watchPresence(uid, (info) => {
+      presenceData.set(uid, info);
+      if (isModalOpen()) renderFriends();
+    }));
+  }
 }
 
 export function stopFriendsWatch(): void {
   if (unsub) { unsub(); unsub = null; }
   watchingUid = null;
   friendships = [];
+  for (const off of presenceWatchers.values()) off();
+  presenceWatchers.clear();
+  presenceData.clear();
   const badge = document.getElementById('friends-badge');
   if (badge) badge.style.display = 'none';
 }
@@ -132,6 +164,14 @@ window.unfriend = async (id) => {
   await removeFriendship(id);
 };
 
+window.joinFriendRoom = async (roomId) => {
+  if (state.roomId) { setFriendMsg('先に今のルームを退室してください', true); return; }
+  window.closeFriends();
+  const ri = document.getElementById('ri') as HTMLInputElement | null;
+  if (ri) ri.value = roomId;
+  await window.joinRoom();
+};
+
 function sendErr(reason: string): string {
   return reason === 'self' ? '自分には送れません'
     : reason === 'exists' ? 'すでにフレンドです'
@@ -169,8 +209,20 @@ function renderFriends(): void {
     : '<p class="profile-note">なし</p>';
 
   const friendsHtml = friends.length
-    ? friends.map(f => row(nameOf(other(f)),
-        `<button class="friend-btn ghost" onclick="unfriend('${f.pairId}')">解除</button>`)).join('')
+    ? friends.map(f => {
+        const uid = other(f);
+        const p = presenceData.get(uid);
+        let status = '<span class="friend-presence off">オフライン</span>';
+        let joinBtn = '';
+        if (p?.state === 'in-room' && p.roomId) {
+          status = `<span class="friend-presence room">🎮 ${p.roomId}</span>`;
+          joinBtn = `<button class="friend-btn ok" onclick="joinFriendRoom('${p.roomId}')">参加</button>`;
+        } else if (p?.state === 'online') {
+          status = '<span class="friend-presence on">🟢 オンライン</span>';
+        }
+        return row(`${nameOf(uid)} ${status}`,
+          `${joinBtn}<button class="friend-btn ghost" onclick="unfriend('${f.pairId}')">解除</button>`);
+      }).join('')
     : '<p class="profile-note">まだフレンドがいません</p>';
 
   const outgoingHtml = outgoing.length

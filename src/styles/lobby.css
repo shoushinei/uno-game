@@ -372,3 +372,15 @@
 .friend-btn.ok { background: #16a085; color: #fff; border-color: #16a085; }
 .friend-btn.ghost { color: #999; }
 .friend-btn:hover { filter: brightness(0.96); }
+
+/* ---- フレンドの在席表示 ★Phase 4後半★ ---- */
+.friend-presence {
+  font-size: 10px;
+  border-radius: 8px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+.friend-presence.on   { background: #e3f7ec; color: #1c8c54; }
+.friend-presence.room { background: #fff1d6; color: #a56100; }
+.friend-presence.off  { background: #eef0f2; color: #98a0a6; }

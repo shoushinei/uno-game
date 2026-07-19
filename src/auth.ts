@@ -19,6 +19,7 @@ import { ensureUserDoc, saveDisplayName } from './account.js';
 import { startAchievementWatch, stopAchievementWatch } from './ui/achievement-toast.js';
 import { setAccountBarName, syncAccountBar } from './ui/account-bar.js';
 import { startFriendsWatch, stopFriendsWatch } from './ui/friends-ui.js';
+import { startPresence, stopPresence, setPresenceRoom } from './presence.js';
 import { show, setHomeMsg, setLobbyMsg, setStatus, dbg, setLoading } from './ui/ui-render.js';
 
 // window オブジェクトに生やす関数の型宣言
@@ -224,9 +225,15 @@ onAuthStateChanged(auth, async (user: any) => {
     // アカウント状態欄（右上チップ）に名前を反映して表示する
     setAccountBarName(prefill);
 
-    // ★Phase 3/4★ 実績トースト・フレンドの監視（アカウント保持者のみ）
-    if (isGuest) { stopAchievementWatch(); stopFriendsWatch(); }
-    else { startAchievementWatch(user.uid); startFriendsWatch(user.uid); }
+    // ★Phase 3/4★ 実績トースト・フレンド監視・在席（アカウント保持者のみ）
+    if (isGuest) { stopAchievementWatch(); stopFriendsWatch(); stopPresence(); }
+    else {
+      startAchievementWatch(user.uid);
+      startFriendsWatch(user.uid);
+      startPresence(user.uid);
+      // 既にルームに居る状態でログインが確定した場合は在席にルームを反映
+      if (state.roomId) setPresenceRoom(state.roomId);
+    }
 
     setStatus('Firebase 接続テスト中...');
     const ok = await testConnection();
@@ -306,6 +313,7 @@ onAuthStateChanged(auth, async (user: any) => {
     dbg('未ログイン状態');
     stopAchievementWatch();
     stopFriendsWatch();
+    stopPresence();
     setAccountBarName('');
     syncAccountBar(); // ログアウトでチップを隠す
   }
@@ -552,6 +560,7 @@ export function clearSessionAndGoHome(): void {
   state.myId = '';
   state.myName = '';
   state.isHost = false;
+  setPresenceRoom(null); // ルームを離れたので在席は「オンライン」へ
   show('home');
 }
 
@@ -623,6 +632,7 @@ window.leaveGame = async function () {
         state.myId = '';
         state.myName = '';
         state.isHost = false;
+        setPresenceRoom(null); // ゲーム中の退室でも在席は「オンライン」へ
         show('home');
         return;
       }

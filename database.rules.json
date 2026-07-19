@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "rooms": {
+      "$room_id": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "presence": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['state'])"
+      }
+    }
+  }
+}

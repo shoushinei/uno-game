@@ -13,6 +13,7 @@ import './auth.js';
 import { clearSessionAndGoHome } from './auth.js';
 import { auth } from './firebase-config.js';
 import { markReactionFirst } from './account.js';
+import { setPresenceRoom } from './presence.js';
 import { state } from './state.js';
 import { fbListen } from './db.js';
 import './bot/test-bot.js';
@@ -98,6 +99,9 @@ function logSnapshot(reason: string): void {
 // リアルタイムリスナー
 // ========================================
 export function startListening(): void {
+  // ★Phase 4後半★ ルームに入ったら在席を「このルームで対戦中」に更新
+  // （全てのルーム入室経路が startListening を通るため、ここ1箇所でよい）
+  setPresenceRoom(state.roomId);
   if (state.unsubscribeRoom) state.unsubscribeRoom();
   state.unsubscribeRoom = fbListen(
     'rooms/' + state.roomId,
