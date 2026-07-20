@@ -75,6 +75,8 @@ export function isAutoAdvanceStuck(room: any): boolean {
  * （操作バーはこれを見て「自動進行中…」の表示にする）
  */
 export function maybeAutoAdvance(room: any, rerender: () => void): boolean {
+  // ★ヨットモード Step 2★ 対決中はフェイズ自動進行も止める
+  if (room?.duel) return false;
   const target = shouldAutoAdvance(room, state.myId);
   if (!target) return false;
 

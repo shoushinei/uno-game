@@ -55,6 +55,8 @@ let isProcessing = false;
 
 async function tick(): Promise<void> {
   if (isProcessing) return;
+  // ★ヨットモード Step 2★ 対決中はゲームが一時停止するため代行も止める
+  if (window._duelActive) return;
 
   const g = window._currentGame;
   if (!g) return;

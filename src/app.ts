@@ -23,6 +23,7 @@ import './replay/app.js'; // ★リプレイ機能で追加：リプレイ画面
 import './ui/profile.js'; // ★Phase 2★ プロフィール画面（openProfile/closeProfile）を登録する
 import './ui/friends-ui.js'; // ★Phase 4★ フレンド画面（openFriends 等）を登録する
 import './ui/player-stats-card.js'; // ★戦績刷新★ 他人の戦績カード（席の長押し）を登録する
+import { renderDuel } from './ui/duel-ui.js'; // ★ヨットモード Step 2★ 対決オーバーレイ
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg, setHomeMsg } from './ui/ui-render.js';
 import { isPcUi } from './ui/pc/ui-mode.js';
 import {
@@ -179,6 +180,9 @@ export function startListening(): void {
         // ローカルのボットタイマーと autoPlayers/{myId} を落とす
         window.stopAutoPlayOnGameEnd?.();
       }
+      // ★ヨットモード Step 2★ 対決オーバーレイ（duel が無ければ非表示に戻る）。
+      // 描画エラーで同期を止めないため同じ try 内で処理する
+      renderDuel(room);
       } catch (e: any) {
         console.error('画面描画でエラーが発生しました（同期は継続します）:', e);
         dbg('描画エラー: ' + e.message, true);

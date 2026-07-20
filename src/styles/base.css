@@ -180,3 +180,75 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
   justify-content: center;
 }
 .account-bar-btn:hover { background: #13876f; }
+
+/* ---- ヨット対決オーバーレイ ★Step 2★（PC/従来UI共通・body直下） ---- */
+#duel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(8, 20, 15, 0.82);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  backdrop-filter: blur(3px);
+}
+.duel-box {
+  background: #152e23;
+  border: 3px solid #6b4a2f;
+  border-radius: 16px;
+  padding: 18px 22px;
+  width: 100%;
+  max-width: 640px;
+  color: #f1efe8;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+.duel-title { font-size: 14px; font-weight: 700; color: #ffd166; margin-bottom: 14px; }
+.duel-sides { display: flex; align-items: stretch; gap: 10px; }
+.duel-side {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.25);
+  border: 2px solid #3a5c4c;
+  border-radius: 12px;
+  padding: 10px;
+}
+.duel-side.active { border-color: #ffd166; background: rgba(255, 209, 102, 0.08); }
+.duel-side-name { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.duel-vs { align-self: center; font-weight: 800; color: #d98c5f; font-size: 15px; }
+.duel-dice { display: flex; justify-content: center; gap: 4px; margin-bottom: 8px; }
+.duel-dice.empty { font-size: 26px; opacity: 0.35; letter-spacing: 4px; }
+.duel-die {
+  font-size: 34px;
+  line-height: 1;
+  background: #fff;
+  color: #1a1a2e;
+  border: 3px solid transparent;
+  border-radius: 10px;
+  padding: 2px 3px;
+  cursor: default;
+}
+.duel-die.clickable { cursor: pointer; }
+.duel-die.clickable:hover { transform: translateY(-2px); }
+.duel-die.keep { border-color: #ffd166; box-shadow: 0 0 10px rgba(255, 209, 102, 0.6); }
+.duel-status { font-size: 11.5px; color: #9fd3bd; }
+.duel-status.wait { color: #6f8a7d; }
+.duel-best { font-size: 12.5px; color: #ffd166; }
+.duel-best b { font-size: 17px; margin-left: 6px; }
+.duel-controls { margin-top: 14px; }
+.duel-btn {
+  font-size: 13.5px;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  margin: 4px 6px 0;
+  cursor: pointer;
+}
+.duel-btn.roll { background: #ffd166; color: #412402; }
+.duel-btn.commit { background: #27ae60; color: #fff; }
+.duel-btn.close { background: #2e86de; color: #fff; margin-top: 12px; }
+.duel-btn:hover { filter: brightness(1.08); }
+.duel-hint { font-size: 10.5px; color: #9fd3bd; margin-top: 6px; }
+.duel-result { font-size: 20px; font-weight: 800; color: #ffd166; margin-top: 14px; }

@@ -83,13 +83,18 @@ export function renderReactionMenuHtml(
   targetId: string,
   targetName: string,
   blocked: boolean,
-  onCooldown: boolean
+  onCooldown: boolean,
+  /** ★ヨットモード Step 2★ 「⚔挑む」を出すか（table-render が canChallenge で判定） */
+  canDuel = false
 ): string {
   const emojiBtns = SEAT_REACTION_EMOJIS.map(e =>
     `<button class="pcg-rm-emoji${onCooldown ? ' off' : ''}" data-action="react-emoji" data-emoji="${e}" data-target="${targetId}"${onCooldown ? ' disabled' : ''}>${e}</button>`
   ).join('');
   const note = onCooldown
     ? '<div class="pcg-rm-note">クールダウン中…少し待ってね</div>'
+    : '';
+  const duelBtn = canDuel
+    ? `<button class="pcg-rm-duel" data-action="duel-challenge" data-target="${targetId}">⚔ ヨットで挑む（敗者UNO4枚）</button>`
     : '';
   const blockBtn =
     `<button class="pcg-rm-block${blocked ? ' on' : ''}" data-action="react-block" data-target="${targetId}">` +
@@ -99,6 +104,7 @@ export function renderReactionMenuHtml(
       <div class="pcg-rm-title">${targetName} へ</div>
       <div class="pcg-rm-emojis">${emojiBtns}</div>
       ${note}
+      ${duelBtn}
       <div class="pcg-rm-foot">${blockBtn}</div>
     </div>
   `;

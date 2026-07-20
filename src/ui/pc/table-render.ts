@@ -62,6 +62,7 @@ import {
   toggleReactionsOff,
   DIRECTED_COOLDOWN_MS,
 } from './reaction-menu.js';
+import { canChallenge } from '../../logic/duel-logic.js';
 
 declare global {
   interface Window {
@@ -154,7 +155,9 @@ function openReactionMenu(seatEl: HTMLElement, targetId: string): void {
     targetId,
     name,
     isReactorBlocked(targetId),
-    isDirectedOnCooldown()
+    isDirectedOnCooldown(),
+    // ★ヨットモード Step 2★ 挑戦できる相手にだけ「⚔挑む」を出す
+    canChallenge(lastRoom, state.myId, targetId).ok
   );
 
   const sr = seatEl.getBoundingClientRect();
@@ -638,6 +641,13 @@ async function _handleAction(action: string, target: HTMLElement): Promise<void>
       closeReactionMenu();
       directedCooldownUntil = Date.now() + DIRECTED_COOLDOWN_MS;
       await window.sendReaction(target.dataset.emoji!, targetId);
+      break;
+    }
+    case 'duel-challenge': {
+      // ★ヨットモード Step 2★ ヨット対決を挑む（発動時点でスキル消費）
+      const targetId = target.dataset.target!;
+      closeReactionMenu();
+      await window.duelChallenge(targetId);
       break;
     }
     case 'react-block': {

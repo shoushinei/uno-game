@@ -1168,3 +1168,19 @@
   border-radius: 8px;
   padding: 1px 8px;
 }
+
+/* ---- 席メニューの「⚔挑む」 ★ヨットモード Step 2★ ---- */
+#s-game-pc .pcg-rm-duel {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #412402;
+  background: #ffd166;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+#s-game-pc .pcg-rm-duel:hover { filter: brightness(1.08); }

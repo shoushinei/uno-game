@@ -121,6 +121,8 @@ async function step(): Promise<void> {
   // ★バグ修正★ 前回の step() がまだ Firebase への書き込みを待っている
   // 最中なら、今回の tick は丸ごとスキップする（多重送信防止）。
   if (isProcessing) return;
+  // ★ヨットモード Step 2★ 対決中はゲームが一時停止するため自動プレイも止める
+  if (window._duelActive) return;
 
   const g = window._currentGame;
   if (!g || window._roomState !== 'playing') return;
