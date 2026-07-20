@@ -33,6 +33,7 @@ declare global {
     addBot: () => Promise<void>;
     removeBot: (botId: string) => Promise<void>;
     kickPlayer: (playerId: string) => Promise<void>;
+    setRoomMode: (mode: string) => Promise<void>;
     backToLobby: () => Promise<void>;
     leaveGame: () => Promise<void>;
     _startListening?: () => void;
@@ -357,6 +358,9 @@ window.createRoom = async function () {
     }
     const room = {
       state: 'lobby', host: state.myId,
+      // ★ヨットモード Step 1★ ゲームモード。'classic'=従来 / 'yacht'=スキル対決あり
+      // （ロビーでホストが setRoomMode で切替。再戦時も維持される）
+      mode: 'classic',
       players: [{ id: state.myId, name: state.myName, bi: 0, ready: true, ...myCosmetics() }],
       game: null, log: [], ts: Date.now(), reactions: {}, trumpPassCount: 0,
     };
@@ -508,6 +512,20 @@ window.removeBot = async function (botId: string) {
     await fbUpdate('rooms/' + state.roomId, { players });
     dbg('ボット削除: ' + botId);
   } catch (e: any) { dbg('removeBot error: ' + e.message, true); }
+};
+
+// ----------------------------------------
+// ゲームモードの切替（ホストのみ・ロビー中のみ）★ヨットモード Step 1★
+// ----------------------------------------
+window.setRoomMode = async function (mode: string) {
+  if (mode !== 'classic' && mode !== 'yacht') return;
+  try {
+    const room = await fbGet('rooms/' + state.roomId);
+    if (!room || room.state !== 'lobby' || room.host !== state.myId) return;
+    if (room.mode === mode) return;
+    await fbUpdate('rooms/' + state.roomId, { mode });
+    dbg('ゲームモード変更: ' + mode);
+  } catch (e: any) { dbg('setRoomMode error: ' + e.message, true); }
 };
 
 // ----------------------------------------

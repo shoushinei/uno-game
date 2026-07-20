@@ -460,3 +460,42 @@
 .stats-bucket-games { color: var(--color-text-secondary, #667); }
 .stats-bucket-rate { font-weight: 800; font-size: 14px; }
 .profile-chip-bots { font-size: 9px; margin-left: 1px; }
+
+/* ---- ゲームモード選択 ★ヨットモード Step 1★ ---- */
+#lobby-mode { width: 100%; max-width: 320px; margin-bottom: 12px; }
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.mode-btn {
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 9px 6px;
+  border-radius: 10px;
+  border: 1.5px solid var(--color-border-tertiary, #dfe3e6);
+  background: var(--color-background-secondary, #f6f7f8);
+  color: var(--color-text-secondary, #667);
+  cursor: pointer;
+}
+.mode-btn.sel {
+  border-color: #8e44ad;
+  background: #f4e9fb;
+  color: #6b2d91;
+}
+.mode-label {
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--color-background-secondary, #f6f7f8);
+  border: 1px solid var(--color-border-tertiary, #dfe3e6);
+}
+.mode-desc {
+  font-size: 10.5px;
+  color: var(--color-text-secondary, #888);
+  margin-top: 5px;
+  line-height: 1.6;
+  text-align: center;
+}
