@@ -81,6 +81,8 @@ export const onGameEnded = onValueWritten(
     const participants = accountRanks.map((r) => ({ uid: r.uid, name: r.name }));
     const playerCount = rankings.length;
     const finishedAt = Date.now();
+    // ★戦績刷新★ ボット入りの卓か（ボットなし=全員人間の卓と集計を分ける）
+    const hasBots = players.some((p) => p?.isBot);
 
     // ★Phase 3★ 実績判定用: actionLog と初期トランプ札の対応表
     const actionLog: any[] = Array.isArray(room.actionLog) ? room.actionLog : [];
@@ -100,7 +102,7 @@ export const onGameEnded = onValueWritten(
       accountRanks.forEach((r, i) => {
         const data = userSnaps[i].exists ? userSnaps[i].data() : null;
         const prevStats = data?.stats ?? null;
-        const stats = applyGameResult(prevStats, { rank: r.rank, playerCount, at: finishedAt });
+        const stats = applyGameResult(prevStats, { rank: r.rank, playerCount, at: finishedAt, hasBots });
 
         // ---- 実績（Phase 3）----
         const acts = analyzePlayerActions(actionLog, r.uid, cardById, true /* rankings入り=上がり */);
@@ -134,6 +136,7 @@ export const onGameEnded = onValueWritten(
           playerCount,
           finishedAt,
           participants,
+          hasBots,
         });
       });
       return true;

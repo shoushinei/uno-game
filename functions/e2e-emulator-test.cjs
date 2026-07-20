@@ -128,6 +128,18 @@ async function main() {
   const marker = await fs.doc('processedGames/' + gameId).get();
   check('冪等マーカーが作られている', marker.exists);
 
+  // ---- 戦績刷新（正規化スコア・ボット有無バケット）----
+  // この卓は bot-1 が居るので hasBots=true → withBots バケットに入る
+  check('ボブの withBots バケット: 1戦・スコア100(1位/4人)',
+    bob?.stats?.withBots?.games === 1 && Math.round(bob?.stats?.withBots?.scoreSum) === 100,
+    JSON.stringify(bob?.stats?.withBots));
+  check('ボブの human バケットは空のまま',
+    bob?.stats?.human?.games === 0, JSON.stringify(bob?.stats?.human));
+  check('アリス(4位/4人)の withBots スコアは0',
+    alice?.stats?.withBots?.games === 1 && Math.round(alice?.stats?.withBots?.scoreSum) === 0,
+    JSON.stringify(alice?.stats?.withBots));
+  check('recent に hasBots が記録される', bob?.stats?.recent?.[0]?.hasBots === true);
+
   // ---- 実績（Phase 3）----
   const bobAchv = bob?.achievements ?? {};
   check('ボブに first-game / first-win が付与される',

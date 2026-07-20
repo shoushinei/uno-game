@@ -322,6 +322,8 @@ function _renderOtherPlayers(
       : '';
     const el = document.createElement('div');
     el.className = 'op' + (active ? ' cur' : '');
+    // ★戦績刷新★ 長押しで戦績カードを開くための対象マーカー
+    el.dataset.playerId = p.id;
     el.innerHTML = `
       ${reactHtml}
       <div class="on">${p.icon ? p.icon + ' ' : ''}${p.name}</div>

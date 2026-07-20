@@ -220,8 +220,9 @@ function renderFriends(): void {
         } else if (p?.state === 'online') {
           status = '<span class="friend-presence on">🟢 オンライン</span>';
         }
+        const statsBtn = `<button class="friend-btn" onclick="showPlayerStats('${uid}','${nameOf(uid).replace(/'/g, '')}')">📊</button>`;
         return row(`${nameOf(uid)} ${status}`,
-          `${joinBtn}<button class="friend-btn ghost" onclick="unfriend('${f.pairId}')">解除</button>`);
+          `${joinBtn}${statsBtn}<button class="friend-btn ghost" onclick="unfriend('${f.pairId}')">解除</button>`);
       }).join('')
     : '<p class="profile-note">まだフレンドがいません</p>';
 

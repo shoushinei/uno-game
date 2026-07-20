@@ -443,3 +443,20 @@
 }
 .profile-cos-title.sel { border-color: #16a085; background: #e3f7ec; color: #0f6b57; font-weight: 700; }
 .profile-cos-title.locked { opacity: 0.5; cursor: not-allowed; }
+
+/* ---- 戦績サマリ（バケット行） ★戦績刷新★ ---- */
+.stats-bucket {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-background-secondary, #f6f7f8);
+  border: 1px solid var(--color-border-tertiary, #e5e7e9);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+}
+.stats-bucket-label { font-weight: 700; flex: 1; }
+.stats-bucket-games { color: var(--color-text-secondary, #667); }
+.stats-bucket-rate { font-weight: 800; font-size: 14px; }
+.profile-chip-bots { font-size: 9px; margin-left: 1px; }

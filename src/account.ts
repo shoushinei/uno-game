@@ -85,7 +85,11 @@ export interface UserStats {
   wins: number;
   winStreak: number;
   loseStreak: number;
-  recent: { rank: number; playerCount: number; at: number }[];
+  recent: { rank: number; playerCount: number; at: number; hasBots?: boolean }[];
+  /** ★戦績刷新★ ボットなし（全員人間）の卓の集計。旧データには無い */
+  human?: { games: number; scoreSum: number };
+  /** ★戦績刷新★ ボット入りの卓の集計。旧データには無い */
+  withBots?: { games: number; scoreSum: number };
 }
 
 /** プロフィール画面が使うユーザードキュメントの読み取り形 */

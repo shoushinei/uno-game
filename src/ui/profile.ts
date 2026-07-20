@@ -13,6 +13,7 @@ import { fetchProfileStats, saveCosmetics, type UserStats, type ProfileData } fr
 import { buildAchievementViews, type AchievementView } from '../achievements.js';
 import { ICONS, TITLES, isUnlocked, unlockedAchievementSet } from '../cosmetics.js';
 import { syncAccountBar } from './account-bar.js';
+import { renderStatsSummaryHtml } from './stats-view.js';
 
 declare global {
   interface Window {
@@ -76,13 +77,6 @@ window.selectTitle = async (title) => {
   await saveCosmetics(u.uid, { selectedTitle: next });
 };
 
-/** 順位の表示チップ（1〜3位はメダル・それ以外は数字） */
-function rankChip(rank: number, playerCount: number): string {
-  const label = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}位`;
-  const cls = rank === 1 ? ' win' : '';
-  return `<span class="profile-rank-chip${cls}" title="${playerCount}人戦で${rank}位">${label}</span>`;
-}
-
 /** 実績バッジ1個のHTML（未解除はグレーでヒント表示） */
 function achievementBadge(a: AchievementView): string {
   return `
@@ -135,31 +129,16 @@ export function renderProfileHtml(
     ${cosmeticsHtml(data)}
   `;
 
-  if (!stats || !stats.games) {
-    return `
-      <div class="profile-name">${name}</div>
-      <p class="profile-note">まだ対局記録がありません。<br>ゲームを最後までプレイすると記録されます。</p>
-      ${achvHtml}
-    `;
-  }
-  const rate = Math.round((stats.wins / stats.games) * 100);
-  const streak = stats.winStreak > 0
+  // ★戦績刷新★ 勝率は人数正規化スコアの平均（50%が平均基準）。
+  // 「1位回数」欄は廃止し、ボットなし/ボット入りの2行で表示する
+  const streak = stats && stats.winStreak > 0
     ? `<span class="profile-streak win">🔥 ${stats.winStreak}連勝中</span>`
-    : stats.loseStreak > 1
+    : stats && stats.loseStreak > 1
     ? `<span class="profile-streak">💧 ${stats.loseStreak}連敗中</span>`
     : '';
-  const recent = (stats.recent ?? [])
-    .map(r => rankChip(r.rank, r.playerCount))
-    .join('');
   return `
     <div class="profile-name">${name} ${streak}</div>
-    <div class="profile-stats-grid">
-      <div class="profile-stat"><div class="profile-stat-num">${stats.games}</div><div class="profile-stat-label">対局数</div></div>
-      <div class="profile-stat"><div class="profile-stat-num">${stats.wins}</div><div class="profile-stat-label">1位</div></div>
-      <div class="profile-stat"><div class="profile-stat-num">${rate}%</div><div class="profile-stat-label">勝率</div></div>
-    </div>
-    <div class="profile-sec">直近${(stats.recent ?? []).length}戦（新しい順）</div>
-    <div class="profile-recent">${recent || '<span class="profile-note">なし</span>'}</div>
+    ${renderStatsSummaryHtml(stats)}
     ${achvHtml}
   `;
 }

@@ -394,6 +394,17 @@
   </div>
 </div>
 
+<!-- ★戦績刷新★ 他人の戦績カード（席の長押し・フレンドの📊から開く） -->
+<div id="player-stats-modal" class="modal-overlay" onclick="closePlayerStats()" style="display:none;">
+  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:320px;">
+    <div class="modal-header">
+      <h3 id="player-stats-name">📊</h3>
+      <button class="modal-close-x" onclick="closePlayerStats()">&times;</button>
+    </div>
+    <div class="modal-body" id="player-stats-body"></div>
+  </div>
+</div>
+
 <!-- ★Phase 4★ フレンドモーダル。中身は src/ui/friends-ui.ts が描画する -->
 <div id="friends-modal" class="modal-overlay" onclick="closeFriends()" style="display:none;">
   <div class="modal-content" onclick="event.stopPropagation()" style="max-width:360px;">
