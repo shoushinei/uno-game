@@ -50,7 +50,7 @@ export function currentActorId(duel: DuelState): string {
 
 /**
  * 挑戦できるか（席メニューの「⚔挑む」表示とアクション実行前の判定に使う）。
- * Step 2 ではボットには挑めない（ボットの自動対決は Step 3 で対応）。
+ * ★Step 3★ ボットにも挑める（ボット側の手番はホストのクライアントが代行）。
  */
 export function canChallenge(room: any, myId: string, targetId: string): { ok: boolean; reason?: string } {
   if (room?.mode !== 'yacht') return { ok: false, reason: 'ヨットモードではありません' };
@@ -62,10 +62,40 @@ export function canChallenge(room: any, myId: string, targetId: string): { ok: b
   if (!targetId || targetId === myId) return { ok: false, reason: '自分には挑めません' };
   const target = (room.players ?? []).find((p: any) => p.id === targetId);
   if (!target) return { ok: false, reason: '相手が見つかりません' };
-  if (target.isBot) return { ok: false, reason: 'ボットにはまだ挑めません' };
   const ranked = (g.rankings ?? []).some((r: any) => r.id === targetId);
   if (ranked) return { ok: false, reason: '順位が確定した相手には挑めません' };
   return { ok: true };
+}
+
+/**
+ * ★Step 3★ ボット・退室者を代行するときの1手を決める（greedy・純粋関数）。
+ * - まだ振っていない → 全部振る
+ * - 振り直し不可 → 確定
+ * - 守備側で攻撃側のスコアを超えている → 即確定（勝ち確定）
+ * - ビッグストレート級（30点以上）→ 確定
+ * - それ以外 → 最頻値の目を残して振り直し（同数なら大きい目を優先）
+ */
+export function decideDuelMove(
+  duel: DuelState
+): { type: 'roll'; keep: boolean[] | null } | { type: 'commit' } | null {
+  if (duel.stage !== 'rolling') return null;
+  const side = sideOf(duel, duel.turn);
+  if (side.done) return null;
+  if (side.dice.length !== DICE_COUNT) return { type: 'roll', keep: null };
+  const best = bestHand(side.dice);
+  if (side.rollsLeft <= 0) return { type: 'commit' };
+  if (duel.turn === 'defender' && best.score > (duel.attacker.best?.score ?? 0)) {
+    return { type: 'commit' };
+  }
+  if (best.score >= 30) return { type: 'commit' };
+  const counts = new Map<number, number>();
+  for (const d of side.dice) counts.set(d, (counts.get(d) ?? 0) + 1);
+  let target = side.dice[0]!;
+  let max = 0;
+  for (const [face, n] of counts) {
+    if (n > max || (n === max && face > target)) { target = face; max = n; }
+  }
+  return { type: 'roll', keep: side.dice.map(d => d === target) };
 }
 
 /** 手番側の現在の side を取り出す（dice の RTDB 空配列消失も防御） */

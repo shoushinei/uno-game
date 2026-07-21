@@ -74,6 +74,8 @@ declare global {
     _roomHost: string | null;
     _leftPlayers: Record<string, boolean>;
     _botPlayers: Record<string, boolean>;
+    // ★ヨットモード Step 3★ 対決代行（absent-runner）が参照する現在の対決
+    _currentDuel: import('./logic/duel-logic.js').DuelState | null;
   }
 }
 
@@ -133,6 +135,8 @@ export function startListening(): void {
       window._leftPlayers = room.leftPlayers || {};
       // ロビーで追加されたボット席（players の isBot 由来）も同じ代行対象
       window._botPlayers = botPlayerMap(room.players);
+      // ★ヨットモード Step 3★ 対決の代行判定用
+      window._currentDuel = room.duel ?? null;
       // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様）★
       // 全員のトランプ手札が0枚になると room.game.trumpHands ノード自体が
       // 丸ごと削除されて undefined になる（前回までに直したゲームロジック側と

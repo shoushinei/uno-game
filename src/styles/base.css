@@ -252,3 +252,4 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
 .duel-btn:hover { filter: brightness(1.08); }
 .duel-hint { font-size: 10.5px; color: #9fd3bd; margin-top: 6px; }
 .duel-result { font-size: 20px; font-weight: 800; color: #ffd166; margin-top: 14px; }
+.duel-penalty { font-size: 13px; font-weight: 700; color: #ff9b8a; margin-top: 6px; }

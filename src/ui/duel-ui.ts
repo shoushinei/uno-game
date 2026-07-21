@@ -124,8 +124,15 @@ function resultBanner(duel: DuelState): string {
   const text = duel.result === 'draw'
     ? '🤝 引き分け！（誰もカードを引かない）'
     : `🏆 ${lastNames[duel.winnerId!] ?? '?'} の勝ち！`;
+  // ★Step 3★ 敗者へのペナルティ予告（実際のドローは「ゲームに戻る」で適用）
+  const loserId = duel.result === 'attacker' ? duel.defenderId
+    : duel.result === 'defender' ? duel.attackerId : null;
+  const penalty = loserId
+    ? `<div class="duel-penalty">💥 ${lastNames[loserId] ?? '?'} はUNOを4枚引く！</div>`
+    : '';
   return `
     <div class="duel-result">${text}</div>
+    ${penalty}
     ${isParty ? '<button class="duel-btn close" onclick="duelClose()">ゲームに戻る</button>'
               : '<p class="duel-hint">当事者が閉じるのを待っています…</p>'}`;
 }

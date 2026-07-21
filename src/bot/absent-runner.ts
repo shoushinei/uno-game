@@ -18,6 +18,8 @@
 import { state } from '../state.js';
 import { decideBotPlan } from './strategy.js';
 import { executeBotPlan } from './execute.js';
+import { currentActorId, decideDuelMove } from '../logic/duel-logic.js';
+import { actionYachtRoll, actionYachtCommit, actionYachtClose } from '../actions/yacht-actions.js';
 
 const TICK_MS = 1100; // test-bot(800ms) とずらして同時発火を避ける
 
@@ -53,10 +55,52 @@ export function absentActorToRun(params: {
 let timer: ReturnType<typeof setInterval> | null = null;
 let isProcessing = false;
 
+/** 操作する人が居ない席か（ボット or 退室中） */
+function isUnattendedId(id: string): boolean {
+  return !!(window._botPlayers && window._botPlayers[id]) ||
+         !!(window._leftPlayers && window._leftPlayers[id]);
+}
+
+/**
+ * ★ヨットモード Step 3★ 対決中の代行。
+ * ボット・退室者が対決の手番なら greedy（decideDuelMove）で1手打つ。
+ * 決着後、両当事者とも操作不能ならホストが閉じる（ペナルティ適用込み）。
+ */
+async function duelTick(): Promise<void> {
+  if (!window._roomHost || window._roomHost !== state.myId) return; // ホストのみ
+  const duel = window._currentDuel;
+  if (!duel) return;
+
+  if (duel.stage === 'rolling') {
+    const actorId = currentActorId(duel);
+    if (!isUnattendedId(actorId)) return; // 人間の手番には介入しない
+    const move = decideDuelMove(duel);
+    if (!move) return;
+    isProcessing = true;
+    try {
+      const result = move.type === 'roll'
+        ? await actionYachtRoll(move.keep, actorId)
+        : await actionYachtCommit(actorId);
+      if (result?.error) console.warn(`[AbsentRunner] duel ${move.type}(${actorId}) →`, result.error);
+    } catch (e) {
+      console.error('[AbsentRunner] 対決代行で例外:', e);
+    } finally {
+      isProcessing = false;
+    }
+  } else if (duel.stage === 'done') {
+    // 当事者に人間が居ればその人が閉じる。全員操作不能ならホストが閉じる
+    if (![duel.attackerId, duel.defenderId].every(isUnattendedId)) return;
+    isProcessing = true;
+    try { await actionYachtClose(); }
+    catch (e) { console.error('[AbsentRunner] 対決クローズで例外:', e); }
+    finally { isProcessing = false; }
+  }
+}
+
 async function tick(): Promise<void> {
   if (isProcessing) return;
-  // ★ヨットモード Step 2★ 対決中はゲームが一時停止するため代行も止める
-  if (window._duelActive) return;
+  // ★ヨットモード Step 2/3★ 対決中は通常の手番代行を止め、対決側の代行を行う
+  if (window._duelActive) { await duelTick(); return; }
 
   const g = window._currentGame;
   if (!g) return;

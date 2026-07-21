@@ -2,7 +2,7 @@
 // duel-logic.ts 単体テスト（対決の状態遷移・挑戦可否）
 // ========================================
 import { describe, it, expect } from 'vitest';
-import { newDuel, canChallenge, currentActorId, applyRoll, applyCommit } from './duel-logic.ts';
+import { newDuel, canChallenge, currentActorId, applyRoll, applyCommit, decideDuelMove } from './duel-logic.ts';
 
 const yachtRoom = (over = {}) => ({
   mode: 'yacht', state: 'playing', duel: null, skillUsed: {},
@@ -30,8 +30,10 @@ describe('canChallenge — 挑戦可否', () => {
   it('対決進行中は挑めない', () => {
     expect(canChallenge(yachtRoom({ duel: {} }), 'me', 'p2').ok).toBe(false);
   });
-  it('ボットにはまだ挑めない（Step 3で解放）', () => {
-    expect(canChallenge(yachtRoom(), 'me', 'bot-1').ok).toBe(false);
+  it('ボットにも挑める（Step 3で解放・手番はホスト代行）', () => {
+    const room = yachtRoom();
+    room.game.order = ['me', 'p2', 'bot-1'];
+    expect(canChallenge(room, 'me', 'bot-1').ok).toBe(true);
   });
   it('順位確定者には挑めない', () => {
     const room = yachtRoom();
@@ -120,5 +122,46 @@ describe('対決フロー — 攻撃側先攻 → 守備側 → 決着', () => {
     delete d.attacker.dice; // RTDB経由で消えた想定
     const rolled = applyRoll(d, null, () => 0);
     expect(rolled.attacker.dice).toEqual([1,1,1,1,1]);
+  });
+});
+
+describe('decideDuelMove — ボット/退室者の代行AI（Step 3）', () => {
+  const withAttacker = (dice, rollsLeft, atkScore = null) => {
+    let d = newDuel('bot-1', 'p2', 0);
+    d = { ...d, attacker: { dice, rollsLeft, done: false, best: null } };
+    if (atkScore !== null) {
+      d = { ...d, attacker: { dice: [1,1,2,2,3], rollsLeft: 0, done: true, best: { category:'choice', score: atkScore } },
+        turn: 'defender', defender: { dice, rollsLeft, done: false, best: null } };
+    }
+    return d;
+  };
+
+  it('まだ振っていなければ全部振る', () => {
+    expect(decideDuelMove(withAttacker([], 3))).toEqual({ type: 'roll', keep: null });
+  });
+  it('振り直し不可なら確定', () => {
+    expect(decideDuelMove(withAttacker([1,2,3,5,6], 0))).toEqual({ type: 'commit' });
+  });
+  it('ビッグストレート級（30点以上）は確定', () => {
+    expect(decideDuelMove(withAttacker([1,2,3,4,5], 2))).toEqual({ type: 'commit' });
+  });
+  it('弱い手は最頻値を残して振り直す（同数なら大きい目）', () => {
+    const m = decideDuelMove(withAttacker([3,3,5,5,1], 2));
+    expect(m.type).toBe('roll');
+    expect(m.keep).toEqual([false,false,true,true,false]); // 5を残す
+  });
+  it('守備側は攻撃側のスコアを超えた時点で即確定', () => {
+    // 守備の手: 4,4,4,1,2 = フォーナンバーズ未満…choice15 > 攻撃9 → commit
+    const d = withAttacker([4,4,4,1,2], 2, 9);
+    expect(decideDuelMove(d)).toEqual({ type: 'commit' });
+  });
+  it('守備側でもまだ負けていれば振り直す', () => {
+    const d = withAttacker([1,1,2,2,3], 2, 28);
+    expect(decideDuelMove(d).type).toBe('roll');
+  });
+  it('決着後は null', () => {
+    let d = newDuel('a', 'b', 0);
+    d = { ...d, stage: 'done' };
+    expect(decideDuelMove(d)).toBeNull();
   });
 });
