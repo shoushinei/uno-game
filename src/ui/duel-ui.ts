@@ -44,6 +44,13 @@ let busy = false;
 
 let lastNames: Record<string, string> = {};
 
+/** ★Step 4★ 演出用: 前回描画時の各側のサイコロ（振られた目だけ転がすため） */
+let prevDice: { attacker: number[]; defender: number[] } = { attacker: [], defender: [] };
+
+function reducedMotion(): boolean {
+  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 window.duelChallenge = async (targetId) => {
   const r = await actionYachtChallenge(targetId);
   if (r.error) console.warn('挑戦失敗:', r.error);
@@ -70,15 +77,18 @@ window.duelClose = async () => {
   try { await actionYachtClose(); } finally { busy = false; }
 };
 
-function diceRow(side: DuelSide, clickable: boolean): string {
+function diceRow(side: DuelSide, clickable: boolean, prev: number[]): string {
   const dice = Array.isArray(side.dice) ? side.dice : [];
   if (dice.length === 0) {
     return `<div class="duel-dice empty">${'🎲'.repeat(DICE_COUNT)}</div>`;
   }
-  return `<div class="duel-dice">${dice.map((d, i) =>
-    `<button class="duel-die${clickable ? ' clickable' : ''}${clickable && keep.has(i) ? ' keep' : ''}"
-      data-i="${i}" ${clickable ? `onclick="duelToggleKeep(${i})"` : 'disabled'}>${DICE_FACES[d - 1] ?? '?'}</button>`
-  ).join('')}</div>`;
+  const animate = !reducedMotion();
+  return `<div class="duel-dice">${dice.map((d, i) => {
+    // ★Step 4★ 前回と目が変わった＝今振られたサイコロだけ転がす（残した目は静止）
+    const rolled = animate && prev[i] !== d;
+    return `<button class="duel-die${clickable ? ' clickable' : ''}${clickable && keep.has(i) ? ' keep' : ''}${rolled ? ' just-rolled' : ''}"
+      data-i="${i}" ${clickable ? `onclick="duelToggleKeep(${i})"` : 'disabled'}>${DICE_FACES[d - 1] ?? '?'}</button>`;
+  }).join('')}</div>`;
 }
 
 function sidePanel(duel: DuelState, who: 'attacker' | 'defender'): string {
@@ -90,16 +100,27 @@ function sidePanel(duel: DuelState, who: 'attacker' | 'defender'): string {
   const clickable = isTurn && isMe && (side.dice?.length ?? 0) > 0;
   const rolls = typeof side.rollsLeft === 'number' ? side.rollsLeft : MAX_ROLLS;
 
+  // ★Step 4★ 決着後は勝者/敗者で見た目を変える
+  let outcome = '';
+  if (duel.stage === 'done') {
+    if (duel.result === 'draw') outcome = ' draw';
+    else if (duel.winnerId === uid) outcome = ' winner';
+    else outcome = ' loser';
+  }
+  // 高得点役（30点以上）は役名を発光させる
+  const bigHand = (side.best?.score ?? 0) >= 30;
+
   const status = side.done && side.best
-    ? `<div class="duel-best">${CATEGORY_NAMES[side.best.category] ?? side.best.category}<b>${side.best.score}点</b></div>`
+    ? `<div class="duel-best${bigHand ? ' big' : ''}">${CATEGORY_NAMES[side.best.category] ?? side.best.category}<b>${side.best.score}点</b></div>`
     : isTurn
     ? `<div class="duel-status">${isMe ? 'あなたの番！' : '振っています…'}（残り${rolls}回振れる）</div>`
     : `<div class="duel-status wait">待機中</div>`;
 
   return `
-    <div class="duel-side${isTurn ? ' active' : ''}">
+    <div class="duel-side${isTurn ? ' active' : ''}${outcome}">
+      ${outcome === ' winner' ? '<div class="duel-crown">👑</div>' : ''}
       <div class="duel-side-name">${who === 'attacker' ? '⚔' : '🛡'} ${name}${isMe ? '（あなた）' : ''}</div>
-      ${diceRow(side, clickable)}
+      ${diceRow(side, clickable, prevDice[who])}
       ${status}
     </div>`;
 }
@@ -131,11 +152,16 @@ function resultBanner(duel: DuelState): string {
     ? `<div class="duel-penalty">💥 ${lastNames[loserId] ?? '?'} はUNOを4枚引く！</div>`
     : '';
   return `
-    <div class="duel-result">${text}</div>
-    ${penalty}
-    ${isParty ? '<button class="duel-btn close" onclick="duelClose()">ゲームに戻る</button>'
-              : '<p class="duel-hint">当事者が閉じるのを待っています…</p>'}`;
+    <div class="duel-finish${reducedMotion() ? '' : ' pop'}">
+      <div class="duel-result">${text}</div>
+      ${penalty}
+      ${isParty ? '<button class="duel-btn close" onclick="duelClose()">ゲームに戻る</button>'
+                : '<p class="duel-hint">当事者が閉じるのを待っています…</p>'}
+    </div>`;
 }
+
+/** 現在の startedAt（対決の切り替わり検出用）。演出のprevDiceリセットに使う */
+let prevStartedAt = 0;
 
 /** room 同期のたびに呼ばれる（app.ts のリスナーから） */
 export function renderDuel(room: any): void {
@@ -147,14 +173,23 @@ export function renderDuel(room: any): void {
     overlay.style.display = 'none';
     overlay.innerHTML = '';
     keep.clear(); keepKey = '';
+    prevDice = { attacker: [], defender: [] };
+    prevStartedAt = 0;
     return;
   }
   // 手番の切り替わり（or 新しい対決）で「残す」選択をリセット
   const key = `${duel.startedAt}:${duel.turn}`;
   if (key !== keepKey) { keep.clear(); keepKey = key; }
+  // ★Step 4★ 別の対決に切り替わったら転がり演出の基準をリセット
+  if (duel.startedAt !== prevStartedAt) {
+    prevDice = { attacker: [], defender: [] };
+    prevStartedAt = duel.startedAt;
+  }
 
   lastNames = Object.fromEntries((room.players ?? []).map((p: any) => [p.id, p.name]));
+  const wasOpen = overlay.style.display === 'flex';
   overlay.style.display = 'flex';
+  overlay.classList.toggle('opening', !wasOpen && !reducedMotion());
   overlay.innerHTML = `
     <div class="duel-box">
       <div class="duel-title">🎲 ヨット対決 — 最高の役で勝負！（敗者はUNOを4枚引く）</div>
@@ -166,4 +201,10 @@ export function renderDuel(room: any): void {
       ${controls(duel)}
       ${resultBanner(duel)}
     </div>`;
+
+  // 次回の「振られた目」検出のため、今回の目を記録する
+  prevDice = {
+    attacker: Array.isArray(duel.attacker?.dice) ? [...duel.attacker.dice] : [],
+    defender: Array.isArray(duel.defender?.dice) ? [...duel.defender.dice] : [],
+  };
 }
