@@ -126,10 +126,19 @@ window.openFriends = async () => {
   }
   modal.style.display = 'flex';
   body.innerHTML = '<p class="profile-note">読み込み中...</p>';
-  // フレンドコードと直近プレイヤーを取得（並行）
-  const [code, rec] = await Promise.all([ensureFriendCode(user.uid), recentCoPlayers(user.uid)]);
+  // フレンドコードと直近プレイヤーを取得（並行）。
+  // ★改名反映★ フレンドの表示名はセッション内でキャッシュしているが、相手が
+  // 改名すると古いままになるため、モーダルを開くたびに現在の相手全員ぶんを
+  // 取り直して上書きする（フレンド数は少ないので毎回でも安い）。
+  const others = [...new Set(friendships.flatMap(f => f.members).filter(u => u !== user.uid))];
+  const [code, rec, fresh] = await Promise.all([
+    ensureFriendCode(user.uid),
+    recentCoPlayers(user.uid),
+    others.length ? fetchNames(others) : Promise.resolve({}),
+  ]);
   myFriendCode = code;
   recent = rec;
+  Object.assign(names, fresh);
   renderFriends();
 };
 
@@ -220,7 +229,10 @@ function renderFriends(): void {
         } else if (p?.state === 'online') {
           status = '<span class="friend-presence on">🟢 オンライン</span>';
         }
-        const statsBtn = `<button class="friend-btn" onclick="showPlayerStats('${uid}','${nameOf(uid).replace(/'/g, '')}')">📊</button>`;
+        // ★重なり解消★ 戦績カードはフレンドモーダルと同じ z-index で DOM 上は
+        // 手前（後ろ）に描かれるため、そのまま開くとフレンド画面の下に隠れる。
+        // 先にフレンドモーダルを閉じてから開く。
+        const statsBtn = `<button class="friend-btn" onclick="closeFriends();showPlayerStats('${uid}','${nameOf(uid).replace(/'/g, '')}')">📊</button>`;
         return row(`${nameOf(uid)} ${status}`,
           `${joinBtn}${statsBtn}<button class="friend-btn ghost" onclick="unfriend('${f.pairId}')">解除</button>`);
       }).join('')
