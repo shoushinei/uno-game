@@ -338,13 +338,15 @@
 /* ---- リアクションボタン ---- */
 /* ★持ち時間★ 手番カウントダウン（従来UI） */
 .turn-timer {
-  text-align:center; margin:6px auto 2px; font-size:13px; font-weight:700;
+  text-align:center; margin:8px auto 2px; font-size:15px; font-weight:800;
+  letter-spacing:.3px;
   color:var(--color-text-secondary); background:var(--color-background-secondary);
-  border:1.5px solid var(--color-border-secondary); border-radius:999px;
-  padding:4px 14px; width:fit-content;
+  border:2px solid var(--color-border-secondary); border-radius:999px;
+  padding:6px 18px; width:fit-content;
 }
-.turn-timer.me { color:#127a52; border-color:#1abc7b; background:rgba(26,188,123,.12); }
-.turn-timer.warn { color:#c0392b; border-color:#e74c3c; background:rgba(231,76,60,.10); animation:timerPulse 1s ease-in-out infinite; }
+/* 自分の番は塗りつぶしで強調（自分の時計が動いていると一目で分かる） */
+.turn-timer.me { color:#fff; border-color:#1abc7b; background:#1abc7b; box-shadow:0 2px 8px rgba(26,188,123,.35); }
+.turn-timer.warn { color:#fff; border-color:#e74c3c; background:#e74c3c; box-shadow:0 2px 10px rgba(231,76,60,.4); animation:timerPulse 1s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .turn-timer.warn { animation:none; } }
 
 .react-row { display:flex; gap:6px; justify-content:center; margin:10px 0 4px; width:100%; max-width:600px; flex-wrap:wrap; }

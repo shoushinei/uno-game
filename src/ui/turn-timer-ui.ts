@@ -24,7 +24,8 @@ function applyTimer(el: HTMLElement | null, remaining: number | null, mine: bool
   if (!el) return;
   if (remaining === null) { el.style.display = 'none'; return; }
   el.style.display = '';
-  el.textContent = `⏳ ${label} 残り${remaining}秒`;
+  // 秒数を前に出して視認性を上げる（例: 「⏳ 残り45秒 · あなた🃏」）
+  el.textContent = `⏳ 残り${remaining}秒${label ? ' · ' + label : ''}`;
   el.classList.toggle('warn', remaining <= WARN_SEC);
   el.classList.toggle('me', mine);
 }
