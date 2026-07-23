@@ -2,7 +2,7 @@
 // duel-logic.ts 単体テスト（対決の状態遷移・挑戦可否）
 // ========================================
 import { describe, it, expect } from 'vitest';
-import { newDuel, canChallenge, currentActorId, applyRoll, applyCommit, decideDuelMove } from './duel-logic.ts';
+import { newDuel, canChallenge, canChallengeAnyone, mySkillStatus, currentActorId, applyRoll, applyCommit, decideDuelMove } from './duel-logic.ts';
 
 const yachtRoom = (over = {}) => ({
   mode: 'yacht', state: 'playing', duel: null, skillUsed: {},
@@ -42,6 +42,43 @@ describe('canChallenge — 挑戦可否', () => {
   });
   it('自分自身には挑めない', () => {
     expect(canChallenge(yachtRoom(), 'me', 'me').ok).toBe(false);
+  });
+});
+
+describe('canChallengeAnyone / mySkillStatus — 手番開始時のスキル可否表示', () => {
+  it('挑戦相手が居れば canChallengeAnyone は true', () => {
+    expect(canChallengeAnyone(yachtRoom(), 'me')).toBe(true);
+  });
+  it('全員が順位確定なら挑戦相手なし', () => {
+    const room = yachtRoom({ players: [{ id: 'me', name: 'A' }, { id: 'p2', name: 'B' }] });
+    room.game.rankings = [{ id: 'p2', name: 'B' }];
+    expect(canChallengeAnyone(room, 'me')).toBe(false);
+  });
+
+  it('ヨット・自分の手番・未使用 → available', () => {
+    expect(mySkillStatus(yachtRoom(), 'me')).toBe('available');
+  });
+  it('使用済み → used（使えない理由を示す）', () => {
+    expect(mySkillStatus(yachtRoom({ skillUsed: { me: true } }), 'me')).toBe('used');
+  });
+  it('自分の手番でない → null（非表示）', () => {
+    expect(mySkillStatus(yachtRoom(), 'p2')).toBeNull();
+  });
+  it('クラシックモード → null', () => {
+    expect(mySkillStatus(yachtRoom({ mode: 'classic' }), 'me')).toBeNull();
+  });
+  it('対決進行中 → null', () => {
+    expect(mySkillStatus(yachtRoom({ duel: {} }), 'me')).toBeNull();
+  });
+  it('挑戦相手が居ない（未使用でも）→ null', () => {
+    const room = yachtRoom({ players: [{ id: 'me', name: 'A' }, { id: 'p2', name: 'B' }] });
+    room.game.rankings = [{ id: 'p2', name: 'B' }];
+    expect(mySkillStatus(room, 'me')).toBeNull();
+  });
+  it('自分が上がり済み → null', () => {
+    const room = yachtRoom();
+    room.game.rankings = [{ id: 'me', name: 'A' }];
+    expect(mySkillStatus(room, 'me')).toBeNull();
   });
 });
 

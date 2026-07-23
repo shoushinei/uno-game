@@ -67,6 +67,27 @@ export function canChallenge(room: any, myId: string, targetId: string): { ok: b
   return { ok: true };
 }
 
+/** 今この瞬間、誰か1人でも挑戦できる相手が居るか（席のどれかが canChallenge=ok） */
+export function canChallengeAnyone(room: any, myId: string): boolean {
+  const players = room?.players ?? [];
+  return players.some((p: any) => p && p.id !== myId && canChallenge(room, myId, p.id).ok);
+}
+
+/**
+ * 自分の手番でのスキル（ヨット挑戦）状態。手番開始時の可否表示に使う。
+ *  'available' = 今すぐ挑戦できる ／ 'used' = 使用済み ／ null = 表示対象外
+ * ヨットモードかつ自分の手番のときだけ 'available'|'used' を返す
+ * （上がり済み・挑戦可能な相手が居ない場合は null）。
+ */
+export function mySkillStatus(room: any, myId: string): 'available' | 'used' | null {
+  if (room?.mode !== 'yacht' || room?.state !== 'playing' || room?.duel) return null;
+  const g = room?.game;
+  if (!g || !Array.isArray(g.order) || g.order[g.ci] !== myId) return null; // 自分の手番のみ
+  if ((g.rankings ?? []).some((r: any) => r.id === myId)) return null;       // 上がり済みは対象外
+  if (room?.skillUsed?.[myId]) return 'used';
+  return canChallengeAnyone(room, myId) ? 'available' : null;
+}
+
 /**
  * ★Step 3★ ボット・退室者を代行するときの1手を決める（greedy・純粋関数）。
  * - まだ振っていない → 全部振る

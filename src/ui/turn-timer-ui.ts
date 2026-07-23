@@ -10,10 +10,14 @@
 // ========================================
 import { state } from '../state.js';
 import { turnKey, duelKey, remainingSec, deadlineActive } from '../logic/turn-timer.js';
-import { currentActorId } from '../logic/duel-logic.js';
+import { currentActorId, mySkillStatus } from '../logic/duel-logic.js';
 
 /** 残り10秒以下で警告表示に切り替える閾値 */
 const WARN_SEC = 10;
+
+function reducedMotion(): boolean {
+  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
 
 function nameOf(room: any, id: string): string {
   return (room?.players ?? []).find((p: any) => p.id === id)?.name ?? 'プレイヤー';
@@ -67,4 +71,40 @@ export function renderTurnTimers(room: any): void {
   }
   applyTimer(document.getElementById('turn-timer-classic'), remaining, mine, label);
   applyTimer(document.getElementById('pcg-turn-timer'), remaining, mine, label);
+
+  renderSkillIndicator(room);
+}
+
+/** スキル可否チップを最後に表示した「手番＋状態」キー（手番開始の一発演出に使う） */
+let lastSkillKey: string | null = null;
+
+/**
+ * ★ヨット★ 自分の手番開始時に「スキル（ヨット挑戦）が使えるか」を表示する。
+ * 挑戦入口は PC UI の席メニューだけなので PC 用チップ #pcg-skill-indicator のみ更新。
+ *  available → 金色チップ＋手番開始時にポップ演出、used → 地味なグレー、対象外 → 非表示。
+ */
+export function renderSkillIndicator(room: any): void {
+  const el = document.getElementById('pcg-skill-indicator');
+  if (!el) return;
+  const status = mySkillStatus(room, state.myId);
+  if (!status) { el.style.display = 'none'; lastSkillKey = null; return; }
+
+  const g = room.game;
+  // ci（＝誰の手番か）と状態が変わったときだけ「新しい手番」とみなす。
+  // 同じ手番内のトランプ→UNO移行では ci が変わらないので演出は再発火しない。
+  const key = `${g.ci}:${status}`;
+  el.style.display = '';
+  if (status === 'available') {
+    el.textContent = '⚔ 挑戦できる';
+    el.className = 'pcg-skill-indicator available';
+    if (key !== lastSkillKey && !reducedMotion()) {
+      el.classList.remove('attn');
+      void el.offsetWidth; // リフローでアニメを頭から再生
+      el.classList.add('attn');
+    }
+  } else {
+    el.textContent = '⚔ 使用済み';
+    el.className = 'pcg-skill-indicator used';
+  }
+  lastSkillKey = key;
 }
