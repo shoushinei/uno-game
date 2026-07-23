@@ -541,6 +541,75 @@
         ※ シンプルさを重視し、都落ち・あがり禁止札・革命（8枚出し）は採用していません。
       </p>
 
+      <hr class="modal-hr">
+
+      <h4>⚔ ヨットモード（スキル対決）</h4>
+      <p style="margin-bottom:6px">
+        ロビーでホストが<b>ヨットモード</b>を選ぶと、上の融合ルールに<b>サイコロの一騎打ち</b>が加わります。
+        formatを変えずに、ここぞという場面で相手を狙い撃ちできる駆け引き要素です。
+      </p>
+      <ul>
+        <li><b>挑戦は1ゲームに1回だけ。</b>自分のトランプフェイズの手番が来たとき、相手の席メニューから「⚔ ヨットで挑む」で発動します（ボットにも挑めます）。</li>
+        <li>すでに<b>順位が確定した相手</b>には挑めません。挑戦中は盤面が対決オーバーレイに切り替わり、当事者以外は<b>観戦</b>します。</li>
+      </ul>
+
+      <p style="font-weight:700;font-size:13px;background:#f5f5f7;border-radius:8px;
+                padding:8px;margin:8px 0 4px;text-align:center">
+        🎲 5個のサイコロを振り、最大3回（初回＋振り直し2回）で最高の役を作る
+      </p>
+      <ul>
+        <li>振ったあと<b>残したい目を選んで</b>、それ以外を振り直せます。役ができたら「✅ この手で確定」。</li>
+        <li>まず<b>挑戦者（攻撃側）</b>が振り切り、次に<b>受けた側（守備側）</b>が振ります。<b>役の点数が高いほうが勝ち</b>です。</li>
+      </ul>
+
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0 4px">
+        <tr style="background:#34495e;color:#fff">
+          <th style="padding:5px 6px;text-align:left;border-radius:6px 0 0 0">役</th>
+          <th style="padding:5px 6px;text-align:left">条件</th>
+          <th style="padding:5px 6px;text-align:right;border-radius:0 6px 0 0">点数</th>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">🚢 <b>ヨット</b></td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">5個すべて同じ目</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700">50点</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee"><b>ビッグストレート</b></td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">5連続（1-2-3-4-5 か 2-3-4-5-6）</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700">30点</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee"><b>スモールストレート</b></td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">4連続を含む</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700">15点</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee"><b>フォーナンバーズ</b></td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">同じ目が4個以上</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee;text-align:right">5個の目の合計</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee"><b>フルハウス</b></td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee">3個＋別の2個</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #eee;text-align:right">5個の目の合計</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 6px"><b>1〜6の目</b></td>
+          <td style="padding:5px 6px">役なしのとき</td>
+          <td style="padding:5px 6px;text-align:right">その目だけの合計</td>
+        </tr>
+      </table>
+      <p style="font-size:11.5px;color:#888;margin:2px 0 8px">
+        ※ 役ができなかった手は「一番多く出ている目の合計」が得点になります（例: 6・6・6・2・1 → 6の目で18点）。
+        無条件で高得点になる「チョイス」役は<b>採用していません</b>。役作りで勝負しましょう。
+      </p>
+
+      <p style="font-size:12.5px;background:#fdecec;border-left:3px solid #c0392b;
+                border-radius:4px;padding:6px 8px;margin:8px 0">
+        💥 <b>敗者は罰としてUNOのカードを4枚引きます。</b>その分だけ上がりが遠のくのがこのモードの狙いです。
+        <b>引き分け（同点）なら誰も引きません</b>（挑戦の権利だけ消費）。決着したらゲームに戻り、続きを再開します。
+      </p>
+
       <div class="modal-link">
         さらに詳しい実装・ソースコードは<br>
         <a href="https://github.com/shoushinei/uno-game" target="_blank" rel="noopener noreferrer">github.com/shoushinei/uno-game</a> をご覧ください。

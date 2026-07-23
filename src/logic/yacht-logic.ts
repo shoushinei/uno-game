@@ -10,8 +10,10 @@
 //  - スモールストレート: 4連続を含む → 15点
 //  - フルハウス        : 3個+別の2個 → 5個の目の合計
 //  - フォーナンバーズ  : 少なくとも4個同じ → 5個の目の合計
-//  - チョイス          : 5個の目の合計
 //  - 1〜6              : その目だけの合計
+//
+// ※「チョイス（無条件で5個の合計）」は強すぎて役作りの駆け引きが薄れるため
+//   廃止した。役なしのときの得点は「一番数の多い目の合計」が上限になる。
 //
 // DOM・Firebase 非依存。乱数は注入可能（テスト・リプレイ用）。
 // ========================================
@@ -80,10 +82,8 @@ export function scoreAll(dice: Dice): HandScore[] {
   const four = c.some(n => n >= 4);
   out.push({ category: 'four-numbers', score: four ? total : 0 });
 
-  // チョイス: 合計
-  out.push({ category: 'choice', score: total });
-
   // 1〜6: その目の合計
+  // （チョイス廃止。役なしはここが最高得点になる）
   for (let f = 1; f <= 6; f++) {
     out.push({ category: String(f), score: (c[f] ?? 0) * f });
   }
@@ -96,7 +96,7 @@ export function scoreAll(dice: Dice): HandScore[] {
  */
 const CATEGORY_RANK = [
   'yacht', 'big-straight', 'four-numbers', 'full-house', 'small-straight',
-  'choice', '6', '5', '4', '3', '2', '1',
+  '6', '5', '4', '3', '2', '1',
 ];
 
 /** 最高得点の役を1つ返す（合意仕様: この1つの点数だけで勝負する） */

@@ -101,7 +101,7 @@ describe('対決フロー — 攻撃側先攻 → 守備側 → 決着', () => {
   it('守備側が高得点なら defender 勝ち', () => {
     let d = newDuel('me', 'p2', 0);
     // 攻撃: バラバラ低スコア
-    d = { ...d, attacker: { dice: [1,1,2,2,3], rollsLeft: 0, done: true, best: { category:'choice', score: 9 } }, turn: 'defender' };
+    d = { ...d, attacker: { dice: [1,1,2,2,3], rollsLeft: 0, done: true, best: { category:'3', score: 9 } }, turn: 'defender' };
     d = applyRoll(d, null, () => 0.99); // 守備 66666
     d = applyCommit(d);
     expect(d.result).toBe('defender');
@@ -130,7 +130,7 @@ describe('decideDuelMove — ボット/退室者の代行AI（Step 3）', () => 
     let d = newDuel('bot-1', 'p2', 0);
     d = { ...d, attacker: { dice, rollsLeft, done: false, best: null } };
     if (atkScore !== null) {
-      d = { ...d, attacker: { dice: [1,1,2,2,3], rollsLeft: 0, done: true, best: { category:'choice', score: atkScore } },
+      d = { ...d, attacker: { dice: [1,1,2,2,3], rollsLeft: 0, done: true, best: { category:'3', score: atkScore } },
         turn: 'defender', defender: { dice, rollsLeft, done: false, best: null } };
     }
     return d;
@@ -151,7 +151,7 @@ describe('decideDuelMove — ボット/退室者の代行AI（Step 3）', () => 
     expect(m.keep).toEqual([false,false,true,true,false]); // 5を残す
   });
   it('守備側は攻撃側のスコアを超えた時点で即確定', () => {
-    // 守備の手: 4,4,4,1,2 = フォーナンバーズ未満…choice15 > 攻撃9 → commit
+    // 守備の手: 4,4,4,1,2 は役なし。目別合計「4の目=12」が最高で 12 > 攻撃9 → commit
     const d = withAttacker([4,4,4,1,2], 2, 9);
     expect(decideDuelMove(d)).toEqual({ type: 'commit' });
   });

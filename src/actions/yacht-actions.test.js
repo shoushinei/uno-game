@@ -12,7 +12,7 @@ vi.mock('../state.js', () => ({ state: { roomId: 'ROOM1', myId: 'atk', myName: '
 const doneDuel = (over = {}) => ({
   attackerId: 'atk', defenderId: 'def',
   turn: 'defender', stage: 'done',
-  attacker: { dice: [1,1,2,2,3], rollsLeft: 0, done: true, best: { category: 'choice', score: 9 } },
+  attacker: { dice: [1,1,2,2,3], rollsLeft: 0, done: true, best: { category: '3', score: 9 } },
   defender: { dice: [6,6,6,6,6], rollsLeft: 2, done: true, best: { category: 'yacht', score: 50 } },
   result: 'defender', winnerId: 'def', startedAt: 1,
   ...over,

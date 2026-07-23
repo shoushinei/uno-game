@@ -16,6 +16,7 @@ import {
 } from '../actions/yacht-actions.js';
 import { currentActorId, type DuelState, type DuelSide } from '../logic/duel-logic.js';
 import { MAX_ROLLS, DICE_COUNT } from '../logic/yacht-logic.js';
+import { areReactionsOff, isReactorBlocked } from './pc/reaction-menu.js';
 
 declare global {
   interface Window {
@@ -24,14 +25,18 @@ declare global {
     duelRoll: () => Promise<void>;
     duelCommit: () => Promise<void>;
     duelClose: () => Promise<void>;
+    duelReact: (emoji: string) => Promise<void>;
     _duelActive?: boolean;
   }
 }
 
+/** 対決オーバーレイで投げられるリアクション（当事者・観戦者とも使える） */
+const DUEL_REACTION_EMOJIS = ['😂', '😭', '😱', '🔥', '👍', '😎', '🥶', '🎉'] as const;
+
 /** 役IDの表示名 */
 const CATEGORY_NAMES: Record<string, string> = {
   'yacht': 'ヨット', 'big-straight': 'ビッグストレート', 'small-straight': 'スモールストレート',
-  'full-house': 'フルハウス', 'four-numbers': 'フォーナンバーズ', 'choice': 'チョイス',
+  'full-house': 'フルハウス', 'four-numbers': 'フォーナンバーズ',
   '1': '1の目', '2': '2の目', '3': '3の目', '4': '4の目', '5': '5の目', '6': '6の目',
 };
 const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
@@ -75,6 +80,11 @@ window.duelCommit = async () => {
 window.duelClose = async () => {
   if (busy) return; busy = true;
   try { await actionYachtClose(); } finally { busy = false; }
+};
+// ★対決中リアクション★ 全体向け（targetId無し）で送る。誰でも・いつでも投げられ、
+// 連打はapp.ts側の sendReaction クールダウン（2秒）が抑える。表示は runDuelReactions。
+window.duelReact = async (emoji) => {
+  await window.sendReaction?.(emoji);
 };
 
 function diceRow(side: DuelSide, clickable: boolean, prev: number[]): string {
@@ -160,6 +170,60 @@ function resultBanner(duel: DuelState): string {
     </div>`;
 }
 
+/** リアクションバー（当事者・観戦者とも使える・常時表示） */
+function reactionBar(): string {
+  const btns = DUEL_REACTION_EMOJIS.map(e =>
+    `<button class="duel-react-btn" onclick="duelReact('${e}')">${e}</button>`
+  ).join('');
+  return `<div class="duel-reactions">${btns}</div>`;
+}
+
+/** 各プレイヤーの最後に表示したリアクションts（初回は再生せず現状を記録） */
+let prevReactionTs: Record<string, number> | null = null;
+
+/**
+ * room.reactions の ts 変化を検知し、対決オーバーレイ上に絵文字を浮上表示する。
+ * 対局画面（table-render の _runReactionEffects）と同じ考え方だが、対決中は盤面が
+ * 隠れるため専用レイヤー #duel-react-layer に出す。ブロック/全体OFFの設定も尊重する。
+ */
+function runDuelReactions(room: any): void {
+  const layer = document.getElementById('duel-react-layer');
+  if (!layer) return;
+  const reactions: Record<string, { emoji: string; ts: number; targetId?: string } | undefined> =
+    room.reactions || {};
+  // 初回（対決オーバーレイを開いた直後）は、過去分を一斉再生しないよう現状だけ記録
+  if (prevReactionTs === null) {
+    prevReactionTs = {};
+    for (const id of Object.keys(reactions)) {
+      const r = reactions[id];
+      if (r && typeof r.ts === 'number') prevReactionTs[id] = r.ts;
+    }
+    return;
+  }
+  for (const id of Object.keys(reactions)) {
+    const r = reactions[id];
+    if (!r || typeof r.ts !== 'number') continue;
+    const seen = prevReactionTs[id] ?? 0;
+    if (r.ts <= seen) continue;
+    prevReactionTs[id] = r.ts;
+    if (areReactionsOff()) continue;
+    if (id !== state.myId && isReactorBlocked(id)) continue; // 自分の分は必ず出す
+    spawnFloatingReaction(layer, r.emoji, lastNames[id] ?? '');
+  }
+}
+
+/** 絵文字1個を浮上させて自動消去する */
+function spawnFloatingReaction(layer: HTMLElement, emoji: string, name: string): void {
+  const el = document.createElement('div');
+  el.className = 'duel-react-fly';
+  el.style.left = `${18 + Math.random() * 64}%`; // 18%〜82% に散らす
+  el.innerHTML =
+    `<span class="duel-react-emoji">${emoji}</span>` +
+    (name ? `<span class="duel-react-name">${name}</span>` : '');
+  layer.appendChild(el);
+  setTimeout(() => el.remove(), reducedMotion() ? 1300 : 2300);
+}
+
 /** 現在の startedAt（対決の切り替わり検出用）。演出のprevDiceリセットに使う */
 let prevStartedAt = 0;
 
@@ -175,6 +239,7 @@ export function renderDuel(room: any): void {
     keep.clear(); keepKey = '';
     prevDice = { attacker: [], defender: [] };
     prevStartedAt = 0;
+    prevReactionTs = null; // 次に開いたとき過去分を再生しないようリセット
     return;
   }
   // 手番の切り替わり（or 新しい対決）で「残す」選択をリセット
@@ -190,17 +255,28 @@ export function renderDuel(room: any): void {
   const wasOpen = overlay.style.display === 'flex';
   overlay.style.display = 'flex';
   overlay.classList.toggle('opening', !wasOpen && !reducedMotion());
-  overlay.innerHTML = `
-    <div class="duel-box">
-      <div class="duel-title">🎲 ヨット対決 — 最高の役で勝負！（敗者はUNOを4枚引く）</div>
-      <div class="duel-sides">
-        ${sidePanel(duel, 'attacker')}
-        <div class="duel-vs">VS</div>
-        ${sidePanel(duel, 'defender')}
-      </div>
-      ${controls(duel)}
-      ${resultBanner(duel)}
-    </div>`;
+
+  // ★対決中リアクション★ .duel-box は毎回中身を差し替えるが、リアクションの
+  // 浮上レイヤーは差し替えると表示中の絵文字が消えてしまうため、永続の
+  // 別要素として一度だけ作り、以降は残す。
+  let box = overlay.querySelector<HTMLElement>('.duel-box');
+  if (!box) {
+    overlay.innerHTML = '<div class="duel-box"></div><div class="duel-react-layer" id="duel-react-layer"></div>';
+    box = overlay.querySelector<HTMLElement>('.duel-box')!;
+  }
+  box.innerHTML = `
+    <div class="duel-title">🎲 ヨット対決 — 最高の役で勝負！（敗者はUNOを4枚引く）</div>
+    <div class="duel-sides">
+      ${sidePanel(duel, 'attacker')}
+      <div class="duel-vs">VS</div>
+      ${sidePanel(duel, 'defender')}
+    </div>
+    ${controls(duel)}
+    ${resultBanner(duel)}
+    ${reactionBar()}`;
+
+  // リアクションの浮上表示（レイヤーは差し替えないので表示中の絵文字は残る）
+  runDuelReactions(room);
 
   // 次回の「振られた目」検出のため、今回の目を記録する
   prevDice = {

@@ -313,3 +313,71 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
   60%  { transform: scale(1.08); }
   to   { transform: scale(1); opacity: 1; }
 }
+
+/* ---- 対決中のリアクション ---- */
+/* 誰でも・いつでも投げられる絵文字バー（当事者も観戦者も） */
+.duel-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.duel-react-btn {
+  font-size: 20px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid #4a6b5c;
+  border-radius: 8px;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.12s ease;
+}
+.duel-react-btn:hover { background: rgba(255, 255, 255, 0.18); transform: scale(1.12); }
+.duel-react-btn:active { transform: scale(0.9); }
+
+/* 投げられた絵文字が浮上するレイヤー（.duel-box とは別の永続要素） */
+.duel-react-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+.duel-react-fly {
+  position: absolute;
+  bottom: 14%;
+  transform: translateX(-50%);
+  text-align: center;
+  animation: duelReactFly 2.3s ease-out forwards;
+}
+.duel-react-emoji {
+  display: block;
+  font-size: 42px;
+  line-height: 1;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.55));
+}
+.duel-react-name {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #f1efe8;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 1px 7px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+@keyframes duelReactFly {
+  0%   { opacity: 0; transform: translate(-50%, 24px) scale(0.6); }
+  15%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -130px) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .duel-react-fly { animation: duelReactFadeStay 1.3s ease-out forwards; }
+  @keyframes duelReactFadeStay {
+    0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; }
+  }
+}
