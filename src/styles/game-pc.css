@@ -62,6 +62,26 @@
   flex-shrink: 0;
 }
 
+/* ★持ち時間★ 手番カウントダウン（PC UI・静的DOM） */
+#s-game-pc .pcg-turn-timer {
+  font-size: 13px;
+  font-weight: 700;
+  color: #cfe0d6;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid #4a6b5c;
+  border-radius: 12px;
+  padding: 3px 12px;
+  flex-shrink: 0;
+}
+#s-game-pc .pcg-turn-timer.me { color: #ffd166; border-color: #ffd166; }
+#s-game-pc .pcg-turn-timer.warn {
+  color: #ff6f61; border-color: #ff6f61;
+  animation: timerPulse 1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  #s-game-pc .pcg-turn-timer.warn { animation: none; }
+}
+
 #s-game-pc .pcg-room {
   font-size: 13px;
   color: #cfe0d6;

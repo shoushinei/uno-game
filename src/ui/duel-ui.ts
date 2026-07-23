@@ -266,6 +266,7 @@ export function renderDuel(room: any): void {
   }
   box.innerHTML = `
     <div class="duel-title">🎲 ヨット対決 — 最高の役で勝負！（敗者はUNOを4枚引く）</div>
+    <div id="duel-timer" class="duel-timer" style="display:none"></div>
     <div class="duel-sides">
       ${sidePanel(duel, 'attacker')}
       <div class="duel-vs">VS</div>

@@ -16,12 +16,18 @@
 // - 思考は decideBotPlan、実行は executeBotPlan（strategy/execute）を共有。
 // ========================================
 import { state } from '../state.js';
+import { fbUpdate } from '../db.js';
 import { decideBotPlan } from './strategy.js';
 import { executeBotPlan } from './execute.js';
 import { currentActorId, decideDuelMove } from '../logic/duel-logic.js';
 import { actionYachtRoll, actionYachtCommit, actionYachtClose } from '../actions/yacht-actions.js';
+import { actionTrumpPass, actionUnoDraw } from '../actions/game-actions.js';
+import {
+  turnKey, duelKey, deadlineActive, timeoutKind, duelTimeoutMove, TURN_LIMIT_MS,
+} from '../logic/turn-timer.js';
 
 const TICK_MS = 1100; // test-bot(800ms) とずらして同時発火を避ける
+const TURN_TIMER_TICK_MS = 1000; // 締め切りの刻み・タイムアウト強制の点検間隔
 
 /**
  * 「今このクライアントが代行すべき席のID」を返す（純粋関数・テスト対象）。
@@ -135,8 +141,90 @@ async function tick(): Promise<void> {
   }
 }
 
+// ========================================
+// ★持ち時間★ 手番の締め切りの「刻み」と「タイムアウト強制」
+//
+// 設計: ホスト単一権威（上の代行と同じ）。ホストのクライアントだけが
+//  - 手番/フェイズ（or 対決の振り）が変わるたびに締め切りを刻み（RTDBへ書く）
+//  - 締め切り超過かつ現手番が「その場に居る人間」ならその人の代わりに規定行動を打つ
+// ボット・不在者は上の代行（tick / duelTick）が締め切り前に即実行するので、
+// ここでの強制対象は人間の手番だけ。
+// ========================================
+let turnTimer: ReturnType<typeof setInterval> | null = null;
+// 締め切り書き込みの二重防止（syncが届く前の再書き込みを短時間だけ抑える）。
+// キーは再戦で使い回されるため「同じキーを直近3秒以内に刻んだか」で判定する。
+let lastStampTurn: { key: string | null; at: number } = { key: null, at: 0 };
+let lastStampDuel: { key: string | null; at: number } = { key: null, at: 0 };
+
+function recentlyStamped(rec: { key: string | null; at: number }, key: string, now: number): boolean {
+  return rec.key === key && now - rec.at < 3000;
+}
+
+async function turnTimerTick(): Promise<void> {
+  if (isProcessing) return;
+  const room = window._room;
+  if (!room) return;
+  if (!window._roomHost || window._roomHost !== state.myId) return; // ホストのみ
+  const now = Date.now();
+
+  // --- 対決中: duel の締め切りを刻む＆強制 ---
+  if (room.duel) {
+    const dk = duelKey(room.duel);
+    if (!dk) return; // rolling でない（決着後など）は締め切り無し
+    if (dk !== room.duelDeadlineKey) {
+      if (recentlyStamped(lastStampDuel, dk, now)) return;
+      lastStampDuel = { key: dk, at: now };
+      await fbUpdate('rooms/' + state.roomId, { duelDeadline: now + TURN_LIMIT_MS, duelDeadlineKey: dk });
+      return;
+    }
+    if (deadlineActive(dk, room.duelDeadlineKey) &&
+        typeof room.duelDeadline === 'number' && now > room.duelDeadline) {
+      const actorId = currentActorId(room.duel);
+      if (isUnattendedId(actorId)) return; // ボット/不在は duelTick が処理
+      const move = duelTimeoutMove(room.duel);
+      if (!move) return;
+      isProcessing = true;
+      try {
+        const r = move.type === 'roll'
+          ? await actionYachtRoll(null, actorId)
+          : await actionYachtCommit(actorId);
+        if (r?.error) console.warn(`[TurnTimer] duel timeout ${move.type}(${actorId}) →`, r.error);
+      } catch (e) { console.error('[TurnTimer] 対決タイムアウトで例外:', e); }
+      finally { isProcessing = false; }
+    }
+    return;
+  }
+
+  // --- 通常手番: turn の締め切りを刻む＆強制 ---
+  const tk = turnKey(room);
+  if (!tk) return; // 手番なし（未開始・終了）
+  if (tk !== room.turnDeadlineKey) {
+    if (recentlyStamped(lastStampTurn, tk, now)) return;
+    lastStampTurn = { key: tk, at: now };
+    await fbUpdate('rooms/' + state.roomId, { turnDeadline: now + TURN_LIMIT_MS, turnDeadlineKey: tk });
+    return;
+  }
+  if (deadlineActive(tk, room.turnDeadlineKey) &&
+      typeof room.turnDeadline === 'number' && now > room.turnDeadline) {
+    const g = room.game;
+    const actorId = g.order[g.ci];
+    if (isUnattendedId(actorId)) return; // ボット/不在は通常の代行 tick が処理
+    const kind = timeoutKind(room, actorId);
+    if (!kind) return;
+    isProcessing = true;
+    try {
+      const r = kind === 'trump-pass'
+        ? await actionTrumpPass(actorId)
+        : await actionUnoDraw(actorId);
+      if (r?.error) console.warn(`[TurnTimer] turn timeout ${kind}(${actorId}) →`, r.error);
+    } catch (e) { console.error('[TurnTimer] 手番タイムアウトで例外:', e); }
+    finally { isProcessing = false; }
+  }
+}
+
 /** アプリ起動時に1回だけ呼ぶ。以降ずっと監視し続ける（軽量なので停止不要） */
 export function startAbsentRunner(): void {
   if (timer) return;
   timer = setInterval(() => { void tick(); }, TICK_MS);
+  if (!turnTimer) turnTimer = setInterval(() => { void turnTimerTick(); }, TURN_TIMER_TICK_MS);
 }

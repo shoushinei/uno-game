@@ -24,6 +24,7 @@ import './ui/profile.js'; // ★Phase 2★ プロフィール画面（openProfil
 import './ui/friends-ui.js'; // ★Phase 4★ フレンド画面（openFriends 等）を登録する
 import './ui/player-stats-card.js'; // ★戦績刷新★ 他人の戦績カード（席の長押し）を登録する
 import { renderDuel } from './ui/duel-ui.js'; // ★ヨットモード Step 2★ 対決オーバーレイ
+import { renderTurnTimers } from './ui/turn-timer-ui.js'; // ★持ち時間★ 手番カウントダウン表示
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg, setHomeMsg } from './ui/ui-render.js';
 import { isPcUi } from './ui/pc/ui-mode.js';
 import {
@@ -76,6 +77,8 @@ declare global {
     _botPlayers: Record<string, boolean>;
     // ★ヨットモード Step 3★ 対決代行（absent-runner）が参照する現在の対決
     _currentDuel: import('./logic/duel-logic.js').DuelState | null;
+    // ★持ち時間★ ホストの締め切り刻み・強制＆1秒カウントダウン更新が参照する最新room
+    _room: any;
   }
 }
 
@@ -137,6 +140,9 @@ export function startListening(): void {
       window._botPlayers = botPlayerMap(room.players);
       // ★ヨットモード Step 3★ 対決の代行判定用
       window._currentDuel = room.duel ?? null;
+      // ★持ち時間★ ホストの締め切り刻み・強制と、1秒カウントダウン更新のため
+      // 最新の room 全体を公開する（締め切り値 turnDeadline 等を含む）
+      window._room = room;
       // ★バグ修正（Firebase Realtime Databaseの空配列対策仕様）★
       // 全員のトランプ手札が0枚になると room.game.trumpHands ノード自体が
       // 丸ごと削除されて undefined になる（前回までに直したゲームロジック側と
@@ -187,6 +193,8 @@ export function startListening(): void {
       // ★ヨットモード Step 2★ 対決オーバーレイ（duel が無ければ非表示に戻る）。
       // 描画エラーで同期を止めないため同じ try 内で処理する
       renderDuel(room);
+      // ★持ち時間★ 手番カウントダウンを更新（1秒tickでも更新する）
+      renderTurnTimers(room);
       } catch (e: any) {
         console.error('画面描画でエラーが発生しました（同期は継続します）:', e);
         dbg('描画エラー: ' + e.message, true);
@@ -210,6 +218,13 @@ window._stopListening  = stopListening;
 // ★Phase C4★ 退室者の手番をホストが代行する監視を起動する
 // （ホストのクライアントでのみ実際に動作する。軽量なので常時起動でよい）
 startAbsentRunner();
+
+// ★持ち時間★ 手番カウントダウンの秒表示を1秒ごとに更新する（全体は再描画せず
+// 対象要素だけ触る軽い更新）。同期が来ない全人間・全員静観の局面でも数字が進む。
+setInterval(() => {
+  try { if (window._room) renderTurnTimers(window._room); }
+  catch (e) { /* 表示更新の失敗で他を止めない */ }
+}, 1000);
 
 // ========================================
 // window.* 登録（HTML onclick から呼ばれる）

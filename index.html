@@ -148,6 +148,9 @@
       <span class="phase-idle">② 🎴 UNO</span>
     </div>
 
+    <!-- ★持ち時間★ 手番のカウントダウン（turn-timer-ui.ts が更新） -->
+    <div id="turn-timer-classic" class="turn-timer" style="display:none"></div>
+
     <!-- 手番の順番・回転方向インジケーター -->
     <div id="turn-order" class="turn-order"></div>
 
@@ -304,6 +307,8 @@
          成立しなくなるため） -->
     <div class="pcg-topbar">
       <div class="pcg-topbar-info" id="pcg-topbar-info"></div>
+      <!-- ★持ち時間★ 手番のカウントダウン（静的DOM・turn-timer-ui.ts が更新） -->
+      <div class="pcg-turn-timer" id="pcg-turn-timer" style="display:none"></div>
       <div class="pcg-topbar-controls">
         <button class="pcg-btn" id="pcg-auto-btn" onclick="toggleMonkeyPlay()">🐒 自動プレイ</button>
         <button class="pcg-btn" onclick="leaveGame()">🚪 退室</button>

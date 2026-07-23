@@ -314,6 +314,28 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
   to   { transform: scale(1); opacity: 1; }
 }
 
+/* ---- 対決の持ち時間カウントダウン ---- */
+.duel-timer {
+  display: inline-block;
+  margin: -6px 0 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #9fd3bd;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid #3a5c4c;
+  border-radius: 999px;
+  padding: 3px 12px;
+}
+.duel-timer.me { color: #ffd166; border-color: #ffd166; }
+.duel-timer.warn { color: #ff6f61; border-color: #ff6f61; animation: timerPulse 1s ease-in-out infinite; }
+@keyframes timerPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 111, 97, 0); }
+  50%      { box-shadow: 0 0 10px 1px rgba(255, 111, 97, 0.6); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .duel-timer.warn { animation: none; }
+}
+
 /* ---- 対決中のリアクション ---- */
 /* 誰でも・いつでも投げられる絵文字バー（当事者も観戦者も） */
 .duel-reactions {

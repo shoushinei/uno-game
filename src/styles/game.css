@@ -336,6 +336,17 @@
 .cbtn.cr{background:#e74c3c} .cbtn.cb{background:#2980b9} .cbtn.cg{background:#27ae60} .cbtn.cy{background:#f39c12}
 
 /* ---- リアクションボタン ---- */
+/* ★持ち時間★ 手番カウントダウン（従来UI） */
+.turn-timer {
+  text-align:center; margin:6px auto 2px; font-size:13px; font-weight:700;
+  color:var(--color-text-secondary); background:var(--color-background-secondary);
+  border:1.5px solid var(--color-border-secondary); border-radius:999px;
+  padding:4px 14px; width:fit-content;
+}
+.turn-timer.me { color:#127a52; border-color:#1abc7b; background:rgba(26,188,123,.12); }
+.turn-timer.warn { color:#c0392b; border-color:#e74c3c; background:rgba(231,76,60,.10); animation:timerPulse 1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .turn-timer.warn { animation:none; } }
+
 .react-row { display:flex; gap:6px; justify-content:center; margin:10px 0 4px; width:100%; max-width:600px; flex-wrap:wrap; }
 .react-btn {
   width:36px; height:36px; border-radius:50%;
