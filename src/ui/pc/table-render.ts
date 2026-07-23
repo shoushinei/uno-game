@@ -78,6 +78,16 @@ let lastRoom: any = null;
 let lastRoomIdForLog: string | null = null;
 
 /**
+ * 同一ルーム内での再戦検知用: 前回同期時点の actionLog 長・rankings 数。
+ * これらが「減った」＝ロビー経由で新しいゲームが始まった印なので、
+ * ドロワーのログ蓄積を捨てて前ゲームのログを引き継がないようにする。
+ * （_runEffects の再戦検知と同じ信号。あちらはmergeServerLogの後に走るため、
+ *   ログのリセットはマージ前のこちらで別途行う必要がある）
+ */
+let prevActionLogLenForLog = 0;
+let prevRankingLenForLog = 0;
+
+/**
  * 演出検知用: 前回同期時点のゲーム状態スナップショット。
  * null は「このルームでまだ一度も同期していない」印で、初回は
  * actionLog増分・状態diffとも演出を再生しない
@@ -234,8 +244,24 @@ function _renderGamePCInner(room: any): void {
     prevTurnId = null;
     prevDir = null;
     prevReactionTs = null;
+    prevActionLogLenForLog = 0;
+    prevRankingLenForLog = 0;
     clearEffectQueue();
   }
+
+  // ★同一ルーム再戦のログ引き継ぎ修正★
+  // 同じルームで再戦すると roomId は変わらないため上のリセットは走らない。
+  // actionLog または rankings が「減った」＝ロビー経由で新ゲームが始まったと
+  // みなし、ドロワーのログ蓄積を捨てる（＝マージ前に空にする）。ゲーム中は
+  // どちらも増える一方なので、進行中に誤ってクリアされることはない。
+  const curActionLogLen = Array.isArray(room.actionLog) ? room.actionLog.length : 0;
+  const curRankingLen = Array.isArray(g.rankings) ? g.rankings.length : 0;
+  if (curActionLogLen < prevActionLogLenForLog || curRankingLen < prevRankingLenForLog) {
+    resetDrawerLog();
+  }
+  prevActionLogLenForLog = curActionLogLen;
+  prevRankingLenForLog = curRankingLen;
+
   mergeServerLog(room.log);
   _runEffects(room, g, players, curId);
 
