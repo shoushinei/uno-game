@@ -694,6 +694,10 @@ async function _handleAction(action: string, target: HTMLElement): Promise<void>
     case 'drawer-tab':
       setDrawerTab(target.dataset.tab!);
       break;
+    case 'bug-report':
+      // ★バグ報告★ モーダルを開く（bug-report-ui.ts が window に登録）
+      window.openBugReport();
+      break;
     case 'rule-jump': {
       // 上部バッジ→引き出しのルールタブを開き、該当説明へスクロール＆点滅
       openDrawer();

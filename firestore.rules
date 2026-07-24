@@ -101,6 +101,28 @@ service cloud.firestore {
         && request.auth.uid in resource.data.members;
     }
 
+    // ★バグ報告★ クライアントは「作成のみ可・読み取り不可」。
+    // ユーザー間で報告は見えず改ざんもできない。開発者は Firebase コンソール
+    // （Admin権限＝ルール非適用）で閲覧する。サイズ上限は bug-report-logic.ts と一致。
+    match /bugReports/{id} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+             'uid', 'name', 'roomId', 'uiMode', 'userAgent', 'description',
+             'roomSnapshot', 'replay', 'recentErrors', 'truncated', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 1
+        && request.resource.data.description.size() <= 1000
+        && request.resource.data.roomSnapshot is string
+        && request.resource.data.roomSnapshot.size() <= 300000
+        && request.resource.data.replay is string
+        && request.resource.data.replay.size() <= 600000
+        && request.resource.data.recentErrors is string
+        && request.resource.data.recentErrors.size() <= 20000
+        && request.resource.data.truncated is bool;
+      allow read, update, delete: if false;
+    }
+
     // 上記以外はすべて拒否（Phase 2以降で必要になったら明示的に開ける）
     match /{document=**} {
       allow read, write: if false;

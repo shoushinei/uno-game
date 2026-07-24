@@ -105,13 +105,14 @@ export function renderDrawerHtml(g: any): string {
   `;
 
   const body = tab === 'log' ? _logTabHtml(g) : _rulesTabHtml(g);
-  // タブに依らず常時表示する設定フッター（全リアクション表示ON/OFF）
+  // タブに依らず常時表示する設定フッター（全リアクション表示ON/OFF＋バグ報告）
   const off = areReactionsOff();
   const footHtml = `
     <div class="pcg-drawer-foot">
       <button class="pcg-drawer-setting${off ? ' off' : ''}" data-action="reactions-toggle">
         ${off ? '🔕 リアクション非表示中' : '🔔 リアクション表示中'}
       </button>
+      <button class="pcg-drawer-setting" data-action="bug-report">🐛 バグを報告</button>
     </div>
   `;
   return `${tabsHtml}<div class="pcg-drawer-body">${body}</div>${footHtml}`;
