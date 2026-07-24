@@ -62,19 +62,21 @@
   flex-shrink: 0;
 }
 
-/* ★持ち時間★ 手番カウントダウン（PC UI・静的DOM・トップバー右側） */
+/* ★持ち時間★ 手番カウントダウン（PC UI・静的DOM・トップバー右側）。
+   隣の手番チップ .pcg-turn と同じ寸法・トーンに揃え、常時あるボタン高さ以下に
+   収める。こうすると出現/消滅でトップバーの高さが変わらず、レイアウトが揺れない。
+   強調（自分の番=金／残り10秒=赤）は色と box-shadow だけで表し、箱サイズは不変。 */
 #s-game-pc .pcg-turn-timer {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: .3px;
-  color: #eef6f1;
-  background: rgba(255, 255, 255, 0.10);
-  border: 2px solid #4a6b5c;
-  border-radius: 999px;
-  padding: 4px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #cfe0d6;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid #4a6b5c;
+  border-radius: 12px;
+  padding: 3px 12px;
   flex-shrink: 0;
 }
-/* 自分の番は金色の塗りつぶしで強調 */
+/* 自分の番は金色の塗りつぶしで強調（箱サイズは据え置き） */
 #s-game-pc .pcg-turn-timer.me {
   color: #412402; background: #ffd166; border-color: #ffd166;
 }
@@ -86,13 +88,16 @@
   #s-game-pc .pcg-turn-timer.warn { animation: none; }
 }
 
-/* ★ヨット★ 手番開始時のスキル可否チップ（挑戦入口はPC UIの席メニューのみ） */
+/* ★ヨット★ 手番開始時のスキル可否チップ（挑戦入口はPC UIの席メニューのみ）。
+   時間チップ／手番チップと同じ寸法に揃え、トップバーの高さを変えない。
+   注目演出（ポップ＝transform・脈打ち＝box-shadow）はレイアウトに影響しない。
+   全状態で 1px 枠を持たせ（transparent 起点）、状態変化でも箱サイズを一定に保つ。 */
 #s-game-pc .pcg-skill-indicator {
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: .3px;
-  border-radius: 999px;
-  padding: 4px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 3px 12px;
   flex-shrink: 0;
   cursor: default;
 }
@@ -100,7 +105,7 @@
 #s-game-pc .pcg-skill-indicator.available {
   color: #412402;
   background: #ffd166;
-  border: 2px solid #ffe08a;
+  border-color: #ffe08a;
   box-shadow: 0 0 0 0 rgba(255, 209, 102, 0.5);
   animation: skillGlow 1.8s ease-in-out infinite;
 }
@@ -110,7 +115,7 @@
 #s-game-pc .pcg-skill-indicator.used {
   color: #9fb0a8;
   background: rgba(255, 255, 255, 0.06);
-  border: 2px solid #3a4a44;
+  border-color: #3a4a44;
 }
 @keyframes skillGlow {
   0%, 100% { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0.0); }
