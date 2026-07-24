@@ -23,13 +23,15 @@ function nameOf(room: any, id: string): string {
   return (room?.players ?? []).find((p: any) => p.id === id)?.name ?? 'プレイヤー';
 }
 
-/** 1要素ぶんの表示更新（remaining=null は非表示） */
+/** 1要素ぶんの表示更新（remaining=null は非表示）。
+ * 250msごとに呼ばれるが、テキストは実際に変わったときだけ書き換える（無駄な更新回避）。 */
 function applyTimer(el: HTMLElement | null, remaining: number | null, mine: boolean, label: string): void {
   if (!el) return;
   if (remaining === null) { el.style.display = 'none'; return; }
   el.style.display = '';
   // 秒数を前に出して視認性を上げる（例: 「⏳ 残り45秒 · あなた🃏」）
-  el.textContent = `⏳ 残り${remaining}秒${label ? ' · ' + label : ''}`;
+  const text = `⏳ 残り${remaining}秒${label ? ' · ' + label : ''}`;
+  if (el.textContent !== text) el.textContent = text;
   el.classList.toggle('warn', remaining <= WARN_SEC);
   el.classList.toggle('me', mine);
 }
