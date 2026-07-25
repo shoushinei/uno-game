@@ -15,6 +15,7 @@ import {
 import type { GameState, Player, UnoCard } from '../logic/types';
 import type { TrumpCard, TrumpEffect } from '../logic/trump-logic.js';
 import { isPcUi } from './pc/ui-mode.js';
+import { syncMobileActionBar } from './mobile-action-bar.js'; // ★モバイルUI M1★ 下部操作バー
 import { renderGamePC } from './pc/table-render.js';
 import { syncAccountBar } from './account-bar.js';
 
@@ -575,10 +576,14 @@ function _renderActionButtons(
   if (parentColorBtn) {
     const isParentNow = isMyTurn && phase === 'uno' && g.hasParent === state.myId;
     parentColorBtn.style.display = isParentNow ? 'block' : 'none';
+    // ★モバイルUI M1★ 下部バーに並ぶため、長い説明文から短いラベルへ変更した
+    // （UNO出し切り済みのときだけ「使うと次へ進む」ことを添える）
     parentColorBtn.textContent = (isParentNow && myUnoDone)
-      ? '👑 親の権限：UNOの色を変更する（UNO出し切り済み・行使すると次のプレイヤーへ）'
-      : '👑 親の権限：UNOの色を強制変更する';
+      ? '👑 親の権限（使うと次へ）'
+      : '👑 親の権限';
   }
+
+  syncMobileActionBar();
 }
 
 function _renderLog(room: any): void {

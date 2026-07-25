@@ -29,6 +29,7 @@ import './ui/bug-report-ui.js'; // ★バグ報告★ モーダル（openBugRepo
 import { installErrorCapture } from './bug-report.js'; // ★バグ報告★ エラー履歴の収集
 import { initAudio } from './audio/audio-engine.js'; // ★Phase D★ 効果音（自動再生ポリシーの解錠）
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg, setHomeMsg } from './ui/ui-render.js';
+import { syncMobileActionBar } from './ui/mobile-action-bar.js'; // ★モバイルUI M1★ 下部操作バー
 import { isPcUi } from './ui/pc/ui-mode.js';
 import {
   actionStartGame,
@@ -292,6 +293,7 @@ window.submitUnoPlay = async () => {
     setPendingUnoIdx(idx);
     document.getElementById('cpick')?.classList.add('show');
     resetUnoSelection();
+    syncMobileActionBar(); // ★モバイルUI M1★ 下部バーの中身が変わったので表示を取り直す
     return;
   }
 
@@ -327,6 +329,7 @@ window.sayUno = async () => {
 // --- 親の権限 ---
 window.showParentColorPick = () => {
   document.getElementById('parent-cpick')?.classList.add('show');
+  syncMobileActionBar(); // ★モバイルUI M1★ 下部バーの中身が変わったので表示を取り直す
 };
 
 window.pickParentColor = async (color) => {

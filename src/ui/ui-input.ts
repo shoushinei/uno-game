@@ -119,6 +119,7 @@ function updateTrumpPlayButton(): void {
     : `${selectedTrumpIds.length}枚のトランプを出す`;
 }
 
+
 // ----------------------------------------
 // トランプ手札の DOM 選択状態をリアルタイム更新する
 // （Firebase を使わずに即時反映させる）
