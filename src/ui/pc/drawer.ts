@@ -10,6 +10,7 @@
 
 import { countUnoActivePlayers } from '../../logic/uno-logic.js';
 import { areReactionsOff } from './reaction-menu.js';
+import { isSoundOn } from '../../audio/audio-engine.js';
 
 const LS_OPEN_KEY = 'pcgDrawerOpen';
 const LS_TAB_KEY = 'pcgDrawerTab';
@@ -105,10 +106,14 @@ export function renderDrawerHtml(g: any): string {
   `;
 
   const body = tab === 'log' ? _logTabHtml(g) : _rulesTabHtml(g);
-  // タブに依らず常時表示する設定フッター（全リアクション表示ON/OFF＋バグ報告）
+  // タブに依らず常時表示する設定フッター（効果音ON/OFF＋全リアクション表示ON/OFF＋バグ報告）
   const off = areReactionsOff();
+  const soundOn = isSoundOn();
   const footHtml = `
     <div class="pcg-drawer-foot">
+      <button class="pcg-drawer-setting${soundOn ? '' : ' off'}" data-action="sound-toggle">
+        ${soundOn ? '🔊 効果音 ON' : '🔇 効果音 OFF'}
+      </button>
       <button class="pcg-drawer-setting${off ? ' off' : ''}" data-action="reactions-toggle">
         ${off ? '🔕 リアクション非表示中' : '🔔 リアクション表示中'}
       </button>

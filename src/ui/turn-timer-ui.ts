@@ -11,9 +11,42 @@
 import { state } from '../state.js';
 import { turnKey, duelKey, remainingSec, deadlineActive } from '../logic/turn-timer.js';
 import { currentActorId, mySkillStatus } from '../logic/duel-logic.js';
+import { playSound } from '../audio/audio-engine.js';
 
 /** 残り10秒以下で警告表示に切り替える閾値 */
 const WARN_SEC = 10;
+
+/** 残りこの秒数以下で毎秒カチッと鳴らす（追い込みの秒針） */
+const TICK_SEC = 5;
+
+/**
+ * ★Phase D（効果音）★ 前回鳴らした残り秒数を締め切りごとに覚えておく。
+ * この関数は250msごとに呼ばれるため、同じ秒で何度も鳴らさないよう
+ * 「秒が変わった瞬間」だけ発火させる必要がある。
+ * 締め切りキーが変われば（＝次の手番になれば）自動的に鳴り直す。
+ */
+let lastTickKey: string | null = null;
+let lastTickSec = -1;
+
+/**
+ * 自分の手番の残り時間を音で知らせる。
+ * 他人の手番では鳴らさない（自分が急かされているときだけ意味がある音のため）。
+ */
+function tickSound(key: string | null, remaining: number | null, mine: boolean): void {
+  if (!key || remaining === null || !mine) {
+    if (key === null) { lastTickKey = null; lastTickSec = -1; }
+    return;
+  }
+  if (key !== lastTickKey) { lastTickKey = key; lastTickSec = -1; }
+  if (remaining === lastTickSec) return;
+  const prev = lastTickSec;
+  lastTickSec = remaining;
+  // 手番が始まった直後（prev===-1）は現在値をなぞるだけで鳴らさない。
+  // 途中参加や再描画で、いきなり警告音から始まるのを防ぐ
+  if (prev === -1) return;
+  if (remaining > 0 && remaining <= TICK_SEC) playSound('timer-tick');
+  else if (remaining === WARN_SEC) playSound('timer-warn');
+}
 
 function reducedMotion(): boolean {
   return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -73,6 +106,12 @@ export function renderTurnTimers(room: any): void {
   }
   applyTimer(document.getElementById('turn-timer-classic'), remaining, mine, label);
   applyTimer(document.getElementById('pcg-turn-timer'), remaining, mine, label);
+
+  // ★効果音★ 生きているほうの締め切りで秒針を鳴らす
+  // （対決中は通常手番のキーが null になるので、両方立つことはない）
+  if (duelRemaining !== null) tickSound(`d:${dk}`, duelRemaining, duelMine);
+  else if (remaining !== null) tickSound(`t:${tk}`, remaining, mine);
+  else tickSound(null, null, false);
 
   renderSkillIndicator(room);
 }

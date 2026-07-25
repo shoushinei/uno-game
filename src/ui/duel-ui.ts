@@ -17,6 +17,7 @@ import {
 import { currentActorId, type DuelState, type DuelSide } from '../logic/duel-logic.js';
 import { MAX_ROLLS, DICE_COUNT, CATEGORY_NAMES } from '../logic/yacht-logic.js';
 import { areReactionsOff, isReactorBlocked } from './pc/reaction-menu.js';
+import { playSound, type SoundId } from '../audio/audio-engine.js';
 
 declare global {
   interface Window {
@@ -223,6 +224,28 @@ function spawnFloatingReaction(layer: HTMLElement, emoji: string, name: string):
 /** 現在の startedAt（対決の切り替わり検出用）。演出のprevDiceリセットに使う */
 let prevStartedAt = 0;
 
+/** ★Phase D（効果音）★ 決着音を鳴らし済みの対決（startedAt）。同期のたびに鳴るのを防ぐ */
+let announcedResultFor = 0;
+
+/** 目が変わった＝今この同期で振られた、と判定する */
+function diceChanged(cur: number[] | undefined, prev: number[]): boolean {
+  const d = Array.isArray(cur) ? cur : [];
+  if (d.length === 0) return false;
+  if (d.length !== prev.length) return true;
+  return d.some((v, i) => prev[i] !== v);
+}
+
+/**
+ * 決着音を選ぶ。当事者には自分から見た勝敗を、観戦者には
+ * 「決着がついた」ことを伝えるファンファーレを鳴らす。
+ */
+function duelResultSound(duel: DuelState): SoundId {
+  if (duel.result === 'draw') return 'duel-draw';
+  const isParty = state.myId === duel.attackerId || state.myId === duel.defenderId;
+  if (!isParty) return 'duel-win';
+  return duel.winnerId === state.myId ? 'duel-win' : 'duel-lose';
+}
+
 /** room 同期のたびに呼ばれる（app.ts のリスナーから） */
 export function renderDuel(room: any): void {
   const overlay = document.getElementById('duel-overlay');
@@ -235,6 +258,7 @@ export function renderDuel(room: any): void {
     keep.clear(); keepKey = '';
     prevDice = { attacker: [], defender: [] };
     prevStartedAt = 0;
+    announcedResultFor = 0;
     prevReactionTs = null; // 次に開いたとき過去分を再生しないようリセット
     return;
   }
@@ -242,9 +266,23 @@ export function renderDuel(room: any): void {
   const key = `${duel.startedAt}:${duel.turn}`;
   if (key !== keepKey) { keep.clear(); keepKey = key; }
   // ★Step 4★ 別の対決に切り替わったら転がり演出の基準をリセット
-  if (duel.startedAt !== prevStartedAt) {
+  const isNewDuel = duel.startedAt !== prevStartedAt;
+  if (isNewDuel) {
     prevDice = { attacker: [], defender: [] };
     prevStartedAt = duel.startedAt;
+  }
+
+  // ★Phase D（効果音）★ prevDice はこの関数の末尾で更新されるので、
+  // ここではまだ「前回の同期時点の目」が入っている＝差分で振り直しを検知できる
+  if (isNewDuel) {
+    playSound('duel-start');
+  } else if (diceChanged(duel.attacker?.dice, prevDice.attacker) ||
+             diceChanged(duel.defender?.dice, prevDice.defender)) {
+    playSound('dice-roll');
+  }
+  if (duel.stage === 'done' && announcedResultFor !== duel.startedAt) {
+    announcedResultFor = duel.startedAt;
+    playSound(duelResultSound(duel));
   }
 
   lastNames = Object.fromEntries((room.players ?? []).map((p: any) => [p.id, p.name]));

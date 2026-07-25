@@ -27,6 +27,7 @@ import { renderDuel } from './ui/duel-ui.js'; // ★ヨットモード Step 2★
 import { renderTurnTimers } from './ui/turn-timer-ui.js'; // ★持ち時間★ 手番カウントダウン表示
 import './ui/bug-report-ui.js'; // ★バグ報告★ モーダル（openBugReport 等）を登録する
 import { installErrorCapture } from './bug-report.js'; // ★バグ報告★ エラー履歴の収集
+import { initAudio } from './audio/audio-engine.js'; // ★Phase D★ 効果音（自動再生ポリシーの解錠）
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg, setHomeMsg } from './ui/ui-render.js';
 import { isPcUi } from './ui/pc/ui-mode.js';
 import {
@@ -223,6 +224,10 @@ startAbsentRunner();
 
 // ★バグ報告★ エラー履歴の収集を開始（報告に直近のエラーを自動添付するため）
 installErrorCapture();
+
+// ★Phase D（効果音）★ ブラウザは操作前の自動再生を禁止するため、最初の
+// クリック／キー入力で AudioContext を解錠する。それまでは静かに無音。
+initAudio();
 
 // ★持ち時間★ 手番カウントダウンの秒表示を更新する（全体は再描画せず対象要素
 // だけ触る軽い更新）。同期が来ない全人間・全員静観の局面でも数字が進む。

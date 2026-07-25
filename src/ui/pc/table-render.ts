@@ -63,6 +63,9 @@ import {
   DIRECTED_COOLDOWN_MS,
 } from './reaction-menu.js';
 import { canChallenge } from '../../logic/duel-logic.js';
+// ★Phase D（効果音）★ 演出の導出結果をそのまま音にも流用する
+import { soundForEffect } from '../../audio/sound-spec.js';
+import { playSound, playSoundSequence, toggleSound } from '../../audio/audio-engine.js';
 
 declare global {
   interface Window {
@@ -326,6 +329,9 @@ function _runEffects(room: any, g: any, players: Player[], curId: string | undef
 
   prevSnap = snap;
   if (descs.length > 0) {
+    // ★効果音★ 演出キューは順次再生（前の演出の完了を待つ）だが、音まで
+    // 待たせると数秒遅れて鳴って違和感が出る。音は導出できた時点で先に流す。
+    playSoundSequence(descs.map(soundForEffect));
     enqueueEffects(descs, d => playEffect(d, players, state.myId));
   }
 
@@ -337,6 +343,9 @@ function _runEffects(room: any, g: any, players: Player[], curId: string | undef
     const iFinishedNow = (g.rankings || []).some((r: { id: string }) => r.id === state.myId);
     if (curId === state.myId && !iFinishedNow) {
       flashMyTurn();
+      // 画面から目を離していても自分の番に気づけるよう、ここだけは音も出す
+      // （他人の手番は毎ターン鳴ってうるさいので無音のまま）
+      playSound('my-turn');
     } else {
       flashTurnArrival(curId, state.myId);
     }
@@ -393,9 +402,14 @@ function _runReactionEffects(room: any): void {
           if (r.targetId === state.myId) {
             const fromName = lastRoom?.players?.find((p: Player) => p.id === id)?.name ?? '？';
             playHitToast(r.emoji, fromName);
+            // 自分が投げられた側だけ鈍い着弾音。他人同士の投擲は軽いポップに留める
+            playSound('hit');
+          } else {
+            playSound('reaction');
           }
         } else {
           playReaction(r.emoji, id, state.myId);
+          playSound('reaction');
         }
       }
     }
@@ -687,6 +701,10 @@ async function _handleAction(action: string, target: HTMLElement): Promise<void>
     case 'reactions-toggle':
       // 全リアクション表示ON/OFF（引き出しパネルの設定トグル）
       toggleReactionsOff();
+      break;
+    case 'sound-toggle':
+      // ★Phase D★ 効果音ON/OFF（ONにした瞬間だけ確認音が鳴る）
+      toggleSound();
       break;
     case 'drawer-toggle':
       toggleDrawer();
