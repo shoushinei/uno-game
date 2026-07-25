@@ -414,3 +414,237 @@
   70%  { transform:translate(-50%,-50%) scale(1.0); opacity:1; }
   100% { transform:translate(-50%,-60%) scale(0.6); opacity:0; }
 }
+
+/* ============================================================
+   ★モバイルUI M2★ 5層 100dvh レイアウト（従来UI #s-game）
+
+   縦スクロールを撤廃し、画面を5つのゾーンに固定する:
+     ①ステータス ②他プレイヤー ③場（唯一の可変） ④手札 ⑤操作バー
+   手札を横スクロールにすることでトランプ13枚が4行→1行になり、
+   実測で約200px を場に回せた。
+
+   設計原則: 言葉で説明せず、位置・色・マークで伝える。
+   （ラベル→上下の位置 / 現在の色→フェルトの色 / 回転方向→環の矢じり）
+
+   ※ .field-row / .hand-section / .my-hands-area などの旧クラスは
+     リプレイ画面 (replay/render.ts) がまだ使っているため残してある。
+   ============================================================ */
+#s-game.active {
+  padding: 0;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: hidden;
+  position: relative;   /* ☰シートの位置基準 */
+}
+
+/* ---- ① ステータスバー ---- */
+.mg-status {
+  flex: none;
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 8px;
+  background: var(--color-background-primary, #fff);
+  border-bottom: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+}
+.mg-status .tb {
+  flex: 1 1 auto; min-width: 0; margin: 0;
+  font-size: 11px; padding: 6px 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mg-status .turn-timer {
+  flex: none; margin: 0; padding: 4px 9px; font-size: 12px; border-width: 1.5px;
+}
+.mg-iconbtn {
+  flex: none; width: 42px; height: 42px; border-radius: 10px;
+  border: 1px solid var(--color-border-secondary, rgba(0,0,0,.15));
+  background: var(--color-background-secondary, #f5f5f5);
+  color: var(--color-text-primary);
+  font-size: 17px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.mg-iconbtn:active { transform: scale(0.94); }
+
+/* ---- ② 他プレイヤー（横スクロール） ---- */
+.mg-players {
+  flex: none;
+  display: flex; flex-wrap: nowrap; justify-content: flex-start;
+  gap: 6px; margin: 0; padding: 7px 8px;
+  overflow-x: auto; overflow-y: hidden;
+  background: var(--color-background-primary, #fff);
+  border-bottom: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+  scrollbar-width: none;
+}
+.mg-players::-webkit-scrollbar { display: none; }
+.mg-players .op { flex: none; }
+/* 横スクロール領域は overflow-y も切られるため、はみ出す位置のバッジを内側へ寄せる */
+.mg-players .react-badge { top: -2px; right: -2px; width: 24px; height: 24px; font-size: 14px; }
+
+/* ---- ③ 場（唯一の可変ゾーン・フェルトの色＝現在のUNOの色） ---- */
+.mg-field {
+  flex: 1 1 auto; min-height: 0;
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  padding: 10px;
+  /* 色が未確定のあいだは従来の緑フェルト */
+  background: radial-gradient(ellipse at center, #2a5a45 0%, #17392a 74%);
+  box-shadow: inset 0 0 46px rgba(0,0,0,.5);
+  transition: background .4s ease, box-shadow .4s ease;
+}
+/* 暗く沈めた色フェルト。白いトランプも派手なUNOも上で埋もれない明度に抑える */
+.mg-field.c-red {
+  background: radial-gradient(ellipse at center, #6e2b26 0%, #431a17 74%);
+  box-shadow: inset 0 0 0 3px rgba(231,76,60,.62), inset 0 0 46px rgba(0,0,0,.5);
+}
+.mg-field.c-blue {
+  background: radial-gradient(ellipse at center, #234b64 0%, #12293f 74%);
+  box-shadow: inset 0 0 0 3px rgba(41,128,185,.68), inset 0 0 46px rgba(0,0,0,.5);
+}
+.mg-field.c-green {
+  background: radial-gradient(ellipse at center, #2a5a45 0%, #17392a 74%);
+  box-shadow: inset 0 0 0 3px rgba(39,174,96,.62), inset 0 0 46px rgba(0,0,0,.5);
+}
+.mg-field.c-yellow {
+  background: radial-gradient(ellipse at center, #6d5420 0%, #443210 74%);
+  box-shadow: inset 0 0 0 3px rgba(243,156,18,.7), inset 0 0 46px rgba(0,0,0,.5);
+}
+
+/* 環そのものが回転方向。反時計回りは環ごと左右反転させるので
+   弧も矢じりも必ず逆向きになる */
+.mg-ring {
+  position: absolute; top: 50%; left: 50%;
+  width: 196px; height: 196px; margin: -98px 0 0 -98px;
+  pointer-events: none; overflow: visible;
+  transition: transform .35s ease;
+}
+.mg-ring path { fill: none; stroke: rgba(255,255,255,.3); stroke-width: 2.5; stroke-linecap: round; }
+.mg-ring polygon { fill: rgba(255,255,255,.5); }
+.mg-ring.ccw { transform: scaleX(-1); }
+
+/* 場のカードは環より前面へ */
+.mg-field .trump-field { position: relative; z-index: 1; min-height: 0; margin: 0; }
+.mg-field .uno-field-card { position: relative; z-index: 1; }
+.mg-field .trump-empty { color: rgba(255,255,255,.72); }
+
+/* 角の情報（親・発動中ルール・ペナルティ）はフェルトの上に重ねる */
+.mg-field .parent-badge {
+  position: absolute; top: 6px; right: 8px; z-index: 2; margin: 0;
+  color: #ffd76a; background: rgba(0,0,0,.34); border-color: rgba(255,215,106,.35);
+}
+.mg-field .trump-rule-status {
+  position: absolute; top: 6px; left: 8px; z-index: 2; margin: 0;
+  max-width: 60%; justify-content: flex-start;
+}
+.mg-field .gmsg {
+  position: absolute; left: 8px; right: 8px; bottom: 6px; z-index: 2; margin: 0;
+  font-size: 11px; background: rgba(0,0,0,.4); color: #ffb3a7; border-color: transparent;
+}
+
+/* ---- ④ 自分の手札（横スクロールの1行×2段・文字なし） ---- */
+.mg-hands {
+  flex: none;
+  background: var(--color-background-primary, #fff);
+  border-top: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+}
+.mg-hrow { position: relative; padding: 4px 0; }
+.mg-hrow + .mg-hrow { border-top: 1px solid var(--color-border-tertiary, rgba(0,0,0,.08)); }
+/* 左端の赤帯＝いまこの行が操作対象、という唯一の印 */
+.mg-hrow::before {
+  content: ''; position: absolute; left: 0; top: 5px; bottom: 5px; width: 3px;
+  background: #e74c3c; border-radius: 0 3px 3px 0;
+  opacity: 0; transition: opacity .2s;
+}
+.mg-hrow.active::before { opacity: 1; }
+.mg-hrow:not(.active) { background: var(--color-background-secondary, #f4f5f4); }
+.mg-hrow:not(.active) .trump-hand,
+.mg-hrow:not(.active) .hc { opacity: .45; }
+.mg-hrow .trump-hand,
+.mg-hrow .hc {
+  flex-wrap: nowrap; justify-content: flex-start;
+  overflow-x: auto; overflow-y: hidden;
+  /* 選択で持ち上がるぶんの余白を上に確保する（切れないように） */
+  padding: 9px 8px 2px;
+  scrollbar-width: none;
+}
+.mg-hrow .trump-hand::-webkit-scrollbar,
+.mg-hrow .hc::-webkit-scrollbar { display: none; }
+/* 横スクロール内では大きく持ち上げると切れるので控えめにする */
+.mg-hrow .trump-hand-card.selected,
+.mg-hrow .hcd.selected { transform: translateY(-7px); }
+.mg-hrow .hand-done { padding: 14px 0; }
+
+/* ---- ⑤ 案内の一行（何をすべきか＋手札の枚数） ---- */
+.mg-note {
+  flex: none;
+  font-size: 11px; line-height: 1.4; text-align: center;
+  padding: 5px 10px 0;
+  color: var(--color-text-secondary);
+  background: var(--color-background-primary, #fff);
+}
+.mg-note:empty { display: none; }
+
+/* M2ではゾーンが固定になり画面自体がスクロールしないため、
+   M1で入れた sticky は不要（同じ位置に留まる） */
+#s-game.active #mgame-bar { position: static; flex: none; }
+
+/* ---- ☰ メニューシート ---- */
+.mg-scrim {
+  position: absolute; inset: 0; z-index: 50;
+  background: rgba(10,18,14,.45);
+  opacity: 0; pointer-events: none; transition: opacity .2s ease;
+}
+.mg-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 51;
+  max-height: 86%; overflow-y: auto;
+  padding: 8px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+  background: var(--color-background-primary, #fff);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -8px 30px rgba(0,0,0,.28);
+  transform: translateY(102%);
+  transition: transform .26s cubic-bezier(.32,.72,0,1);
+}
+#s-game.menu-open .mg-scrim { opacity: 1; pointer-events: auto; }
+#s-game.menu-open .mg-sheet { transform: translateY(0); }
+.mg-grab {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--color-border-secondary, rgba(0,0,0,.2));
+  margin: 2px auto 8px;
+}
+.mg-sheet-label {
+  font-size: 10px; letter-spacing: .1em; font-weight: 700;
+  color: var(--color-text-tertiary); margin: 12px 0 6px;
+}
+.mg-sheet .react-row { margin: 0; }
+.mg-sheet .glog { max-height: 150px; margin: 0; width: 100%; }
+.mg-sheet .phase-indicator,
+.mg-sheet .turn-order { margin: 0 0 6px; }
+.mg-sheet-actions { display: flex; flex-direction: column; gap: 8px; }
+.mg-sheet-actions .btn { width: 100%; max-width: none; margin: 0; min-height: 46px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-field, .mg-ring, .mg-sheet, .mg-scrim, .mg-hrow::before { transition: none; }
+}
+
+/* ---- M2の微調整 ---- */
+/* 100dvhぴったりの画面では、共通フェードの縦移動6pxが一瞬だけ
+   ページを6pxスクロール可能にしてしまう。ゲーム画面だけ透明度のみにする */
+#s-game.active { animation: fadeInFlat 0.2s ease; }
+@keyframes fadeInFlat { from { opacity: 0; } to { opacity: 1; } }
+
+/* ②のチップは枚数を横並びにして薄くする（縦を場に回すため） */
+.mg-players .op { padding: 4px 8px; min-width: 66px; }
+.mg-players .on { font-size: 10.5px; margin-bottom: 1px; max-width: 76px; }
+.mg-players .oc { flex-direction: row; gap: 6px; }
+.mg-players .trump-cnt, .mg-players .uno-cnt { font-size: 10px; }
+.mg-players .op-title { font-size: 9px; }
+.mg-players .auto-badge { font-size: 9px !important; padding: 0 4px !important; margin-top: 1px !important; }
+.mg-players .op.cur { transform: none; box-shadow: 0 0 0 1.5px #e74c3c; }
+
+/* ④の行の余白を詰める */
+.mg-hrow { padding: 2px 0; }

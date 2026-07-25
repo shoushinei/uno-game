@@ -131,111 +131,79 @@
 <!-- =====================================================
      ゲーム画面
      ===================================================== -->
-<div id="s-game" class="screen" style="padding:10px 8px">
-  <div class="ga">
+<!-- =====================================================
+     ゲーム画面（モバイル・従来UI）
 
-    <!-- ヘッダー -->
-    <div class="gh">
-      <div id="tbnr" class="tb wait">読み込み中...</div>
-      <button class="btn sm" onclick="openBugReport()" title="バグを報告" style="margin-right:6px;">🐛</button>
-      <button class="btn sm" id="monkey-toggle-btn" onclick="toggleMonkeyPlay()" style="background:#ff9800; margin-right:6px;">🐒 自動ON</button>
-      <button class="btn sm" onclick="leaveGame()">退室</button>
-    </div>
+     ★モバイルUI M2★ 5層の 100dvh レイアウト。
+     ①ステータス ②他プレイヤー ③場（可変） ④自分の手札 ⑤操作バー
+     縦スクロールを撤廃し、手札は横スクロールで縦を節約する。
 
-    <!-- フェイズインジケーター -->
-    <div id="phase-indicator" class="phase-indicator">
-      <span class="phase-idle">① 🃏 トランプ</span>
-      <span class="phase-arrow">→</span>
-      <span class="phase-idle">② 🎴 UNO</span>
-    </div>
+     設計原則: 言葉で説明せず、位置・色・マークで伝える。
+      - 「トランプの場／UNOの場」ラベルなし → 上下の位置で示す（PC UIと同じ）
+      - 「現在の色：赤」なし              → 場のフェルトの色そのもので示す
+      - 「⟳ 時計回り」なし                → カードを囲む環の矢じりで示す
+      - 手札の行ラベル・枚数なし          → 左端の赤帯＋⑤上の案内一行に集約
+     ===================================================== -->
+<div id="s-game" class="screen">
 
-    <!-- ★持ち時間★ 手番のカウントダウン（turn-timer-ui.ts が更新） -->
+  <!-- ① ステータスバー -->
+  <div class="mg-status">
+    <div id="tbnr" class="tb wait">読み込み中...</div>
     <div id="turn-timer-classic" class="turn-timer" style="display:none"></div>
+    <button class="mg-iconbtn" id="mg-react-btn" onclick="openMobileMenu('react')" title="リアクション">😀</button>
+    <button class="mg-iconbtn" onclick="openMobileMenu()" title="メニュー">☰</button>
+  </div>
 
-    <!-- 手番の順番・回転方向インジケーター -->
-    <div id="turn-order" class="turn-order"></div>
+  <!-- ② 他プレイヤー（横スクロール） -->
+  <div class="ops mg-players" id="opl"></div>
 
-    <!-- 他プレイヤー -->
-    <div class="ops" id="opl"></div>
+  <!-- ③ 場（唯一の可変ゾーン。フェルトの色＝現在のUNOの色） -->
+  <div class="mg-field" id="mg-field">
+    <!-- 環そのものが回転方向。反転は環ごと scaleX(-1) するので必ず正しい向きになる -->
+    <svg class="mg-ring" id="mg-ring" viewBox="0 0 200 200" aria-hidden="true">
+      <path d="M 15.4 69.2 A 90 90 0 0 1 184.6 69.2" />
+      <path d="M 184.6 130.8 A 90 90 0 0 1 15.4 130.8" />
+      <polygon points="188.4,79.5 179.0,71.3 190.2,67.2" />
+      <polygon points="11.6,120.5 21.0,128.7 9.8,132.9" />
+    </svg>
 
-    <!-- フィールド（トランプ + UNO 横並び） -->
-    <div class="field-row">
+    <div id="parent-badge" class="parent-badge" style="display:none">👑 親</div>
 
-      <!-- トランプの場 -->
-      <div class="field-box">
-        <p class="field-label">🃏 トランプの場</p>
-        <div id="parent-badge" class="parent-badge" style="display:none">👑 親</div>
-        <div id="trump-field" class="trump-field">
-          <div class="trump-empty">場は空<br><small>何でも出せる</small></div>
-        </div>
-        <p style="font-size:10px;color:var(--color-text-tertiary);margin-top:4px;text-align:center">
-          3＜4＜…＜A＜2＜🃏
-        </p>
-      </div>
+    <!-- トランプ＝上 -->
+    <div id="trump-field" class="trump-field">
+      <div class="trump-empty">場は空<br><small>何でも出せる</small></div>
+    </div>
 
-      <!-- UNOの場 -->
-      <div class="field-box">
-        <p class="field-label">🎴 UNOの場</p>
-        <div id="current-color" class="current-color-badge">現在の色</div>
-        <div id="uno-field" class="uno-field-card tc r">
-          <span class="sym" id="uf-sym"></span>
-          <span id="uf-val">?</span>
-          <span class="sym br" id="uf-sym2"></span>
-        </div>
-      </div>
-
+    <!-- UNO＝下 -->
+    <div id="uno-field" class="uno-field-card tc r">
+      <span class="sym" id="uf-sym"></span>
+      <span id="uf-val">?</span>
+      <span class="sym br" id="uf-sym2"></span>
     </div>
 
     <!-- 累積ペナルティ警告 -->
     <div id="penalty-warn" class="gmsg" style="display:none"></div>
+  </div>
 
-    <!-- ゲームログ -->
-    <div class="glog" id="glog"></div>
-
-    <!-- 自分の手札エリア -->
-    <div class="my-hands-area">
-
-      <!-- ①トランプ手札 -->
-      <div class="hand-section">
-        <div class="hand-section-title">
-          ① 🃏 あなたのトランプ手札（<span id="trump-cnt">0</span>枚）
-        </div>
-        <div class="trump-hand" id="my-trump-hand">
-          <div class="hand-done" style="color:var(--color-text-tertiary)">読み込み中...</div>
-        </div>
-        <!-- ★モバイルUI M1★ 操作ボタンは画面下部の #mgame-bar へ集約した -->
+  <!-- ④ 自分の手札（横スクロールの1行×2段。ラベルも枚数も置かない）
+       いま操作できる行は左端の赤帯（.mg-hrow.active）だけで示す -->
+  <div class="mg-hands">
+    <div class="mg-hrow" id="mg-row-trump">
+      <div class="trump-hand" id="my-trump-hand">
+        <div class="hand-done" style="color:var(--color-text-tertiary)">読み込み中...</div>
       </div>
-
-      <!-- ②UNO手札 -->
-      <div class="hand-section" style="margin-top:10px">
-        <div class="hand-section-title">
-          ② 🎴 あなたのUNO手札（<span id="uno-cnt-my">0</span>枚）
-        </div>
-        <div class="hc" id="my-uno-hand">
-          <div class="hand-done" style="color:var(--color-text-tertiary)">読み込み中...</div>
-        </div>
-        <!-- ★モバイルUI M1★ 操作ボタンは画面下部の #mgame-bar へ集約した -->
+    </div>
+    <div class="mg-hrow" id="mg-row-uno">
+      <div class="hc" id="my-uno-hand">
+        <div class="hand-done" style="color:var(--color-text-tertiary)">読み込み中...</div>
       </div>
-
     </div>
+  </div>
 
-    <!-- リアクション -->
-    <div class="react-row">
-      <button class="react-btn" data-emoji="😂" onclick="sendReaction('😂')">😂</button>
-      <button class="react-btn" data-emoji="😭" onclick="sendReaction('😭')">😭</button>
-      <button class="react-btn" data-emoji="😡" onclick="sendReaction('😡')">😡</button>
-      <button class="react-btn" data-emoji="👍" onclick="sendReaction('👍')">👍</button>
-      <button class="react-btn" data-emoji="👎" onclick="sendReaction('👎')">👎</button>
-      <button class="react-btn" data-emoji="❤️" onclick="sendReaction('❤️')">❤️</button>
-      <button class="react-btn" data-emoji="👏" onclick="sendReaction('👏')">👏</button>
-      <button class="react-btn" data-emoji="😱" onclick="sendReaction('😱')">😱</button>
-      <button class="react-btn" data-emoji="😴" onclick="sendReaction('😴')">😴</button>
-      <button class="react-btn" data-emoji="🤔" onclick="sendReaction('🤔')">🤔</button>
-      <button class="react-btn" data-emoji="👀" onclick="sendReaction('👀')">👀</button>
-      <button class="react-btn" data-emoji="🎉" onclick="sendReaction('🎉')">🎉</button>
-    </div>
+  <!-- ⑤ 操作バーの上の案内一行（何をすべきか＋手札の枚数をここに集約） -->
+  <div class="mg-note" id="mg-note"></div>
 
-    <!-- =====================================================
+  <!-- =====================================================
          ★モバイルUI M1★ 操作バー（画面下部に貼り付く）
 
          これ以前は「出す」「パス」等が各手札の直下にあり、375x640 の実機で
@@ -297,7 +265,54 @@
       </div>
     </div>
 
+  <!-- =====================================================
+       ★モバイルUI M2★ ☰メニュー（下から出るシート）
+
+       盤面から追い出した「常時は要らない情報と操作」の置き場。
+       ここに入れた要素は描画関数がIDで書き込み続けるため、
+       ui-render.ts 側の変更は不要（#glog / #turn-order /
+       #phase-indicator / #current-color）。
+       ===================================================== -->
+  <div class="mg-scrim" id="mg-scrim" onclick="closeMobileMenu()"></div>
+  <div class="mg-sheet" id="mg-sheet">
+    <div class="mg-grab"></div>
+
+    <div class="mg-sheet-label">リアクション</div>
+    <div class="react-row">
+      <button class="react-btn" data-emoji="😂" onclick="sendReaction('😂')">😂</button>
+      <button class="react-btn" data-emoji="😭" onclick="sendReaction('😭')">😭</button>
+      <button class="react-btn" data-emoji="😡" onclick="sendReaction('😡')">😡</button>
+      <button class="react-btn" data-emoji="👍" onclick="sendReaction('👍')">👍</button>
+      <button class="react-btn" data-emoji="👎" onclick="sendReaction('👎')">👎</button>
+      <button class="react-btn" data-emoji="❤️" onclick="sendReaction('❤️')">❤️</button>
+      <button class="react-btn" data-emoji="👏" onclick="sendReaction('👏')">👏</button>
+      <button class="react-btn" data-emoji="😱" onclick="sendReaction('😱')">😱</button>
+      <button class="react-btn" data-emoji="😴" onclick="sendReaction('😴')">😴</button>
+      <button class="react-btn" data-emoji="🤔" onclick="sendReaction('🤔')">🤔</button>
+      <button class="react-btn" data-emoji="👀" onclick="sendReaction('👀')">👀</button>
+      <button class="react-btn" data-emoji="🎉" onclick="sendReaction('🎉')">🎉</button>
+    </div>
+
+    <div class="mg-sheet-label">いまの状況</div>
+    <div id="phase-indicator" class="phase-indicator">
+      <span class="phase-idle">① 🃏 トランプ</span>
+      <span class="phase-arrow">→</span>
+      <span class="phase-idle">② 🎴 UNO</span>
+    </div>
+    <div id="turn-order" class="turn-order"></div>
+    <div id="current-color" class="current-color-badge">現在の色</div>
+
+    <div class="mg-sheet-label">ログ</div>
+    <div class="glog" id="glog"></div>
+
+    <div class="mg-sheet-label">その他</div>
+    <div class="mg-sheet-actions">
+      <button class="btn sm" id="monkey-toggle-btn" onclick="toggleMonkeyPlay()" style="background:#ff9800">🐒 自動ON</button>
+      <button class="btn sm" onclick="openBugReport()">🐛 バグを報告</button>
+      <button class="btn sm" onclick="leaveGame()">🚪 退室する</button>
+    </div>
   </div>
+
 </div>
 
 

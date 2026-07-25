@@ -16,6 +16,7 @@ import type { GameState, Player, UnoCard } from '../logic/types';
 import type { TrumpCard, TrumpEffect } from '../logic/trump-logic.js';
 import { isPcUi } from './pc/ui-mode.js';
 import { syncMobileActionBar } from './mobile-action-bar.js'; // ★モバイルUI M1★ 下部操作バー
+import { renderMobileField, renderMobileHands, renderMobileNote } from './mobile-layout.js'; // ★モバイルUI M2★ 5層レイアウト
 import { renderGamePC } from './pc/table-render.js';
 import { syncAccountBar } from './account-bar.js';
 
@@ -244,6 +245,19 @@ export function renderGame(room: any): void {
   renderUnoHand(myUno, canActUno, g, iFinished, myUnoDone);
 
   _renderActionButtons(g, isMyTurn, phase, iFinished, myTrumpDone, myUnoDone);
+
+  // ★モバイルUI M2★ 文字ラベルの代わりに色・形・一行で伝える部分
+  // （場のフェルト色＝現在のUNOの色 / 環＝回転方向 / 赤帯＝操作対象の手札）
+  renderMobileField(g.unoCurrentColor, g.dir);
+  renderMobileHands(canActTrump, canActUno);
+  renderMobileNote({
+    isMyTurn, iFinished, phase,
+    trumpCount: myTrump.length,
+    unoCount: myUno.length,
+    penaltyAccum: g.unoPenaltyAccum || 0,
+    needsUnoCall: myUno.length <= 2 && myUno.length > 0 && !(g.unoSaid && g.unoSaid[state.myId]),
+    myRank: iFinished ? myRankIdx + 1 : null,
+  });
 
   document.getElementById('cpick')?.classList.remove('show');
 
