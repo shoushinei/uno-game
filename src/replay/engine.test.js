@@ -16,7 +16,8 @@
 import { describe, it, expect } from 'vitest';
 import { ReplayEngine } from './engine.js';
 import { applyTrumpPlay, applyTrumpPass } from '../logic/trump-logic.ts';
-import { applyUnoDraw } from '../logic/uno-logic.js';
+import { applyUnoDraw, applyUnoPlay } from '../logic/uno-logic.js';
+import { applyDuelPenalty } from '../logic/duel-logic.ts';
 import { checkAllPassed } from '../logic/game-rules.js';
 import { makeActionLogEntry } from './log.js';
 
@@ -215,5 +216,119 @@ describe('ReplayEngine', () => {
     });
     expect(engine.stepForward()).toBe(false);
     expect(engine.currentGame).toEqual(initialState);
+  });
+});
+
+// ========================================
+// ★ヨットモード★ 対決の再生
+//
+// 対決でゲーム状態が変わるのは「決着を閉じた瞬間（敗者がUNOを引く）」だけ。
+// これが actionLog に記録されていないと、再生時に敗者の手札が4枚少ないまま
+// となり、以降の unoPlay(cardIdx) が別のカードを指してリプレイ全体がズレる。
+// ここでも「本物の applyDuelPenalty を呼んだ結果」と再生結果を突き合わせる。
+// ========================================
+describe('ReplayEngine — ヨット対決（yachtDuel）', () => {
+  const YD = (over = {}) => ({
+    attackerId: 'p1', defenderId: 'p2', result: 'attacker',
+    loserId: 'p2', penalty: 4,
+    attackerDice: [6, 6, 6, 6, 6], defenderDice: [1, 2, 3, 5, 5],
+    attackerBest: { category: 'yacht', score: 50 },
+    defenderBest: { category: '5', score: 10 },
+    ...over,
+  });
+
+  /** 山札を潤沢に持たせた初期状態（reshuffle=乱数を踏まないようにする） */
+  function stateWithPile() {
+    const s = makeInitialState();
+    s.unoDrawPile = Array.from({ length: 12 }, (_, i) => ({ c: 'green', t: 'num', v: String(i % 10) }));
+    return s;
+  }
+
+  it('敗者はUNOを4枚引き、山札もその分減る（本物の適用結果と一致）', () => {
+    const initialState = stateWithPile();
+
+    // 「本物」の進行: applyDuelPenalty を直接呼ぶ（yacht-actions と同じ関数）
+    const real = JSON.parse(JSON.stringify(initialState));
+    applyDuelPenalty(real, 'p2', 'Bob', 4);
+
+    // 再生: yachtDuel エントリ1件を ReplayEngine に流す
+    const actionLog = [makeActionLogEntry('yachtDuel', 'p1', YD())];
+    const engine = new ReplayEngine({
+      version: 1, roomId: 'TEST', players: PLAYERS, initialState, actionLog, savedAt: Date.now(),
+    });
+    engine.stepForward();
+
+    expect(engine.currentGame.unoHands.p2).toEqual(real.unoHands.p2);
+    expect(engine.currentGame.unoHands.p2).toHaveLength(5); // 元1枚 + 4枚
+    expect(engine.currentGame.unoDrawPile).toEqual(real.unoDrawPile);
+    expect(engine.currentGame.unoDrawPile).toHaveLength(8);
+  });
+
+  it('対決の内容と結果がログに残る（役名・点数・勝者）', () => {
+    const initialState = stateWithPile();
+    const engine = new ReplayEngine({
+      version: 1, roomId: 'TEST', players: PLAYERS, initialState,
+      actionLog: [makeActionLogEntry('yachtDuel', 'p1', YD())], savedAt: Date.now(),
+    });
+    engine.stepForward();
+    const log = engine.currentLog.join('\n');
+    expect(log).toContain('ヨット対決');
+    expect(log).toContain('Alice');
+    expect(log).toContain('ヨット50点');
+    expect(log).toContain('Alice の勝ち！');
+    expect(log).toContain('Bob は敗北ペナルティでUNOを4枚引いた！');
+  });
+
+  it('引き分けは誰も引かない（状態が変わらない）', () => {
+    const initialState = stateWithPile();
+    const actionLog = [makeActionLogEntry('yachtDuel', 'p1', YD({ result: 'draw', loserId: null }))];
+    const engine = new ReplayEngine({
+      version: 1, roomId: 'TEST', players: PLAYERS, initialState, actionLog, savedAt: Date.now(),
+    });
+    engine.stepForward();
+    expect(engine.currentGame.unoHands).toEqual(initialState.unoHands);
+    expect(engine.currentGame.unoDrawPile).toEqual(initialState.unoDrawPile);
+    expect(engine.currentLog.join('\n')).toContain('引き分け');
+  });
+
+  it('UNOを上がっていた敗者は4枚引いて復帰する', () => {
+    const initialState = stateWithPile();
+    initialState.unoHands.p2 = []; // p2はUNO側を上がり済み
+    const actionLog = [makeActionLogEntry('yachtDuel', 'p1', YD())];
+    const engine = new ReplayEngine({
+      version: 1, roomId: 'TEST', players: PLAYERS, initialState, actionLog, savedAt: Date.now(),
+    });
+    engine.stepForward();
+    expect(engine.currentGame.unoHands.p2).toHaveLength(4);
+    expect(engine.currentLog.join('\n')).toContain('復帰');
+  });
+
+  it('★退行防止★ 対決後もカード添字がズレない（記録が無いと崩れる箇所）', () => {
+    // 敗者p2が4枚引いた後、p2が「引いた4枚のうちの1枚」を出すシナリオ。
+    // yachtDuel が記録されていないと手札の中身が変わり、同じ cardIdx が
+    // 別のカードを指してしまう＝リプレイが実際と食い違う。
+    const initialState = stateWithPile();
+
+    // 本物の進行
+    const real = JSON.parse(JSON.stringify(initialState));
+    applyDuelPenalty(real, 'p2', 'Bob', 4);
+    const idx = real.unoHands.p2.length - 1;          // 最後に引いたカード
+    const expectedCard = real.unoHands.p2[idx];
+    applyUnoPlay(real, 'p2', idx, null, 'Bob');
+
+    // 再生（yachtDuel あり）
+    const actionLog = [
+      makeActionLogEntry('yachtDuel', 'p1', YD()),
+      makeActionLogEntry('unoPlay', 'p2', { cardIdx: idx, chosenColor: null }),
+    ];
+    const engine = new ReplayEngine({
+      version: 1, roomId: 'TEST', players: PLAYERS, initialState, actionLog, savedAt: Date.now(),
+    });
+    engine.goTo(2);
+
+    // 場に出たカードが本物と一致＝添字がズレていない
+    const top = engine.currentGame.unoDiscardPile[engine.currentGame.unoDiscardPile.length - 1];
+    expect(top).toEqual(expectedCard);
+    expect(engine.currentGame.unoHands.p2).toEqual(real.unoHands.p2);
   });
 });

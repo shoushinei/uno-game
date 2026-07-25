@@ -15,9 +15,10 @@ import { state } from '../state.js';
 import { fbGet, fbUpdate } from '../db.js';
 import {
   newDuel, canChallenge, currentActorId, applyRoll, applyCommit,
+  applyDuelPenalty, DUEL_PENALTY_CARDS,
   type DuelState,
 } from '../logic/duel-logic.js';
-import { drawUnoCards } from '../logic/uno-logic.js';
+import { makeActionLogEntry, appendActionLog } from '../replay/log.js';
 import type { GameState } from '../logic/types.js';
 
 export interface YachtResult { ok?: boolean; error?: string }
@@ -107,15 +108,34 @@ export async function actionYachtClose(): Promise<YachtResult> {
   const g = room.game as GameState | null;
 
   if (loserId && g && room.state === 'playing') {
-    // UNO側を上がっていた敗者は、4枚追加された時点で自然に「未上がり」へ復帰する
-    const wasOut = (g.unoHands?.[loserId] ?? []).length === 0;
-    drawUnoCards(g, loserId, 4);
-    if (g.unoSaid && g.unoSaid[loserId]) g.unoSaid[loserId] = false; // 宣言状態をリセット
+    // ペナルティ適用は applyDuelPenalty に集約（リプレイ再生側も同じ関数を呼ぶ）
+    const { logMsgs } = applyDuelPenalty(g, loserId, pname(room, loserId));
     updates.game = g;
-    const logs = [...(room.log ?? []), `💥 ${pname(room, loserId)} は敗北ペナルティでUNOを4枚引いた！`];
-    if (wasOut) logs.push(`🔄 ${pname(room, loserId)} がゲームに復帰！`);
-    updates.log = logs.slice(-8);
+    updates.log = [...(room.log ?? []), ...logMsgs].slice(-8);
   }
+
+  // ★リプレイ対応★ 対決でゲーム状態が変わるのはこの瞬間だけなので、
+  // ここで1件だけ actionLog に記録する。これが無いと再生時に敗者の手札が
+  // 4枚少ないままとなり、以降の unoPlay(cardIdx) が別のカードを指して
+  // リプレイ全体がズレてしまう。
+  if (room.state === 'playing') {
+    const nextActionLog = appendActionLog(
+      room,
+      makeActionLogEntry('yachtDuel', duel.attackerId, {
+        attackerId: duel.attackerId,
+        defenderId: duel.defenderId,
+        result: duel.result ?? 'draw',
+        loserId,
+        penalty: DUEL_PENALTY_CARDS,
+        attackerDice: Array.isArray(duel.attacker?.dice) ? duel.attacker.dice : [],
+        defenderDice: Array.isArray(duel.defender?.dice) ? duel.defender.dice : [],
+        attackerBest: duel.attacker?.best ?? null,
+        defenderBest: duel.defender?.best ?? null,
+      })
+    );
+    if (nextActionLog) updates.actionLog = nextActionLog;
+  }
+
   await fbUpdate('rooms/' + state.roomId, updates);
   return { ok: true };
 }

@@ -15,7 +15,7 @@ import {
   actionYachtChallenge, actionYachtRoll, actionYachtCommit, actionYachtClose,
 } from '../actions/yacht-actions.js';
 import { currentActorId, type DuelState, type DuelSide } from '../logic/duel-logic.js';
-import { MAX_ROLLS, DICE_COUNT } from '../logic/yacht-logic.js';
+import { MAX_ROLLS, DICE_COUNT, CATEGORY_NAMES } from '../logic/yacht-logic.js';
 import { areReactionsOff, isReactorBlocked } from './pc/reaction-menu.js';
 
 declare global {
@@ -33,12 +33,8 @@ declare global {
 /** 対決オーバーレイで投げられるリアクション（当事者・観戦者とも使える） */
 const DUEL_REACTION_EMOJIS = ['😂', '😭', '😱', '🔥', '👍', '😎', '🥶', '🎉'] as const;
 
-/** 役IDの表示名 */
-const CATEGORY_NAMES: Record<string, string> = {
-  'yacht': 'ヨット', 'big-straight': 'ビッグストレート', 'small-straight': 'スモールストレート',
-  'full-house': 'フルハウス', 'four-numbers': 'フォーナンバーズ',
-  '1': '1の目', '2': '2の目', '3': '3の目', '4': '4の目', '5': '5の目', '6': '6の目',
-};
+// 役IDの表示名は yacht-logic.ts（純粋層）を唯一の定義元として共有する
+// （リプレイのログ生成でも同じ表示名を使うため）
 const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
 /** 残す目の選択（ローカル状態・手番が切り替わったらリセット） */

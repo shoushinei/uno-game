@@ -9,6 +9,7 @@
 // 防御する（このファイルの関数は常に配列を返す）。
 // ========================================
 import { rollDice, reroll, bestHand, judgeDuel, MAX_ROLLS, DICE_COUNT, type HandScore } from './yacht-logic.js';
+import { drawUnoCards } from './uno-logic.js';
 
 export interface DuelSide {
   dice: number[];
@@ -65,6 +66,33 @@ export function canChallenge(room: any, myId: string, targetId: string): { ok: b
   const ranked = (g.rankings ?? []).some((r: any) => r.id === targetId);
   if (ranked) return { ok: false, reason: '順位が確定した相手には挑めません' };
   return { ok: true };
+}
+
+/** 敗者が引かされるUNOの枚数 */
+export const DUEL_PENALTY_CARDS = 4;
+
+/**
+ * ★リプレイ対応★ 対決の敗北ペナルティをゲーム状態に適用する（破壊的）。
+ *
+ * 本番（yacht-actions の actionYachtClose）とリプレイ再生（replay/engine）の
+ * 両方がこの1つの関数を呼ぶ。こうしないと「再生専用のルール」が二重管理に
+ * なり、実際の対局とリプレイがズレる（既存の apply系関数と同じ設計方針）。
+ *
+ * UNO側を上がっていた敗者は、カードが復活することで自然にゲームへ復帰する
+ * （順位未確定者のみが対象なので rankings は触らない）。UNO宣言状態はリセット。
+ */
+export function applyDuelPenalty(
+  g: any,
+  loserId: string,
+  loserName: string,
+  count: number = DUEL_PENALTY_CARDS
+): { logMsgs: string[]; revived: boolean } {
+  const revived = ((g?.unoHands?.[loserId]) ?? []).length === 0;
+  drawUnoCards(g, loserId, count);
+  if (g.unoSaid && g.unoSaid[loserId]) g.unoSaid[loserId] = false;
+  const logMsgs = [`💥 ${loserName} は敗北ペナルティでUNOを${count}枚引いた！`];
+  if (revived) logMsgs.push(`🔄 ${loserName} がゲームに復帰！`);
+  return { logMsgs, revived };
 }
 
 /** 今この瞬間、誰か1人でも挑戦できる相手が居るか（席のどれかが canChallenge=ok） */

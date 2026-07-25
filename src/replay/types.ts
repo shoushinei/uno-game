@@ -16,7 +16,8 @@ export type ReplayActionType =
   | 'unoDraw'         // UNOを引く
   | 'unoSkip'         // UNO0枚による自動スキップ
   | 'sayUno'          // 「UNO！」宣言
-  | 'pickParentColor'; // 親の権限でUNOの色を変更
+  | 'pickParentColor' // 親の権限でUNOの色を変更
+  | 'yachtDuel';      // ★ヨットモード★ 対決の決着（敗者へのUNO4枚ペナルティを含む）
 
 // ---- 各操作ごとの引数（args）の形 ----
 export interface TrumpPlayArgs { cardIds: string[] }
@@ -36,12 +37,34 @@ export interface UnoPlayArgs {
 export interface UnoDrawArgs { count?: number }
 export interface PickParentColorArgs { color: string }
 
+/**
+ * ★ヨットモード★ 対決決着の記録。
+ * ゲーム状態が実際に変わるのは「決着を閉じた瞬間（敗者がUNOを引く）」だけなので、
+ * 対決1回につきこのエントリ1件を記録する。再生側は loserId と penalty から
+ * applyDuelPenalty を呼んで同じ状態変化を再現する（dice/best は表示用）。
+ */
+export interface YachtDuelArgs {
+  attackerId: string;
+  defenderId: string;
+  result: 'attacker' | 'defender' | 'draw';
+  /** 敗者。引き分けなら null（誰も引かない） */
+  loserId: string | null;
+  /** 敗者が引く枚数（将来変更しても過去のリプレイが正しく再生されるよう記録する） */
+  penalty: number;
+  /** 表示用: 両者の最終ダイスと役 */
+  attackerDice?: number[];
+  defenderDice?: number[];
+  attackerBest?: { category: string; score: number } | null;
+  defenderBest?: { category: string; score: number } | null;
+}
+
 export type ReplayActionArgs =
   | TrumpPlayArgs
   | EmptyArgs
   | UnoPlayArgs
   | UnoDrawArgs
-  | PickParentColorArgs;
+  | PickParentColorArgs
+  | YachtDuelArgs;
 
 /**
  * actionLog の1エントリ。

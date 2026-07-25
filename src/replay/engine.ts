@@ -24,6 +24,8 @@ import {
   applyParentColorChange,
   applyUnoDeclaration,
 } from '../logic/game-rules';
+import { applyDuelPenalty, DUEL_PENALTY_CARDS } from '../logic/duel-logic';
+import { categoryName, diceFaces } from '../logic/yacht-logic';
 import type {
   ReplayActionLogEntry,
   ReplayFile,
@@ -32,6 +34,7 @@ import type {
   TrumpPlayArgs,
   UnoPlayArgs,
   PickParentColorArgs,
+  YachtDuelArgs,
 } from './types';
 
 export class ReplayEngine {
@@ -165,6 +168,30 @@ export class ReplayEngine {
         if (result) {
           if (result.isGameOver) resolveRankingNames(g.rankings, this.players);
           this.appendLog(result.logMsg);
+        }
+        break;
+      }
+      // ★ヨットモード★ 対決の決着。ペナルティ適用は本番と同じ applyDuelPenalty を
+      // 呼ぶ（再生専用ルールを書かない既存方針）。dice/best は表示用。
+      case 'yachtDuel': {
+        const args = entry.args as YachtDuelArgs;
+        const aName = this.playerName(args.attackerId);
+        const dName = this.playerName(args.defenderId);
+        const hand = (best?: { category: string; score: number } | null, dice?: number[]) =>
+          best ? `${diceFaces(dice)} ${categoryName(best.category)}${best.score}点` : '—';
+        const outcome = args.result === 'draw'
+          ? '引き分け'
+          : `${this.playerName(args.result === 'attacker' ? args.attackerId : args.defenderId)} の勝ち！`;
+        this.appendLog(
+          `⚔ ヨット対決: ${aName} ${hand(args.attackerBest, args.attackerDice)}` +
+          ` vs ${dName} ${hand(args.defenderBest, args.defenderDice)} → ${outcome}`
+        );
+        if (args.loserId) {
+          const { logMsgs } = applyDuelPenalty(
+            g, args.loserId, this.playerName(args.loserId),
+            typeof args.penalty === 'number' ? args.penalty : DUEL_PENALTY_CARDS
+          );
+          logMsgs.forEach(m => this.appendLog(m));
         }
         break;
       }

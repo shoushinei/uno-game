@@ -114,6 +114,28 @@ export function bestHand(dice: Dice): HandScore {
 }
 
 /**
+ * 役IDの表示名。UI（duel-ui）とリプレイのログ生成（純粋・DOM非依存）の
+ * どちらからも使うため、ここを唯一の定義元にする。
+ */
+export const CATEGORY_NAMES: Record<string, string> = {
+  'yacht': 'ヨット', 'big-straight': 'ビッグストレート', 'small-straight': 'スモールストレート',
+  'full-house': 'フルハウス', 'four-numbers': 'フォーナンバーズ',
+  '1': '1の目', '2': '2の目', '3': '3の目', '4': '4の目', '5': '5の目', '6': '6の目',
+};
+
+/** 役IDから表示名（未知のIDはそのまま返す） */
+export function categoryName(category: string): string {
+  return CATEGORY_NAMES[category] ?? category;
+}
+
+/** サイコロの目を絵文字面に変換（ログ表示用） */
+export function diceFaces(dice: Dice | null | undefined): string {
+  const faces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+  if (!Array.isArray(dice)) return '';
+  return dice.map(d => faces[d - 1] ?? '?').join('');
+}
+
+/**
  * 勝敗判定。攻撃側スコア vs 守備側スコア。
  * 'attacker' | 'defender' = その側の勝ち / 'draw' = 引き分け（誰も引かない）
  */
