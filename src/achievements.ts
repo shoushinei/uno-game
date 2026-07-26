@@ -30,6 +30,21 @@ export const ACHIEVEMENTS: AchievementMeta[] = [
   { id: 'streak-win-3',   emoji: '🔥', name: '3連勝',             desc: '3連勝する' },
   { id: 'streak-lose-3',  emoji: '💧', name: 'ドンマイ',           desc: '3連敗する（次はきっと勝てる）' },
   { id: 'reaction-first', emoji: '🍅', name: 'ちょっかい',         desc: '対人リアクションをはじめて投げる' },
+
+  // ---- ★M4で追加★ トランプの技 ----
+  { id: 'stairs',         emoji: '🪜', name: '階段名人',           desc: '階段（同じマークの3枚以上の連番）を出す' },
+  { id: 'joker-single',   emoji: '🃏', name: '切り札',             desc: 'ジョーカー単騎で場を流す' },
+  { id: 'spade-three',    emoji: '♠️', name: 'ジョーカー返し',     desc: '♠3でジョーカーを返す' },
+  // ---- UNOの返し ----
+  { id: 'draw-stack',     emoji: '💥', name: 'カウンター',         desc: '相手の+2/+4に+2/+4を重ねて返す' },
+  // ---- ヨットモード ----
+  { id: 'yacht-first',    emoji: '⚔', name: '果たし状',           desc: 'はじめてヨット対決を挑む' },
+  { id: 'yacht-best',     emoji: '🌟', name: 'ヨット！',           desc: 'ヨット対決で5個そろえる（最高役）' },
+  { id: 'yacht-win-3',    emoji: '🎲', name: '賭博師',             desc: 'ヨット対決に通算3回勝つ' },
+  // ---- 積み重ね ----
+  { id: 'parent-color-5', emoji: '🎨', name: '親の威厳',           desc: '親の権限で通算5回色を変える' },
+  { id: 'win-10',         emoji: '🏅', name: '十冠',               desc: '通算10回1位になる' },
+  { id: 'games-50',       emoji: '🏆', name: 'ベテラン',           desc: '通算50ゲームをプレイする' },
 ];
 
 /** 解除済みか＋解除時刻を1件にまとめた表示用の形 */

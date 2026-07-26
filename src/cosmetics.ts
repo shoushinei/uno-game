@@ -40,6 +40,18 @@ export const ICONS: Cosmetic[] = [
   { value: '🌀', unlock: 'revolution' },
   { value: '✂️', unlock: 'eight-cut' },
   { value: '⚡', unlock: 'double-finish' },
+  // ---- ★M4で追加した実績に対応するアイコン ----
+  // 実績の絵文字と重ならないものを選び、「何を達成した人か」が一目で分かるようにする
+  { value: '🪜', unlock: 'stairs' },
+  { value: '🃏', unlock: 'joker-single' },
+  { value: '♠️', unlock: 'spade-three' },
+  { value: '💥', unlock: 'draw-stack' },
+  { value: '⚔', unlock: 'yacht-first' },
+  { value: '🌟', unlock: 'yacht-best' },
+  { value: '🎲', unlock: 'yacht-win-3' },
+  { value: '🎨', unlock: 'parent-color-5' },
+  { value: '🏅', unlock: 'win-10' },
+  { value: '🦁', unlock: 'games-50' },
 ];
 
 /** 称号（すべて実績連動。デフォルトは「なし」） */
@@ -50,6 +62,17 @@ export const TITLES: Cosmetic[] = [
   { value: '革命家', unlock: 'revolution' },
   { value: '8切りの達人', unlock: 'eight-cut' },
   { value: '同時上がりの使い手', unlock: 'double-finish' },
+  // ---- ★M4で追加 ----
+  { value: '階段名人', unlock: 'stairs' },
+  { value: '切り札の使い手', unlock: 'joker-single' },
+  { value: 'ジョーカー返し', unlock: 'spade-three' },
+  { value: 'カウンターの達人', unlock: 'draw-stack' },
+  { value: '果たし状', unlock: 'yacht-first' },
+  { value: 'ヨットの主', unlock: 'yacht-best' },
+  { value: '賭博師', unlock: 'yacht-win-3' },
+  { value: '親の威厳', unlock: 'parent-color-5' },
+  { value: '十冠王', unlock: 'win-10' },
+  { value: 'ベテラン', unlock: 'games-50' },
 ];
 
 /** その装飾が解除されているか（unlock=null は常に true） */

@@ -44,6 +44,22 @@ function isEightCutPlay(cardIds: string[], cardById: CardById): boolean {
   return !isSequence(cards);
 }
 
+/** カードIDの並びを実体に解決する（未知IDは落とす） */
+function resolve(cardIds: unknown, cardById: CardById): { s: string; v: string }[] {
+  const ids = Array.isArray(cardIds) ? cardIds : [];
+  return ids.map((id: string) => cardById[id]).filter((c): c is { s: string; v: string } => !!c);
+}
+
+/** 単騎のジョーカー出しか */
+function isJokerSingle(cards: { s: string; v: string }[]): boolean {
+  return cards.length === 1 && cards[0]!.v === 'JOKER';
+}
+
+/** 単騎の♠3出しか */
+function isSpadeThreeSingle(cards: { s: string; v: string }[]): boolean {
+  return cards.length === 1 && cards[0]!.s === '♠' && cards[0]!.v === '3';
+}
+
 /**
  * 1プレイヤーの、このゲーム内の実績関連シグナルを actionLog から抽出する。
  * - sayUnoCount: このゲームでのUNO宣言回数
@@ -53,29 +69,103 @@ function isEightCutPlay(cardIds: string[], cardById: CardById): boolean {
  *   （上がっている＝finished 前提。最後の trumpPlay と最後の unoPlay が
  *    同一手番＝間に他プレイヤーの操作が挟まっていない、で判定）
  */
+export interface PlayerActions {
+  sayUnoCount: number;
+  revolution: boolean;
+  eightCut: boolean;
+  doubleFinish: boolean;
+  // ---- ★M4で追加★ ----
+  /** 階段（同スート3枚以上の連番）を出した */
+  stairs: boolean;
+  /** ジョーカー単騎で場を流した */
+  jokerSingle: boolean;
+  /** 直前のジョーカー単騎を♠3で返した */
+  spadeThree: boolean;
+  /** 直前のプレイヤーの +2/+4 に +2/+4 を重ねて返した */
+  drawStack: boolean;
+  /** このゲームでヨット対決を自分から挑んだ */
+  yachtChallenged: boolean;
+  /** このゲームで出したヨット対決の最高役が「ヨット」(5個同じ目)だった */
+  yachtBest: boolean;
+  /** このゲームでのヨット対決の勝利数 */
+  yachtWins: number;
+  /** このゲームで親の権限を使った回数 */
+  parentColorCount: number;
+}
+
 export function analyzePlayerActions(
   actionLog: LogEntry[],
   uid: string,
   cardById: CardById,
   finished: boolean
-): { sayUnoCount: number; revolution: boolean; eightCut: boolean; doubleFinish: boolean } {
+): PlayerActions {
   let sayUnoCount = 0;
   let revolution = false;
   let eightCut = false;
+  let stairs = false;
+  let jokerSingle = false;
+  let spadeThree = false;
+  let drawStack = false;
+  let yachtChallenged = false;
+  let yachtBest = false;
+  let yachtWins = 0;
+  let parentColorCount = 0;
   let lastTrumpPlayIdx = -1;
   let lastUnoPlayIdx = -1;
 
+  // 直前の状況を覚えておく（「返した」系の判定に使う）。
+  // 場の状態を復元せずに済むよう、actionLog の並びだけで判断する。
+  let prevTrumpPlay: { by: string; cards: { s: string; v: string }[] } | null = null;
+  let prevUnoDraw2: { by: string } | null = null;
+
   actionLog.forEach((e, i) => {
-    if (e.playerId !== uid) return;
-    if (e.type === 'sayUno') sayUnoCount++;
-    else if (e.type === 'trumpPlay') {
-      const ids = Array.isArray(e.args?.cardIds) ? e.args.cardIds : [];
-      if (ids.length >= 4) revolution = true;
-      if (isEightCutPlay(ids, cardById)) eightCut = true;
-      lastTrumpPlayIdx = i;
-    } else if (e.type === 'unoPlay') {
-      lastUnoPlayIdx = i;
+    // ---- 全員ぶんを見る必要があるもの（自分が defender 側になりうる） ----
+    if (e.type === 'yachtDuel') {
+      const a: any = e.args ?? {};
+      if (a.attackerId === uid) yachtChallenged = true;
+      const isParty = a.attackerId === uid || a.defenderId === uid;
+      if (isParty) {
+        const mine = a.attackerId === uid ? a.attackerBest : a.defenderBest;
+        if (mine && mine.category === 'yacht' && (mine.score ?? 0) > 0) yachtBest = true;
+        // result は 'attacker' | 'defender' | 'draw'
+        const winnerId = a.result === 'attacker' ? a.attackerId
+          : a.result === 'defender' ? a.defenderId : null;
+        if (winnerId === uid) yachtWins++;
+      }
     }
+
+    // ---- 「直前の手を返した」判定のため、他人の手も記録しておく ----
+    const cards = e.type === 'trumpPlay' ? resolve(e.args?.cardIds, cardById) : [];
+    const unoT = e.type === 'unoPlay' ? (e.args as any)?.card?.t : undefined;
+    const isDraw2 = unoT === 'd2' || unoT === 'w4';
+
+    if (e.playerId === uid) {
+      if (e.type === 'sayUno') sayUnoCount++;
+      else if (e.type === 'pickParentColor') parentColorCount++;
+      else if (e.type === 'trumpPlay') {
+        const ids = Array.isArray(e.args?.cardIds) ? e.args.cardIds : [];
+        if (ids.length >= 4) revolution = true;
+        if (isEightCutPlay(ids, cardById)) eightCut = true;
+        if (isSequence(cards)) stairs = true;
+        if (isJokerSingle(cards)) jokerSingle = true;
+        // ♠3返し: 直前のトランプ出しが「他人のジョーカー単騎」だったか
+        if (isSpadeThreeSingle(cards) && prevTrumpPlay
+            && prevTrumpPlay.by !== uid && isJokerSingle(prevTrumpPlay.cards)) {
+          spadeThree = true;
+        }
+        lastTrumpPlayIdx = i;
+      } else if (e.type === 'unoPlay') {
+        // カウンター: 直前に他人が出した +2/+4 に、自分も +2/+4 を重ねた
+        if (isDraw2 && prevUnoDraw2 && prevUnoDraw2.by !== uid) drawStack = true;
+        lastUnoPlayIdx = i;
+      }
+    }
+
+    // 記録の更新（自分の手も含めて、次のエントリから見た「直前」になる）
+    if (e.type === 'trumpPlay') prevTrumpPlay = { by: e.playerId, cards };
+    if (e.type === 'unoPlay') prevUnoDraw2 = isDraw2 ? { by: e.playerId } : null;
+    // ドローが実行された＝累積が解消したので、返し判定の連鎖を切る
+    if (e.type === 'unoDraw') prevUnoDraw2 = null;
   });
 
   let doubleFinish = false;
@@ -89,7 +179,11 @@ export function analyzePlayerActions(
     doubleFinish = sameTurn;
   }
 
-  return { sayUnoCount, revolution, eightCut, doubleFinish };
+  return {
+    sayUnoCount, revolution, eightCut, doubleFinish,
+    stairs, jokerSingle, spadeThree, drawStack,
+    yachtChallenged, yachtBest, yachtWins, parentColorCount,
+  };
 }
 
 /** initialState.trumpHands から cardById を作る（全プレイヤーの初期札を統合） */
@@ -105,20 +199,29 @@ export function buildCardById(trumpHands: Record<string, { s: string; v: string;
 
 export interface EvaluateInput {
   statsBefore: { wins?: number } | null;
-  statsAfter: { games: number; winStreak: number; loseStreak: number };
+  statsAfter: { games: number; wins: number; winStreak: number; loseStreak: number };
   rank: number;
   /** このゲーム反映後の累計UNO宣言数 */
   sayUnoCumulative: number;
-  actions: { revolution: boolean; eightCut: boolean; doubleFinish: boolean };
+  /** ★M4★ このゲーム反映後の累計ヨット対決の勝利数 */
+  yachtWinCumulative: number;
+  /** ★M4★ このゲーム反映後の累計・親の権限の使用回数 */
+  parentColorCumulative: number;
+  actions: PlayerActions;
 }
 
 /**
  * このゲームで「条件を満たしている」実績IDの一覧を返す（純粋関数）。
  * 既に解除済みかどうかは考慮しない（呼び出し側が新規分だけを記録する）。
+ *
+ * ★ID契約★ ここで返すIDは、フロントの表示メタ情報（src/achievements.ts の
+ * ACHIEVEMENTS）と一致していなければならない。片方だけ足すと、解除されても
+ * 画面に出ない（または名前の無い実績が出る）。
  */
 export function evaluateAchievements(input: EvaluateInput): string[] {
   const out: string[] = [];
   const beforeWins = input.statsBefore?.wins ?? 0;
+  const a = input.actions;
 
   if (input.statsAfter.games >= 1) out.push('first-game');
   if (input.rank === 1 && beforeWins === 0) out.push('first-win');
@@ -126,9 +229,25 @@ export function evaluateAchievements(input: EvaluateInput): string[] {
   if (input.statsAfter.winStreak >= 3) out.push('streak-win-3');
   if (input.statsAfter.loseStreak >= 3) out.push('streak-lose-3');
   if (input.sayUnoCumulative >= 5) out.push('uno-declare-5');
-  if (input.actions.revolution) out.push('revolution');
-  if (input.actions.eightCut) out.push('eight-cut');
-  if (input.actions.doubleFinish) out.push('double-finish');
+  if (a.revolution) out.push('revolution');
+  if (a.eightCut) out.push('eight-cut');
+  if (a.doubleFinish) out.push('double-finish');
+
+  // ---- ★M4で追加した10種★ ----
+  // トランプの技
+  if (a.stairs) out.push('stairs');
+  if (a.jokerSingle) out.push('joker-single');
+  if (a.spadeThree) out.push('spade-three');
+  // UNOの返し
+  if (a.drawStack) out.push('draw-stack');
+  // ヨットモード
+  if (a.yachtChallenged) out.push('yacht-first');
+  if (a.yachtBest) out.push('yacht-best');
+  if (input.yachtWinCumulative >= 3) out.push('yacht-win-3');
+  // 積み重ね
+  if (input.parentColorCumulative >= 5) out.push('parent-color-5');
+  if (input.statsAfter.games >= 50) out.push('games-50');
+  if (input.statsAfter.wins >= 10) out.push('win-10');
 
   return out;
 }

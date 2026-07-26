@@ -106,13 +106,21 @@ export const onGameEnded = onValueWritten(
 
         // ---- 実績（Phase 3）----
         const acts = analyzePlayerActions(actionLog, r.uid, cardById, true /* rankings入り=上がり */);
-        const prevSayUno = typeof data?.counters?.sayUno === 'number' ? data.counters.sayUno : 0;
-        const sayUnoCumulative = prevSayUno + acts.sayUnoCount;
+        // 累積カウンター（通算◯回系の実績の判定に使う）。
+        // ★M4★ ヨット勝利数・親の権限の使用回数を追加した。
+        // 既存ユーザーは counters が無い／sayUno しか無いので 0 起点になる
+        // （過去分は遡らない＝これから積み上げる、という割り切り）。
+        const n = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : 0);
+        const sayUnoCumulative = n(data?.counters?.sayUno) + acts.sayUnoCount;
+        const yachtWinCumulative = n(data?.counters?.yachtWins) + acts.yachtWins;
+        const parentColorCumulative = n(data?.counters?.parentColor) + acts.parentColorCount;
         const unlockedNow = evaluateAchievements({
           statsBefore: prevStats,
           statsAfter: stats,
           rank: r.rank,
           sayUnoCumulative,
+          yachtWinCumulative,
+          parentColorCumulative,
           actions: acts,
         });
         // 既に解除済みの実績は上書きしない（解除日時を保つ）。新規分だけ追記
@@ -124,7 +132,11 @@ export const onGameEnded = onValueWritten(
 
         const userUpdate: any = {
           stats,
-          counters: { sayUno: sayUnoCumulative },
+          counters: {
+            sayUno: sayUnoCumulative,
+            yachtWins: yachtWinCumulative,
+            parentColor: parentColorCumulative,
+          },
         };
         if (Object.keys(achievements).length > 0) userUpdate.achievements = achievements;
 
