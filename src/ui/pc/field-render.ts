@@ -20,9 +20,13 @@ export function renderFieldHtml(g: any, players: Player[]): string {
   const ownerName = g.trumpFieldOwner
     ? (players.find(p => p.id === g.trumpFieldOwner)?.name ?? '?')
     : null;
+  // 場が空のときは「場は空／何でも出せる」という文字ではなく、カードと同じ
+  // 寸法の破線の枠を置く（モバイルUIと揃えた）。「ここにカードが置かれる
+  // 場所で、今は何も無い」が形だけで伝わり、カードが出てもレイアウトが
+  // ずれない。読み上げには aria-label で同じ意味を残す。
   const trumpCardsHtml = fCards.length > 0
     ? fCards.map((c: any) => pcTrumpCardHtml(c)).join('')
-    : '<div class="pcg-field-empty">場は空<br><small>何でも出せる</small></div>';
+    : '<div class="pcg-field-slot" role="img" aria-label="場は空 — 何でも出せます"></div>';
   const trumpMeta = fCards.length > 0
     ? `<span class="pcg-field-meta">${fCards.length}枚${ownerName ? '・' + ownerName : ''}</span>`
     : '';
@@ -31,7 +35,9 @@ export function renderFieldHtml(g: any, players: Player[]): string {
   const topUno = Array.isArray(g.unoDiscardPile) && g.unoDiscardPile.length > 0
     ? g.unoDiscardPile[g.unoDiscardPile.length - 1]
     : null;
-  const unoCardHtml = topUno ? pcUnoCardHtml(topUno) : '<div class="pcg-field-empty">なし</div>';
+  const unoCardHtml = topUno
+    ? pcUnoCardHtml(topUno)
+    : '<div class="pcg-field-slot" role="img" aria-label="UNOの場はまだ空です"></div>';
   const colorLabel = COLOR_LABELS[g.unoCurrentColor] ?? g.unoCurrentColor ?? '-';
   const penalty = g.unoPenaltyAccum > 0
     ? `<span class="pcg-penalty">+${g.unoPenaltyAccum} 累積中！</span>`
