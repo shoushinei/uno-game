@@ -16,7 +16,8 @@ import type { GameState, Player, UnoCard } from '../logic/types';
 import type { TrumpCard, TrumpEffect } from '../logic/trump-logic.js';
 import { isPcUi } from './pc/ui-mode.js';
 import { syncMobileActionBar } from './mobile-action-bar.js'; // ★モバイルUI M1★ 下部操作バー
-import { renderMobileField, renderMobileHands, renderMobileNote } from './mobile-layout.js'; // ★モバイルUI M2★ 5層レイアウト
+import { renderMobileField, renderMobileHands, renderMobileNote, takeIncomingHit, showHitToast } from './mobile-layout.js'; // ★モバイルUI M2/M3★
+import { areReactionsOff, isReactorBlocked } from './pc/reaction-menu.js'; // ★モバイルUI M3★ 対人リアクションの表示制御
 import { renderGamePC } from './pc/table-render.js';
 import { syncAccountBar } from './account-bar.js';
 
@@ -259,6 +260,12 @@ export function renderGame(room: any): void {
     myRank: iFinished ? myRankIdx + 1 : null,
   });
 
+  // ★モバイルUI M3★ 自分宛てに投げられたら、送り主の名前を添えて知らせる
+  if (!areReactionsOff()) {
+    const hit = takeIncomingHit(reactions as any, state.myId, players, Date.now(), isReactorBlocked);
+    if (hit) showHitToast(hit.emoji, hit.fromName);
+  }
+
   document.getElementById('cpick')?.classList.remove('show');
 
   _renderLog(room);
@@ -339,10 +346,16 @@ function _renderOtherPlayers(
     const active = p.id === curId && g.order.includes(p.id);
     const rIdx = (g.rankings || []).findIndex(r => r.id === p.id);
     const react = reactions[p.id];
-    // 従来UIには対人投擲の概念がないため、targetId付き（対人リアクション）は
-    // 表示しない。全体向けの自己リアクションだけ従来通りバッジ表示する。
-    const reactHtml = (react && !react.targetId && Date.now() - react.ts < 4000)
-      ? `<div class="react-badge">${react.emoji}</div>` : '';
+    // ★モバイルUI M3★ 対人リアクション（targetId付き）もモバイルで表示する。
+    // 以前は従来UIに投擲の概念が無かったため targetId 付きを捨てていたが、
+    // プレイヤーのシートから投げられるようになったので受け取り側にも出す。
+    // 送り主のチップにバッジを出し、宛先が自分のときは別途トーストで名前を出す
+    // （誰から投げられたかはバッジだけでは分からないため）。
+    const showReact = react && Date.now() - react.ts < 4000
+      && !areReactionsOff()
+      && !(react.targetId && isReactorBlocked(p.id));
+    const reactHtml = showReact
+      ? `<div class="react-badge${react!.targetId ? ' directed' : ''}">${react!.emoji}</div>` : '';
     // ★機能追加★ 他プレイヤーが自動プレイ／退室中／ボットかを表示する
     // 退室中（灰）・ボット（紫）・自発的な自動プレイ（紫）を区別する
     const isLeft = !!(leftPlayers && leftPlayers[p.id]);

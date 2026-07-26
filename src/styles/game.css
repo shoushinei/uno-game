@@ -648,3 +648,87 @@
 
 /* ④の行の余白を詰める */
 .mg-hrow { padding: 2px 0; }
+
+/* ============================================================
+   ★モバイルUI M3★ プレイヤーのシート
+   （②のチップをタップ → ⚔ヨット挑戦・📊戦績・対人リアクション・🚫ブロック）
+
+   PC UIは席クリックのポップアップだが、モバイルは画面上部にメニューを
+   出すと親指が届かないため、下から出るシートにしている。
+   ============================================================ */
+#s-game.player-open .mg-scrim { opacity: 1; pointer-events: auto; }
+#s-game.menu-open  #mg-sheet        { transform: translateY(0); }
+#s-game.player-open #mg-player-sheet { transform: translateY(0); }
+
+.mg-players .op { cursor: pointer; }
+
+.mg-ps-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
+.mg-ps-icon { font-size: 22px; }
+.mg-ps-name { font-size: 15px; font-weight: 700; }
+.mg-ps-title {
+  font-size: 10px; padding: 1px 6px; border-radius: 5px;
+  background: rgba(142,68,173,.14); color: #8e44ad;
+}
+.mg-ps-tag {
+  font-size: 10px; padding: 1px 6px; border-radius: 5px;
+  background: var(--color-background-tertiary, rgba(0,0,0,.06));
+  color: var(--color-text-secondary);
+}
+.mg-ps-status {
+  font-size: 12px; color: var(--color-text-secondary); margin-bottom: 10px;
+}
+
+.mg-ps-item {
+  width: 100%; min-height: 48px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px; padding: 0 13px;
+  border-radius: 11px;
+  border: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+  background: var(--color-background-secondary, #f5f5f5);
+  color: var(--color-text-primary);
+  font-family: inherit; font-size: 13.5px; font-weight: 600;
+  text-align: left; cursor: pointer;
+}
+.mg-ps-item:disabled { opacity: .5; cursor: not-allowed; }
+.mg-ps-item.duel {
+  background: linear-gradient(100deg, rgba(243,156,18,.22), rgba(243,156,18,.08));
+  border-color: rgba(243,156,18,.6);
+}
+.mg-ps-item.on { border-color: #e74c3c; color: #e74c3c; }
+.mg-ps-sub {
+  margin-left: auto; font-size: 10.5px; font-weight: 500;
+  color: var(--color-text-tertiary); text-align: right;
+}
+.mg-ps-emojis { display: flex; gap: 8px; margin-bottom: 8px; }
+.mg-ps-emoji {
+  flex: 1; min-height: 50px; border-radius: 11px;
+  border: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+  background: var(--color-background-secondary, #f5f5f5);
+  font-size: 22px; cursor: pointer;
+}
+.mg-ps-emoji:disabled { opacity: .4; cursor: not-allowed; }
+.mg-ps-emoji:active { transform: scale(0.94); }
+
+/* 対人リアクションのバッジは、全体リアクションと見分けが付くよう縁取りを変える */
+.react-badge.directed { border-color: #e74c3c; box-shadow: 0 0 0 2px rgba(231,76,60,.25), 0 3px 8px rgba(0,0,0,.2); }
+
+/* 被弾トースト（自分が宛先のときだけ・送り主の名前を添える） */
+.mg-hit-toast {
+  position: absolute; left: 50%; bottom: 34%; z-index: 45;
+  transform: translate(-50%, 0);
+  padding: 8px 16px; border-radius: 999px;
+  background: rgba(20,20,24,.88); color: #fff;
+  font-size: 14px; font-weight: 700; white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(0,0,0,.35);
+  opacity: 0; pointer-events: none;
+}
+.mg-hit-toast.show { animation: mgHitToast 1.8s ease forwards; }
+@keyframes mgHitToast {
+  0%   { opacity: 0; transform: translate(-50%, 12px) scale(.8); }
+  14%  { opacity: 1; transform: translate(-50%, 0) scale(1.05); }
+  22%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  80%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -14px) scale(.96); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mg-hit-toast.show { animation: none; opacity: 1; }
+}

@@ -24,6 +24,7 @@ function screenEl(): HTMLElement | null {
 export function openMobileMenu(section?: string): void {
   const el = screenEl();
   if (!el) return;
+  el.classList.remove('player-open'); // ★M3★ プレイヤーのシートとは排他にする
   el.classList.add('menu-open');
   const sheet = document.getElementById('mg-sheet');
   if (!sheet) return;
@@ -51,6 +52,6 @@ export function installMobileMenu(): void {
 
   // 退室などで盤面から離れたときに開きっぱなしにしない
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeMobileMenu();
+    if (e.key === 'Escape') window.closeMobileSheets?.();
   });
 }

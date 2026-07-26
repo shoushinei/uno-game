@@ -273,7 +273,13 @@
        ui-render.ts 側の変更は不要（#glog / #turn-order /
        #phase-indicator / #current-color）。
        ===================================================== -->
-  <div class="mg-scrim" id="mg-scrim" onclick="closeMobileMenu()"></div>
+  <div class="mg-scrim" id="mg-scrim" onclick="closeMobileSheets()"></div>
+
+  <!-- ★モバイルUI M3★ プレイヤーのシート（②のチップをタップで開く）
+       中身は mobile-player-sheet.ts が組み立てる。
+       ⚔ヨット挑戦・📊戦績・対人リアクション・🚫ブロックの入口。 -->
+  <div class="mg-sheet" id="mg-player-sheet"></div>
+
   <div class="mg-sheet" id="mg-sheet">
     <div class="mg-grab"></div>
 

@@ -102,3 +102,64 @@ export function renderMobileNote(input: NoteInput): void {
   if (!el) return;
   el.textContent = buildNote(input);
 }
+
+// ----------------------------------------
+// ★モバイルUI M3★ 対人リアクションの被弾トースト
+//
+// 送り主のチップにはバッジが出るが、それだけでは「誰が自分に投げたか」が
+// 分からない。宛先が自分のときだけ、名前を添えたトーストを1回出す。
+// 「1回だけ」を守るため、宛先ごとに既読の ts を持つ。
+// ----------------------------------------
+let seenHitTs: Record<string, number> | null = null;
+
+/** テスト・ルーム切替用 */
+export function resetHitToast(): void {
+  seenHitTs = null;
+}
+
+/**
+ * 新しく自分宛てに飛んできたリアクションがあれば、その絵文字と送り主名を返す。
+ * 無ければ null。初回同期では既読位置を記録するだけで何も返さない
+ * （再接続時に過去分が一斉に出るのを防ぐ）。
+ */
+export function takeIncomingHit(
+  reactions: Record<string, { emoji: string; ts: number; targetId?: string } | undefined>,
+  myId: string,
+  players: Array<{ id: string; name: string }>,
+  now: number,
+  isBlocked: (id: string) => boolean
+): { emoji: string; fromName: string } | null {
+  const first = seenHitTs === null;
+  if (first) seenHitTs = {};
+  const seen = seenHitTs!;
+
+  let hit: { emoji: string; fromName: string } | null = null;
+  for (const fromId of Object.keys(reactions)) {
+    const r = reactions[fromId];
+    if (!r || typeof r.ts !== 'number') continue;
+    const prev = seen[fromId] ?? 0;
+    if (r.ts <= prev) continue;
+    seen[fromId] = r.ts;
+    if (first) continue;                       // 初回は既読化のみ
+    if (r.targetId !== myId || fromId === myId) continue;
+    if (now - r.ts >= 8000) continue;          // 古すぎるものは出さない
+    if (isBlocked(fromId)) continue;
+    hit = { emoji: r.emoji, fromName: players.find(p => p.id === fromId)?.name ?? '？' };
+  }
+  return hit;
+}
+
+/** 被弾トーストを画面中央付近に短く出す */
+export function showHitToast(emoji: string, fromName: string): void {
+  let el = document.getElementById('mg-hit-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'mg-hit-toast';
+    el.className = 'mg-hit-toast';
+    document.getElementById('s-game')?.appendChild(el);
+  }
+  el.textContent = `${emoji} ${fromName} から！`;
+  el.classList.remove('show');
+  void el.offsetWidth; // リフローでアニメを頭から再生
+  el.classList.add('show');
+}

@@ -31,6 +31,7 @@ import { initAudio } from './audio/audio-engine.js'; // ★Phase D★ 効果音�
 import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg, setHomeMsg } from './ui/ui-render.js';
 import { syncMobileActionBar } from './ui/mobile-action-bar.js'; // ★モバイルUI M1★ 下部操作バー
 import { installMobileMenu } from './ui/mobile-menu.js'; // ★モバイルUI M2★ ☰メニューシート
+import { installMobilePlayerSheet } from './ui/mobile-player-sheet.js'; // ★モバイルUI M3★ プレイヤーのシート
 import { isPcUi } from './ui/pc/ui-mode.js';
 import {
   actionStartGame,
@@ -233,6 +234,9 @@ initAudio();
 
 // ★モバイルUI M2★ ☰メニュー（openMobileMenu / closeMobileMenu）を登録する
 installMobileMenu();
+
+// ★モバイルUI M3★ プレイヤーのシート（②のチップのタップ → ヨット挑戦等）
+installMobilePlayerSheet();
 
 // ★持ち時間★ 手番カウントダウンの秒表示を更新する（全体は再描画せず対象要素
 // だけ触る軽い更新）。同期が来ない全人間・全員静観の局面でも数字が進む。
