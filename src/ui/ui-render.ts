@@ -398,7 +398,11 @@ function _renderTrumpField(g: GameState): void {
       </div>`;
     }).join('');
   } else {
-    tfEl.innerHTML = `<div class="trump-empty">場は空<br><small>何でも出せる</small></div>`;
+    // ★モバイルUI★ 「場は空 / 何でも出せる」という文字ではなく、
+    // カードと同じ寸法の破線の枠を置く。「ここにカードが置かれる場所で、
+    // 今は何も無い」ことが形だけで伝わる（文字よりマーク・図形で示す方針）。
+    // 読み上げには aria-label で同じ意味を残す。
+    tfEl.innerHTML = `<div class="trump-slot" role="img" aria-label="場は空 — 何でも出せます"></div>`;
   }
 }
 

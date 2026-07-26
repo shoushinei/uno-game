@@ -732,3 +732,16 @@
 @media (prefers-reduced-motion: reduce) {
   .mg-hit-toast.show { animation: none; opacity: 1; }
 }
+
+/* ★モバイルUI★ 場が空のときの「空きスロット」
+   「場は空／何でも出せる」という文字の代わりに、トランプ札と同じ寸法の
+   破線の枠を置く。ここにカードが置かれる場所だと形だけで伝わる。
+   （.trump-empty はリプレイ画面がまだ使っているので別クラスにしてある） */
+.trump-slot {
+  width: 52px; height: 74px; border-radius: 8px;
+  border: 2px dashed var(--color-border-secondary, rgba(0,0,0,.25));
+  background: transparent;
+  flex: none;
+}
+/* 暗いフェルトの上では明るい破線にする */
+.mg-field .trump-slot { border-color: rgba(255,255,255,.45); }
