@@ -33,6 +33,17 @@
 }
 .room-hint { font-size: 11px; color: var(--color-text-tertiary); text-align: center; }
 
+/* ロビーだけ列を少し広く取る。
+   1行にアバター＋名前＋称号＋タグ（あなた／ホスト／Ready）が載るため、
+   他画面と同じ320pxでは名前＋称号に102pxしか残らず（タグが146px）、
+   称号が次の行に押し出されていた。狭い画面では width:100% が効くので
+   はみ出さない（その場合は称号がチップごと次の行へ落ちる）。 */
+#s-lobby .box,
+#s-lobby .btn,
+#s-lobby .sec,
+#s-lobby .plist,
+#s-lobby #lobby-mode { max-width: 400px; }
+
 /* ---- ロビー: プレイヤーリスト ---- */
 .sec {
   font-size: 12px; font-weight: 500;
@@ -60,8 +71,20 @@
   font-size: 12px; font-weight: 700; color: white;
   flex-shrink: 0;
 }
-.pi-name { flex: 1; font-weight: 500; }
-.pi-tags { display: flex; gap: 4px; align-items: center; }
+/* 名前＋称号のまとまり。入りきらないときは称号チップごと次の行へ落ちる
+   （チップの途中で改行されて行が崩れるのを防ぐ） */
+.pi-main {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 3px 6px;
+}
+.pi-name {
+  font-weight: 500;
+  min-width: 0; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* タグ（あなた／ホスト／Ready）は縮めず、名前側に幅を譲らせる */
+.pi-tags { display: flex; gap: 4px; align-items: center; flex: none; }
 /* ホストがボット行を削除するボタン */
 .pi-remove {
   flex-shrink: 0;
@@ -419,18 +442,28 @@
   white-space: nowrap;
   align-items: center;
 }
+/* 称号チップ。★途中で改行させない★（「同時上がりの使い手」のような長い
+   称号でチップが割れて行が崩れていた）。幅が足りない極端な場合だけ省略記号 */
 .pi-title {
   font-size: 10px;
   background: #34495e;
   color: #fff;
   border-radius: 8px;
   padding: 1px 6px;
-  margin-left: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+/* 対局中の他プレイヤー欄の称号も同様に1行へ収める */
 .op-title {
   font-size: 10px;
   color: #8e44ad;
   font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* プロフィールモーダルの選択UI */
 .profile-cos-icons {

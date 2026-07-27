@@ -133,9 +133,16 @@ export function renderLobby(room: any): void {
       : (iAmHost && p.id !== state.myId)
       ? `<button class="pi-remove" onclick="kickPlayer('${p.id}')" aria-label="プレイヤーを退出させる">✕</button>`
       : '';
+    // ★称号の折り返し対策★ 以前は名前と称号を1つの span に入れていたため、
+    // 「同時上がりの使い手」のような長い称号がチップの途中で改行され、行が
+    // 崩れていた。名前と称号を別要素にして .pi-main（flex-wrap）に入れることで、
+    // 入りきらない場合はチップごと次の行へ落ちるようにする。
     el.innerHTML = `
       <div class="av" style="background:${AVATAR_COLORS[i % 5]}">${p.icon ? p.icon : p.name[0].toUpperCase()}</div>
-      <span class="pi-name">${p.name}${p.title ? ` <span class="pi-title">${p.title}</span>` : ''}</span>
+      <div class="pi-main">
+        <span class="pi-name">${p.name}</span>
+        ${p.title ? `<span class="pi-title">${p.title}</span>` : ''}
+      </div>
       <div class="pi-tags">${tags}</div>
       ${removeBtn}
     `;
