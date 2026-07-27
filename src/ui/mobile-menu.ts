@@ -10,11 +10,23 @@
 // 描画関数（_renderLog / _renderTurnOrder 等）は変更不要で動き続ける。
 // ========================================
 
+import { isSoundOn, toggleSound } from '../audio/audio-engine.js';
+
 declare global {
   interface Window {
     openMobileMenu: (section?: string) => void;
     closeMobileMenu: () => void;
+    toggleMobileSound: () => void;
   }
+}
+
+/** 効果音ボタンのラベルを今の状態に合わせる */
+function syncSoundButton(): void {
+  const btn = document.getElementById('mg-sound-btn');
+  if (!btn) return;
+  const on = isSoundOn();
+  btn.textContent = on ? '🔊 効果音 ON' : '🔇 効果音 OFF';
+  btn.classList.toggle('off', !on);
 }
 
 function screenEl(): HTMLElement | null {
@@ -26,6 +38,7 @@ export function openMobileMenu(section?: string): void {
   if (!el) return;
   el.classList.remove('player-open'); // ★M3★ プレイヤーのシートとは排他にする
   el.classList.add('menu-open');
+  syncSoundButton(); // 開くたびに今の設定を反映する
   const sheet = document.getElementById('mg-sheet');
   if (!sheet) return;
   // 「😀」から開いたときはリアクションが目に入る位置から始める
@@ -44,6 +57,12 @@ export function closeMobileMenu(): void {
 export function installMobileMenu(): void {
   window.openMobileMenu = openMobileMenu;
   window.closeMobileMenu = closeMobileMenu;
+  // 効果音のON/OFF。シートは開いたままラベルだけ更新する
+  // （PC UIは引き出しパネルのフッターに同じトグルがある）
+  window.toggleMobileSound = () => {
+    toggleSound();
+    syncSoundButton();
+  };
 
   document.getElementById('mg-sheet')?.addEventListener('click', e => {
     const btn = (e.target as HTMLElement).closest('.react-btn');

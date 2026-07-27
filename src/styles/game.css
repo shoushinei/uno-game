@@ -826,3 +826,6 @@
   .mg-field.color-flash,
   .mg-hands.mg-myturn { animation: none; }
 }
+
+/* ☰メニューの設定ボタン（OFFのときは沈めて状態が分かるようにする） */
+.mg-sheet-actions .btn.off { opacity: .6; }
