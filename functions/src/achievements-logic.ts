@@ -25,6 +25,17 @@ export type CardById = Record<string, { s: string; v: string }>;
 // トランプの強さ順（階段＝連番の判定に使う）。JOKERは連番に含めない
 const RANK_ORDER = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
 
+/**
+ * 「手番の切れ目」を示す行動の種類。
+ * これが挟まっていたら、前後は別の手番だと判断できる。
+ *  - trumpPlay/trumpPass/trumpSkip … 新しいトランプフェイズが始まった
+ *  - unoDraw/unoSkip               … その手番のUNOフェイズが出さずに終わった
+ * （sayUno / pickParentColor / yachtDuel は同じ手番の中で起こるので含めない）
+ */
+const TURN_BOUNDARY_TYPES = new Set([
+  'trumpPlay', 'trumpPass', 'trumpSkip', 'unoDraw', 'unoSkip',
+]);
+
 /** 出した札が「階段（同スート3枚以上の連番）」か */
 function isSequence(cards: { s: string; v: string }[]): boolean {
   if (cards.length < 3) return false;
@@ -170,11 +181,22 @@ export function analyzePlayerActions(
 
   let doubleFinish = false;
   if (finished && lastTrumpPlayIdx !== -1 && lastUnoPlayIdx !== -1 && lastTrumpPlayIdx < lastUnoPlayIdx) {
-    // 最後のトランプ出しと最後のUNO出しの間に、他プレイヤーの操作が無いか
-    // （＝同じ手番のうちに両方出し切った）
+    // 最後のトランプ出しと最後のUNO出しが「同じ手番」かを見る。
+    //
+    // ★不具合修正（最下位に必ず付いてしまう）★
+    // 以前は「間に他プレイヤーの操作が無いこと」だけを条件にしていた。
+    // しかし他の全員が上がると最下位の人は1人で手番を回し続けるため、
+    // 何手番あとにUNOを出し切っても「間に他人が居ない」が成立してしまい、
+    // 最下位には必ずこの実績が付いていた。
+    //
+    // 手番の切れ目は行動の種類で分かるので、そちらで判定する:
+    //  - trumpPlay/trumpPass/trumpSkip … 新しいトランプフェイズ＝次の手番が始まった
+    //  - unoDraw/unoSkip               … その手番のUNOフェイズが出さずに終わった
+    // 逆に sayUno / pickParentColor / yachtDuel は同じ手番の中で起こるので跨いでよい。
     let sameTurn = true;
     for (let i = lastTrumpPlayIdx + 1; i < lastUnoPlayIdx; i++) {
-      if (actionLog[i]!.playerId !== uid) { sameTurn = false; break; }
+      const e = actionLog[i]!;
+      if (e.playerId !== uid || TURN_BOUNDARY_TYPES.has(e.type)) { sameTurn = false; break; }
     }
     doubleFinish = sameTurn;
   }

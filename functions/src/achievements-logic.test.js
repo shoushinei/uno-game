@@ -106,6 +106,67 @@ describe('analyzePlayerActions — 同一ターン上がり', () => {
     ];
     expect(analyzePlayerActions(log, 'me', cardById, false).doubleFinish).toBe(false);
   });
+
+  // ★不具合（最下位に必ず付いてしまう）★
+  // 他プレイヤーが全員上がると、最下位の人は1人で手番を回し続ける。
+  // 「間に他プレイヤーの操作が無い」だけを同一手番の条件にしていたため、
+  // 何手番あとにUNOを出し切っても同一手番とみなされていた。
+  it('最下位が1人で手番を回してもtrumpSkipを跨いだら false', () => {
+    const log = [
+      E('trumpPlay', 'p2', { cardIds: ['♥8'] }),
+      E('unoPlay', 'p2', {}),                     // p2 が上がって以降は自分だけ
+      E('trumpPlay', 'me', { cardIds: ['♠K'] }),  // ここでトランプを出し切った
+      E('trumpSkip', 'me', {}),                   // 次の手番（トランプ0枚で自動スキップ）
+      E('unoPlay', 'me', {}),
+      E('trumpSkip', 'me', {}),                   // さらに次の手番
+      E('unoPlay', 'me', {}),                     // ずっと後の手番でUNOを出し切って上がり
+    ];
+    expect(analyzePlayerActions(log, 'me', cardById, true).doubleFinish).toBe(false);
+  });
+
+  it('自分のunoDrawを跨いだら別の手番なので false', () => {
+    const log = [
+      E('trumpPlay', 'me', { cardIds: ['♠K'] }),
+      E('unoDraw', 'me', { count: 1 }),           // この手番はカードを引いて終了
+      E('trumpSkip', 'me', {}),
+      E('unoPlay', 'me', {}),                     // 次の手番でUNOを出した
+    ];
+    expect(analyzePlayerActions(log, 'me', cardById, true).doubleFinish).toBe(false);
+  });
+
+  it('間に自分のsayUnoが挟まるのは同一手番なので true', () => {
+    const log = [
+      E('trumpPlay', 'me', { cardIds: ['♠K'] }),
+      E('sayUno', 'me', {}),                      // 出す前の宣言（同じ手番のうち）
+      E('unoPlay', 'me', {}),
+    ];
+    expect(analyzePlayerActions(log, 'me', cardById, true).doubleFinish).toBe(true);
+  });
+
+  // 報告された場面そのもの: 3人卓で1位が同一手番上がり、最後に残った人が
+  // 1人で手番を回して上がる。1位だけに付き、最下位には付かないこと。
+  it('3人卓の最後まで: 同一手番で上がった人だけ true', () => {
+    const log = [
+      E('trumpPlay', 'p1', { cardIds: ['♥8'] }),     // p1はここでトランプを出し切った
+      E('unoPlay', 'p1', {}),
+      E('trumpPlay', 'winner', { cardIds: ['♠K'] }), // winnerは同じ手番で両方出し切り
+      E('unoPlay', 'winner', {}),                    // → 1位で上がり
+      E('trumpSkip', 'p1', {}),                      // p1の次の手番（トランプ0枚）
+      E('unoPlay', 'p1', {}),                        // → 別の手番でUNOを出し切って2位
+      // ここから最下位の me が1人で手番を回す
+      E('trumpPlay', 'me', { cardIds: ['♦3'] }),     // トランプを出し切った
+      E('trumpSkip', 'me', {}),
+      E('unoPlay', 'me', {}),
+      E('trumpSkip', 'me', {}),
+      E('unoPlay', 'me', {}),                        // 何手番もあとにUNOを出し切って上がり
+    ];
+    // 同じ手番で両方出し切ったのは winner だけ
+    expect(analyzePlayerActions(log, 'winner', cardById, true).doubleFinish).toBe(true);
+    // p1は間に他プレイヤーの手番を跨いでいる
+    expect(analyzePlayerActions(log, 'p1', cardById, true).doubleFinish).toBe(false);
+    // ★最下位は1人で回していても、trumpSkip を跨いだ時点で別の手番★
+    expect(analyzePlayerActions(log, 'me', cardById, true).doubleFinish).toBe(false);
+  });
 });
 
 describe('evaluateAchievements', () => {
