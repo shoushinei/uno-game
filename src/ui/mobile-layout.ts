@@ -40,6 +40,8 @@ export interface NoteInput {
   /** 📢UNO宣言がまだ必要か */
   needsUnoCall: boolean;
   myRank: number | null;
+  /** ★自動進行★ 手札0枚で自動的に次へ進む待ちか（ボタンを押させない） */
+  autoAdvancing?: boolean;
 }
 
 /**
@@ -54,6 +56,9 @@ export function buildNote(i: NoteInput): string {
     return i.myRank !== null ? `🏁 ${i.myRank}位で上がり — 観戦中` : '🏁 上がり — 観戦中';
   }
   if (!i.isMyTurn) return '';
+
+  // 自動で進む場面ではボタンを押させないので、案内も「待っていればよい」に変える
+  if (i.autoAdvancing) return '手札は出し切りました — 自動で次へ進みます…';
 
   if (i.phase === 'trump') {
     if (i.trumpCount === 0) return 'トランプは出し切りました — 「UNOへ進む」を押してください';

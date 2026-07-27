@@ -745,3 +745,84 @@
 }
 /* 暗いフェルトの上では明るい破線にする */
 .mg-field .trump-slot { border-color: rgba(255,255,255,.45); }
+
+/* ============================================================
+   ★モバイルUI★ 盤面の演出レイヤー
+
+   盤面のゾーンとは独立した1枚のレイヤー。ゾーンが再描画されても
+   再生中の演出が消えないよう、外側に置いてある。
+   ============================================================ */
+.mg-fx {
+  position: absolute; inset: 0; z-index: 30;
+  pointer-events: none; overflow: hidden;
+}
+.mg-fx > * { position: absolute; }
+
+/* 飛翔するカード */
+.mg-fx-fly { transform: translate(-50%, -50%); will-change: transform, opacity; }
+.mg-fx-tcard {
+  width: 40px; height: 56px; border-radius: 6px;
+  background: #fff; border: 1px solid rgba(0,0,0,.12); color: #2c3e50;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; line-height: 1.1;
+  box-shadow: 0 3px 8px rgba(0,0,0,.3);
+}
+.mg-fx-tcard.red { color: #e74c3c; }
+.mg-fx-tcard b { font-size: 15px; }
+.mg-fx-tcard.back { background: linear-gradient(135deg, #4a6fa5, #2c4a75); border-color: rgba(255,255,255,.3); }
+.mg-fx-ucard {
+  width: 40px; height: 56px; border-radius: 7px;
+  border: 2px solid rgba(255,255,255,.5); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 900;
+  box-shadow: 0 3px 8px rgba(0,0,0,.3);
+}
+.mg-fx-ucard.r { background: #e74c3c; } .mg-fx-ucard.b { background: #2980b9; }
+.mg-fx-ucard.g { background: #27ae60; } .mg-fx-ucard.y { background: #f39c12; }
+.mg-fx-ucard.w { background: linear-gradient(135deg,#e74c3c 25%,#2980b9 25%,#2980b9 50%,#27ae60 50%,#27ae60 75%,#f39c12 75%); }
+.mg-fx-ucard.back { background: linear-gradient(135deg, #4a6fa5, #2c4a75); }
+
+/* 吹き出し（パス・UNO宣言・上がり・親交代・ドロー枚数） */
+.mg-fx-bubble {
+  transform: translate(-50%, -50%);
+  padding: 4px 11px; border-radius: 999px; white-space: nowrap;
+  font-size: 12px; font-weight: 800;
+  background: rgba(20,20,24,.9); color: #fff;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.mg-fx-bubble.uno  { background: #f39c12; color: #4a3000; font-size: 14px; }
+.mg-fx-bubble.gold { background: #f1c40f; color: #4a3800; }
+.mg-fx-bubble.warn { background: #e74c3c; font-size: 15px; }
+
+/* ★UNOの色変更★ 新しい色の波紋。色が変わったことに気づかせる */
+.mg-fx-ripple {
+  transform: translate(-50%, -50%);
+  width: 90px; height: 90px; border-radius: 50%;
+  border: 4px solid #fff;
+}
+.mg-fx-ripple.c-red    { border-color: #e74c3c; box-shadow: 0 0 22px rgba(231,76,60,.85); }
+.mg-fx-ripple.c-blue   { border-color: #2980b9; box-shadow: 0 0 22px rgba(41,128,185,.85); }
+.mg-fx-ripple.c-green  { border-color: #27ae60; box-shadow: 0 0 22px rgba(39,174,96,.85); }
+.mg-fx-ripple.c-yellow { border-color: #f39c12; box-shadow: 0 0 22px rgba(243,156,18,.85); }
+
+/* 色が変わった瞬間、場の内側の枠を一度強く光らせる */
+.mg-field.color-flash { animation: mgColorFlash .7s ease-out; }
+@keyframes mgColorFlash {
+  0%   { filter: brightness(1); }
+  18%  { filter: brightness(1.85); }
+  100% { filter: brightness(1); }
+}
+
+/* 自分の手番になったとき、手札エリアを光らせる（見落とし防止） */
+.mg-hands.mg-myturn { animation: mgMyTurn 1.4s ease-out; }
+@keyframes mgMyTurn {
+  0%   { box-shadow: inset 0 3px 0 0 rgba(231,76,60,0); }
+  15%  { box-shadow: inset 0 3px 0 0 rgba(231,76,60,1); }
+  70%  { box-shadow: inset 0 3px 0 0 rgba(231,76,60,1); }
+  100% { box-shadow: inset 0 3px 0 0 rgba(231,76,60,0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-field.color-flash,
+  .mg-hands.mg-myturn { animation: none; }
+}

@@ -18,6 +18,17 @@ import { isPcUi } from './pc/ui-mode.js';
 import { syncMobileActionBar } from './mobile-action-bar.js'; // ★モバイルUI M1★ 下部操作バー
 import { renderMobileField, renderMobileHands, renderMobileNote, takeIncomingHit, showHitToast } from './mobile-layout.js'; // ★モバイルUI M2/M3★
 import { areReactionsOff, isReactorBlocked } from './pc/reaction-menu.js'; // ★モバイルUI M3★ 対人リアクションの表示制御
+// ★モバイルUI★ フェイズ自動進行はPC UIと同じ実装を共有する（UI非依存のため）
+// （滞ったときのフェイルセーフは maybeAutoAdvance の戻り値 false に現れるので、
+//   isAutoAdvanceStuck を直接見る必要はない）
+import { maybeAutoAdvance } from './pc/auto-advance.js';
+// ★モバイルUI★ 演出。「何が起きたか」の導出は純粋関数を共有し、描画だけ分ける
+import {
+  deriveFromEntries, deriveFromDiff, takeSnapshot,
+  type GameSnap, type EffectDescriptor,
+} from './pc/effects/effect-derive.js';
+import { enqueueEffects, clearEffectQueue } from './pc/effects/effect-queue.js';
+import { playMobileEffect, flashColorChange, flashRing, flashMyTurn } from './mobile-effects.js';
 import { renderGamePC } from './pc/table-render.js';
 import { syncAccountBar } from './account-bar.js';
 
@@ -245,7 +256,14 @@ export function renderGame(room: any): void {
   renderTrumpHand(myTrump, canActTrump, g, iFinished, myTrumpDone);
   renderUnoHand(myUno, canActUno, g, iFinished, myUnoDone);
 
-  _renderActionButtons(g, isMyTurn, phase, iFinished, myTrumpDone, myUnoDone);
+  // ★モバイルUI★ フェイズ自動進行（PC UIと同じ auto-advance を共有する）。
+  // 手札0枚で「進む」ボタンをいちいち押させない。判定より先に呼び、
+  // 操作バーと案内はその結果に合わせる（自動で進む間はボタンを出さない）。
+  const autoAdvancing = maybeAutoAdvance(room, () => {
+    if (window._room) renderGame(window._room);
+  });
+
+  _renderActionButtons(g, isMyTurn, phase, iFinished, myTrumpDone, myUnoDone, autoAdvancing);
 
   // ★モバイルUI M2★ 文字ラベルの代わりに色・形・一行で伝える部分
   // （場のフェルト色＝現在のUNOの色 / 環＝回転方向 / 赤帯＝操作対象の手札）
@@ -258,7 +276,11 @@ export function renderGame(room: any): void {
     penaltyAccum: g.unoPenaltyAccum || 0,
     needsUnoCall: myUno.length <= 2 && myUno.length > 0 && !(g.unoSaid && g.unoSaid[state.myId]),
     myRank: iFinished ? myRankIdx + 1 : null,
+    autoAdvancing,
   });
+
+  // ★モバイルUI★ 盤面の演出（カードの飛翔・色変更の波紋など）
+  _runMobileEffects(room, g, players, curId);
 
   // ★モバイルUI M3★ 自分宛てに投げられたら、送り主の名前を添えて知らせる
   if (!areReactionsOff()) {
@@ -269,6 +291,74 @@ export function renderGame(room: any): void {
   document.getElementById('cpick')?.classList.remove('show');
 
   _renderLog(room);
+}
+
+// ----------------------------------------
+// ★モバイルUI★ 盤面の演出
+//
+// 「何が起きたか」の導出は PC UI と同じ純粋関数（effect-derive）を共有し、
+// 「モバイルのどこからどこへ動かすか」だけ mobile-effects.ts が持つ。
+// 検知ロジックを二重に書かないための構成（PC UIの table-render と同じ考え方）。
+//
+// trump-special（8切り・革命など）は既存の全画面演出 #trump-effect が
+// 担当しているため、こちらでは再生しない（二重表示になるため）。
+// ----------------------------------------
+let _mgPrevSnap: GameSnap | null = null;
+let _mgPrevColor: string | null = null;
+let _mgPrevDir: number | null = null;
+let _mgPrevTurnId: string | null = null;
+
+function _runMobileEffects(room: any, g: any, players: Player[], curId: string | undefined): void {
+  const snap = takeSnapshot(g, room);
+
+  // 同じルームで再戦すると actionLog / rankings が「減る」。
+  // 一戦目の終盤と二戦目の開始を比較して誤った演出を出さないよう初期化する
+  // （PC UI で実際に起きたバグと同じ対策）。
+  if (_mgPrevSnap !== null &&
+      (snap.actionLogLen < _mgPrevSnap.actionLogLen ||
+       snap.rankingIds.length < _mgPrevSnap.rankingIds.length)) {
+    _mgPrevSnap = null;
+    _mgPrevColor = null;
+    _mgPrevDir = null;
+    _mgPrevTurnId = null;
+    clearEffectQueue();
+  }
+
+  const descs: EffectDescriptor[] = [];
+  if (_mgPrevSnap !== null && snap.actionLogLen > _mgPrevSnap.actionLogLen) {
+    const log: any[] = Array.isArray(room.actionLog) ? room.actionLog : [];
+    descs.push(...deriveFromEntries(log.slice(_mgPrevSnap.actionLogLen)));
+  }
+  descs.push(...deriveFromDiff(_mgPrevSnap, snap, g, players));
+
+  const first = _mgPrevSnap === null;
+  _mgPrevSnap = snap;
+
+  if (descs.length > 0) {
+    enqueueEffects(descs, d => playMobileEffect(d, players, state.myId));
+  }
+
+  // ★UNOの色変更★ フェルトの色が変わるだけでは気づきにくいので波紋を出す。
+  // 初回同期では鳴らさない（開いた瞬間に出ても意味が無いため）。
+  const color = g.unoCurrentColor ?? null;
+  if (!first && _mgPrevColor !== null && color && color !== _mgPrevColor) {
+    flashColorChange(color);
+  }
+  _mgPrevColor = color;
+
+  // 回転方向が変わったら環を光らせる（環そのものが向きを表しているため）
+  if (!first && _mgPrevDir !== null && typeof g.dir === 'number' && g.dir !== _mgPrevDir) {
+    flashRing();
+  }
+  _mgPrevDir = typeof g.dir === 'number' ? g.dir : _mgPrevDir;
+
+  // 自分の手番が来たら手札エリアを光らせる（見落とし防止）
+  if (!first && _mgPrevTurnId !== null && curId != null && curId !== _mgPrevTurnId
+      && curId === state.myId
+      && !(g.rankings || []).some((r: { id: string }) => r.id === state.myId)) {
+    flashMyTurn();
+  }
+  _mgPrevTurnId = curId ?? null;
 }
 
 function _renderTurnBanner(g: GameState, players: Player[], isMyTurn: boolean, phase: string, iFinished: boolean): void {
@@ -551,15 +641,20 @@ function _renderActionButtons(
   phase: string,
   iFinished: boolean,
   myTrumpDone: boolean,
-  myUnoDone: boolean
+  myUnoDone: boolean,
+  /** ★モバイルUI★ 自動進行が予約中/実行中か。true の間はスキップボタンを出さない */
+  autoAdvancing = false
 ): void {
   const myUno = (g.unoHands && g.unoHands[state.myId]) || [];
   const isMyUnoTurn = isMyTurn && phase === 'uno' && !iFinished;
+  // 自動で進むならボタンは不要。ただし自動進行が滞ったときだけ手動で出す
+  // （フェイルセーフ。auto-advance 側が判定を持っている）
+  const showSkip = !autoAdvancing;
 
   const tpassBtn = document.getElementById('trump-pass-btn');
   const tskipBtn = document.getElementById('trump-skip-btn');
   if (tpassBtn) tpassBtn.style.display = (isMyTurn && phase === 'trump' && !iFinished && !myTrumpDone) ? 'inline-block' : 'none';
-  if (tskipBtn) tskipBtn.style.display = (isMyTurn && phase === 'trump' && !iFinished && myTrumpDone) ? 'inline-block' : 'none';
+  if (tskipBtn) tskipBtn.style.display = (showSkip && isMyTurn && phase === 'trump' && !iFinished && myTrumpDone) ? 'inline-block' : 'none';
 
   // ★バグ修正★ UNO出し切り済みのプレイヤーには「引く」ボタンを出さない。
   // 出すカードがないのに引かされてしまうのを防ぐ（uno-skip-btn が代わりに表示される）。
@@ -581,7 +676,9 @@ function _renderActionButtons(
   const uskipBtn = document.getElementById('uno-skip-btn');
   if (uskipBtn) {
     const isParent = g.hasParent === state.myId;
-    uskipBtn.style.display = (isMyUnoTurn && myUnoDone) ? 'inline-block' : 'none';
+    // 親の権限を持つ間は auto-advance が自動進行しない（色を選ぶ機会を奪わない）ので、
+    // そのときは autoAdvancing=false になり、このボタンは従来どおり出る
+    uskipBtn.style.display = (showSkip && isMyUnoTurn && myUnoDone) ? 'inline-block' : 'none';
     uskipBtn.textContent = isParent
       ? '色を変更せず次へ進む ▶'
       : 'UNO0枚 → 次のトランプフェイズへ ▶';

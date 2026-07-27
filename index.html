@@ -273,6 +273,10 @@
        ui-render.ts 側の変更は不要（#glog / #turn-order /
        #phase-indicator / #current-color）。
        ===================================================== -->
+  <!-- ★モバイルUI★ 演出レイヤー（カードの飛翔・吹き出し・色変更の波紋）
+       盤面の再描画で消えないよう、ゾーンの外に1枚だけ置く -->
+  <div class="mg-fx" id="mg-fx" aria-hidden="true"></div>
+
   <div class="mg-scrim" id="mg-scrim" onclick="closeMobileSheets()"></div>
 
   <!-- ★モバイルUI M3★ プレイヤーのシート（②のチップをタップで開く）

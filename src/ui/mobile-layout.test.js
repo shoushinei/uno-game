@@ -57,6 +57,21 @@ describe('buildNote', () => {
     expect(buildNote({ ...base, phase: 'uno', unoCount: 0 })).toContain('次へ進む');
   });
 
+  it('自動進行中はボタンを押させず「自動で進む」と伝える', () => {
+    const s = buildNote({ ...base, trumpCount: 0, autoAdvancing: true });
+    expect(s).toContain('自動で次へ進みます');
+    expect(s).not.toContain('押してください');
+  });
+
+  it('自動進行中でも自分の番でなければ空のまま', () => {
+    expect(buildNote({ ...base, isMyTurn: false, autoAdvancing: true })).toBe('');
+  });
+
+  it('上がり済みの表示は自動進行より優先される', () => {
+    const s = buildNote({ ...base, iFinished: true, myRank: 1, autoAdvancing: true });
+    expect(s).toContain('1位で上がり');
+  });
+
   it('累積ペナルティは他の案内より優先して警告する', () => {
     const s = buildNote({ ...base, phase: 'uno', penaltyAccum: 4, needsUnoCall: true });
     expect(s).toContain('+4 累積中');
