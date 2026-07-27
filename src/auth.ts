@@ -294,7 +294,17 @@ onAuthStateChanged(auth, async (user: any) => {
             // ホーム画面に戻った際にそのまま表示され続けてしまっていた。
             // 復帰成功後は通常のログイン成功メッセージに更新する。
             setStatus(isGuest ? 'ゲストでプレイ中（アカウント機能なし）' : `ログイン中: ${prefill} ✓`, 'ok');
-            if (gameMenuArea) gameMenuArea.style.display = 'none';
+            // ★バグ修正（退室後のホーム画面からボタンが消える）★
+            // ここで以前 gameMenuArea を display:none にしていたが、これが
+            // 復帰後ずっと残り続けていた。退室（leaveGame → clearSessionAndGoHome）は
+            // show('home') で画面を切り替えるだけで、この非表示を戻す処理がどこにも
+            // 無かったため、ホームに戻っても「名前入力・ルームを作る・参加する」が
+            // 消えたままになっていた（リロードすると復帰経路を通らないので直る）。
+            //
+            // そもそも上で show('lobby'|'game'|'result') に切り替えており、
+            // #s-home ごと非表示になるので、中の要素を隠す必要は無い。
+            // 「メニューが見えるのはログイン中のときだけ」という規則を
+            // 上の user 分岐（loginArea/gameMenuArea）だけに一本化する。
             return; // 復帰した場合は通常のホームメニュー表示をスキップ
           } else {
             // 部屋が消滅しているか自分がいない場合はストレージをクリア
