@@ -322,7 +322,7 @@
 /* ---- 実績解除トースト ★Phase 3★ ---- */
 .achv-toast-host {
   position: fixed;
-  top: 16px;
+  top: calc(16px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 3000;

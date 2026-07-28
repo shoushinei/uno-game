@@ -9,6 +9,9 @@
 //
 // この層に「ゲームルール」や「Firebase書き込みロジック」を書かない。
 // ========================================
+// ★PWA★ Service Worker の登録は src/pwa.ts が独立したエントリとして行う
+//   （index.html でこのファイルより前に読み込んでいる）。app.ts の import が
+//   ひとつでも失敗すると本文は実行されないため、SW登録は道連れにしたくない。
 import './auth.js';
 import { clearSessionAndGoHome } from './auth.js';
 import { auth } from './firebase-config.js';

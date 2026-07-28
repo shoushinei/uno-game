@@ -20,7 +20,13 @@ body {
   display: none;
   flex-direction: column;
   align-items: center;
-  padding: 24px 16px;
+  /* ★PWA★ ホーム画面から全画面起動したときにノッチ／曲面の内側に収める。
+     通常のブラウザ表示では env(...) が 0 になるので見た目は変わらない。
+     下端は #mgame-bar 側で env(safe-area-inset-bottom) を見ているのでここでは足さない */
+  padding: calc(24px + env(safe-area-inset-top, 0px))
+           calc(16px + env(safe-area-inset-right, 0px))
+           24px
+           calc(16px + env(safe-area-inset-left, 0px));
   min-height: 500px;
   animation: fadeIn 0.2s ease;
 }
@@ -134,8 +140,9 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
 /* ---- アカウント状態欄（右上固定チップ） ---- */
 #account-bar {
   position: fixed;
-  top: 10px;
-  right: 12px;
+  /* ★PWA★ 全画面起動時にノッチへ潜り込まないようにする */
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
   z-index: 900;
   display: none; /* JS(account-bar.ts)が制御 */
   align-items: center;
@@ -402,4 +409,60 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
   @keyframes duelReactFadeStay {
     0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; }
   }
+}
+
+/* ============================================================
+   ★PWA★ 新バージョンの更新トースト（src/pwa.ts が生成）
+
+   実績トーストが画面上部を使うので、こちらは下端に出す。ボタンを
+   押させる必要があるため pointer-events は有効のままにしてある。
+   ============================================================ */
+.pwa-update-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 3100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  background: linear-gradient(135deg, #2c3e50, #34495e);
+  color: #fff;
+  border: 1.5px solid #16a085;
+  border-radius: 12px;
+  padding: 10px 12px 10px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: pwaToastIn 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.pwa-update-text { font-size: 12px; line-height: 1.35; }
+.pwa-update-text b { color: #7fe3cd; font-size: 12.5px; }
+.pwa-update-btn {
+  flex-shrink: 0;
+  border: none;
+  background: #16a085;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 7px 16px;
+  cursor: pointer;
+}
+.pwa-update-btn:hover { background: #13876f; }
+.pwa-update-close {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px;
+  cursor: pointer;
+}
+.pwa-update-close:hover { color: #fff; }
+
+@keyframes pwaToastIn {
+  from { transform: translate(-50%, 24px); opacity: 0; }
+  to   { transform: translate(-50%, 0);    opacity: 1; }
 }

@@ -2,8 +2,25 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- viewport-fit=cover: ホーム画面から全画面起動したときにノッチ／ホームバーの
+       領域まで背景を広げる。中身の余白は env(safe-area-inset-*) で確保する -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>大富豪 × UNO</title>
+
+  <!-- ---- PWA（ホーム画面に追加してアプリとして起動するための宣言） ---- -->
+  <!-- manifest.webmanifest は vite-plugin-pwa がビルド時に生成・注入する -->
+  <meta name="theme-color" content="#0d1f18">
+  <meta name="description" content="トランプ（大富豪）とUNOを同時進行させるリアルタイム対戦カードゲーム">
+  <!-- public/ 配下は「/」始まりで書く。ビルド時に base(/uno-game/) が補われる -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+  <!-- iOS は manifest を十分に見てくれないので、アイコンと全画面指定を個別に渡す -->
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <!-- black-translucent にすると時計が白文字になり、白背景の従来UIで読めなくなる。
+       default はステータスバーぶんの領域をiOSが確保してくれるので安全 -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="大富豪UNO">
   <link rel="stylesheet" href="src/styles/base.css">
   <link rel="stylesheet" href="src/styles/game.css">
   <link rel="stylesheet" href="src/styles/lobby.css">
@@ -697,6 +714,9 @@
     </div>
   </div>
 </div>
+<!-- ★PWA★ app.ts より前に読む。app.ts の起動が失敗しても Service Worker の
+     登録だけは済ませたいので、独立したエントリにしている -->
+<script type="module" src="src/pwa.ts"></script>
 <script type="module" src="src/app.ts"></script>
 </body>
 </html>
