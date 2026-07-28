@@ -31,6 +31,8 @@ import { enqueueEffects, clearEffectQueue } from './pc/effects/effect-queue.js';
 import { playMobileEffect, flashColorChange, flashRing, flashMyTurn } from './mobile-effects.js';
 import { renderGamePC } from './pc/table-render.js';
 import { syncAccountBar } from './account-bar.js';
+import { vibrate, hapticForEffect } from '../audio/haptics.js'; // ★触覚★ 効果音の触覚版
+import { setWakeLockWanted } from '../wake-lock.js';            // ★Wake Lock★ 対戦中は画面を消させない
 
 /** 他プレイヤーのリアクション表示（Firebaseの rooms/{id}/reactions/{playerId}） */
 interface Reaction {
@@ -54,6 +56,9 @@ export function show(id: string): void {
   document.getElementById('s-' + id)!.classList.add('active');
   // アカウント状態欄の表示/非表示を画面に合わせて更新
   syncAccountBar(id);
+  // ★Wake Lock★ 他人の番を待っている間に画面が消えるのを防ぐ。
+  // 対戦中だけ。ホーム／ロビー／リザルトでは端末の設定どおり消えてよい
+  setWakeLockWanted(id === 'game' || id === 'game-pc');
 }
 
 // ----------------------------------------
@@ -292,7 +297,7 @@ export function renderGame(room: any): void {
   // ★モバイルUI M3★ 自分宛てに投げられたら、送り主の名前を添えて知らせる
   if (!areReactionsOff()) {
     const hit = takeIncomingHit(reactions as any, state.myId, players, Date.now(), isReactorBlocked);
-    if (hit) showHitToast(hit.emoji, hit.fromName);
+    if (hit) { showHitToast(hit.emoji, hit.fromName); vibrate('strong'); } // ★触覚★ 被弾は手応えで返す
   }
 
   document.getElementById('cpick')?.classList.remove('show');
@@ -343,6 +348,14 @@ function _runMobileEffects(room: any, g: any, players: Player[], curId: string |
 
   if (descs.length > 0) {
     enqueueEffects(descs, d => playMobileEffect(d, players, state.myId));
+    // ★触覚★ 演出と同じ導出結果を使う（検知ロジックを二重に持たない）。
+    // 振動するのは自分に関係する出来事だけ＝hapticForEffect が絞り込む
+    if (!first) {
+      for (const d of descs) {
+        const h = hapticForEffect(d, state.myId);
+        if (h) vibrate(h);
+      }
+    }
   }
 
   // ★UNOの色変更★ フェルトの色が変わるだけでは気づきにくいので波紋を出す。
@@ -364,6 +377,7 @@ function _runMobileEffects(room: any, g: any, players: Player[], curId: string |
       && curId === state.myId
       && !(g.rankings || []).some((r: { id: string }) => r.id === state.myId)) {
     flashMyTurn();
+    vibrate('my-turn'); // ★触覚★ 「自分の番に気づかない」対策。音が出せない場面でも届く
   }
   _mgPrevTurnId = curId ?? null;
 }

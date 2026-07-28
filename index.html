@@ -336,6 +336,9 @@
     <div class="mg-sheet-actions">
       <!-- ラベルは mobile-menu.ts が現在の状態に合わせて書き換える -->
       <button class="btn sm" id="mg-sound-btn" onclick="toggleMobileSound()">🔊 効果音 ON</button>
+      <!-- 振動は端末が対応しているときだけ mobile-menu.ts が表示する
+           （iOSはWebKitが触覚APIを持たないため、押しても何も起きないボタンを出さない） -->
+      <button class="btn sm" id="mg-haptic-btn" onclick="toggleMobileHaptic()" style="display:none">📳 振動 ON</button>
     </div>
 
     <div class="mg-sheet-label">その他</div>

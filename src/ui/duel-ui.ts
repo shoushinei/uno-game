@@ -18,6 +18,7 @@ import { currentActorId, type DuelState, type DuelSide } from '../logic/duel-log
 import { MAX_ROLLS, DICE_COUNT, CATEGORY_NAMES } from '../logic/yacht-logic.js';
 import { areReactionsOff, isReactorBlocked } from './pc/reaction-menu.js';
 import { playSound, type SoundId } from '../audio/audio-engine.js';
+import { vibrate } from '../audio/haptics.js'; // ★触覚★ 対決に負けたときの手応え
 
 declare global {
   interface Window {
@@ -282,7 +283,11 @@ export function renderDuel(room: any): void {
   }
   if (duel.stage === 'done' && announcedResultFor !== duel.startedAt) {
     announcedResultFor = duel.startedAt;
-    playSound(duelResultSound(duel));
+    const resultSound = duelResultSound(duel);
+    playSound(resultSound);
+    // ★触覚★ 自分が負けた（=UNO4枚のペナルティ）ときだけ手応えを返す。
+    // 引き分け・勝ちは無傷なので振動させない
+    if (resultSound === 'duel-lose') vibrate('penalty');
   }
 
   lastNames = Object.fromEntries((room.players ?? []).map((p: any) => [p.id, p.name]));
