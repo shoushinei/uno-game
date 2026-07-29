@@ -6,6 +6,7 @@ import {
   deriveFromEntries,
   deriveFromDiff,
   deriveTrumpSpecial,
+  nextTrumpSpecial,
   takeSnapshot,
   MASS_SKIP_THRESHOLD,
 } from './effect-derive.js';
@@ -137,6 +138,43 @@ describe('deriveTrumpSpecial', () => {
   it('種別が空なら null', () => {
     expect(deriveTrumpSpecial({ types: [], playerId: 'p1' }, false)).toBeNull();
     expect(deriveTrumpSpecial(null, false)).toBeNull();
+  });
+});
+
+// ----------------------------------------
+// C-2. 既読tsの進行（PC UIの演出＋音／モバイルUIの音・触覚で共有）
+// ----------------------------------------
+describe('nextTrumpSpecial', () => {
+  const te = (ts, types = ['eightCut']) => ({ types, playerId: 'p1', ts });
+
+  it('初回同期(null)は既読tsを記録するだけで何も返さない', () => {
+    // リロード直後に、開く前に起きていた特殊効果を鳴らさないため
+    expect(nextTrumpSpecial(null, te(100), false)).toEqual({ seenTs: 100, desc: null });
+  });
+
+  it('★trumpEffect がまだ無い初回も 0 で初期化する★', () => {
+    // null のままだと、最初に起きた特殊効果が「初回扱い」でスキップされる
+    const first = nextTrumpSpecial(null, undefined, false);
+    expect(first).toEqual({ seenTs: 0, desc: null });
+    const then = nextTrumpSpecial(first.seenTs, te(100), false);
+    expect(then.seenTs).toBe(100);
+    expect(then.desc).toMatchObject({ kind: 'trump-special', types: ['eightCut'] });
+  });
+
+  it('ts が変わったときだけ返す（同じ ts で再描画されても二度鳴らない）', () => {
+    const a = nextTrumpSpecial(0, te(100), false);
+    expect(a.desc).not.toBeNull();
+    const b = nextTrumpSpecial(a.seenTs, te(100), false);
+    expect(b).toEqual({ seenTs: 100, desc: null });
+    const c = nextTrumpSpecial(b.seenTs, te(200, ['revolution']), true);
+    expect(c.seenTs).toBe(200);
+    expect(c.desc).toMatchObject({ types: ['revolution'], revolutionOn: true });
+  });
+
+  it('trumpEffect が消えても既読tsは巻き戻さない', () => {
+    // 場が流れて trumpEffect が消えたときに、既読を0へ戻すと
+    // 同じ ts の効果がもう一度鳴ってしまう
+    expect(nextTrumpSpecial(100, null, false)).toEqual({ seenTs: 100, desc: null });
   });
 });
 

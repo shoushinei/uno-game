@@ -47,7 +47,7 @@ import { countUnoActivePlayers } from '../../logic/uno-logic.js';
 import {
   deriveFromEntries,
   deriveFromDiff,
-  deriveTrumpSpecial,
+  nextTrumpSpecial,
   takeSnapshot,
   type GameSnap,
   type EffectDescriptor,
@@ -314,17 +314,12 @@ function _runEffects(room: any, g: any, players: Player[], curId: string | undef
   descs.push(...deriveFromDiff(prevSnap, snap, g, players));
 
   // C. trumpEffect（8切り・革命・しばり等の特殊効果バナー）
-  // 初回同期では再生せず「既読ts」を初期化するだけ（リロード時に古い演出が
-  // 再生されるのを防ぐ）。★trumpEffectがまだ存在しない場合も0で初期化する★
-  // （でないと最初に発生した特殊効果が「初回扱い」でスキップされてしまう）
-  const te = g.trumpEffect;
-  const teTs = (te && typeof te.ts === 'number') ? te.ts : 0;
-  if (seenTrumpEffectTs === null) {
-    seenTrumpEffectTs = teTs;
-  } else if (teTs !== 0 && teTs !== seenTrumpEffectTs) {
-    seenTrumpEffectTs = teTs;
-    const desc = deriveTrumpSpecial(te, !!g.trumpRevolution);
-    if (desc) descs.push(desc);
+  // 既読tsの規則（初回は記録だけ）は nextTrumpSpecial に集約している
+  // （モバイルUIの音・触覚でも同じ規則が要るため）
+  {
+    const r = nextTrumpSpecial(seenTrumpEffectTs, g.trumpEffect, !!g.trumpRevolution);
+    seenTrumpEffectTs = r.seenTs;
+    if (r.desc) descs.push(r.desc);
   }
 
   prevSnap = snap;

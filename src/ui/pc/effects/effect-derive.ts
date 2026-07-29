@@ -144,10 +144,32 @@ export function deriveFromDiff(
 
 // ----------------------------------------
 // C. trumpEffect（applyTrumpPlay が書き込む特殊効果）からの導出
-//    ts の重複ガードは呼び出し側（table-render）が行う
 // ----------------------------------------
 export function deriveTrumpSpecial(te: any, revolutionOn: boolean): EffectDescriptor | null {
   const types: string[] = Array.isArray(te?.types) ? te.types : (te?.type ? [te.type] : []);
   if (types.length === 0) return null;
   return { kind: 'trump-special', types, playerId: te.playerId ?? '', revolutionOn };
+}
+
+/**
+ * trumpEffect の「既読ts」を進めつつ、新しく発生した特殊効果だけを返す。
+ *
+ * PC UI（演出＋音）とモバイルUI（音・触覚のみ／描画は全画面 #trump-effect が担当）の
+ * 両方が同じ規則を必要とするため、純粋関数として1箇所に置く。
+ *
+ * ★初回同期（seenTs === null）では既読位置を記録するだけで何も返さない★
+ *   リロード直後に古い特殊効果が再生されるのを防ぐため。
+ * ★trumpEffect がまだ無い初回も 0 で初期化する★
+ *   null のままにすると、最初に発生した特殊効果が「初回扱い」で
+ *   スキップされてしまう。
+ */
+export function nextTrumpSpecial(
+  seenTs: number | null,
+  te: any,
+  revolutionOn: boolean
+): { seenTs: number; desc: EffectDescriptor | null } {
+  const teTs = (te && typeof te.ts === 'number') ? te.ts : 0;
+  if (seenTs === null) return { seenTs: teTs, desc: null };
+  if (teTs === 0 || teTs === seenTs) return { seenTs, desc: null };
+  return { seenTs: teTs, desc: deriveTrumpSpecial(te, revolutionOn) };
 }

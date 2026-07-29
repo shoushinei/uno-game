@@ -24,13 +24,15 @@ import { areReactionsOff, isReactorBlocked } from './pc/reaction-menu.js'; // �
 import { maybeAutoAdvance } from './pc/auto-advance.js';
 // ★モバイルUI★ 演出。「何が起きたか」の導出は純粋関数を共有し、描画だけ分ける
 import {
-  deriveFromEntries, deriveFromDiff, takeSnapshot,
+  deriveFromEntries, deriveFromDiff, nextTrumpSpecial, takeSnapshot,
   type GameSnap, type EffectDescriptor,
 } from './pc/effects/effect-derive.js';
 import { enqueueEffects, clearEffectQueue } from './pc/effects/effect-queue.js';
 import { playMobileEffect, flashColorChange, flashRing, flashMyTurn } from './mobile-effects.js';
 import { renderGamePC } from './pc/table-render.js';
 import { syncAccountBar } from './account-bar.js';
+import { soundForEffect } from '../audio/sound-spec.js';                 // ★効果音★ 出来事→音の対応（純粋・PC UIと共有）
+import { playSound, playSoundSequence } from '../audio/audio-engine.js'; // ★効果音★ 再生
 import { vibrate, hapticForEffect } from '../audio/haptics.js'; // ★触覚★ 効果音の触覚版
 import { setWakeLockWanted } from '../wake-lock.js';            // ★Wake Lock★ 対戦中は画面を消させない
 
@@ -297,7 +299,9 @@ export function renderGame(room: any): void {
   // ★モバイルUI M3★ 自分宛てに投げられたら、送り主の名前を添えて知らせる
   if (!areReactionsOff()) {
     const hit = takeIncomingHit(reactions as any, state.myId, players, Date.now(), isReactorBlocked);
-    if (hit) { showHitToast(hit.emoji, hit.fromName); vibrate('strong'); } // ★触覚★ 被弾は手応えで返す
+    // ★効果音／触覚★ 自分が投げられたときだけ鈍い着弾音＋手応えを返す
+    // （他人同士の投擲まで鳴らすと、8人卓では鳴りっぱなしになる）
+    if (hit) { showHitToast(hit.emoji, hit.fromName); playSound('hit'); vibrate('strong'); }
   }
 
   document.getElementById('cpick')?.classList.remove('show');
@@ -314,11 +318,15 @@ export function renderGame(room: any): void {
 //
 // trump-special（8切り・革命など）は既存の全画面演出 #trump-effect が
 // 担当しているため、こちらでは再生しない（二重表示になるため）。
+// ただし★音★は別で、鳴らさないと8切り・革命の盛り上がりが伝わらないので
+// ここで導出して音だけ流す（視覚キューには積まない）。
 // ----------------------------------------
 let _mgPrevSnap: GameSnap | null = null;
 let _mgPrevColor: string | null = null;
 let _mgPrevDir: number | null = null;
 let _mgPrevTurnId: string | null = null;
+/** 特殊効果の既読ts。null＝まだ初回同期前 */
+let _mgSeenTrumpEffectTs: number | null = null;
 
 function _runMobileEffects(room: any, g: any, players: Player[], curId: string | undefined): void {
   const snap = takeSnapshot(g, room);
@@ -333,6 +341,7 @@ function _runMobileEffects(room: any, g: any, players: Player[], curId: string |
     _mgPrevColor = null;
     _mgPrevDir = null;
     _mgPrevTurnId = null;
+    _mgSeenTrumpEffectTs = null;
     clearEffectQueue();
   }
 
@@ -346,12 +355,29 @@ function _runMobileEffects(room: any, g: any, players: Player[], curId: string |
   const first = _mgPrevSnap === null;
   _mgPrevSnap = snap;
 
+  // ★特殊効果（8切り・革命・しばり等）★
+  // 描画は全画面の #trump-effect が担当するので視覚キューには積まないが、
+  // 音と触覚は「何が起きたか」が要るのでここで導出する。
+  // 既読tsの規則（初回は記録だけ）はPC UIと共通の nextTrumpSpecial に集約。
+  const soundDescs: EffectDescriptor[] = [...descs];
+  {
+    const r = nextTrumpSpecial(_mgSeenTrumpEffectTs, (g as any).trumpEffect, !!(g as any).trumpRevolution);
+    _mgSeenTrumpEffectTs = r.seenTs;
+    if (r.desc) soundDescs.push(r.desc);
+  }
+
   if (descs.length > 0) {
     enqueueEffects(descs, d => playMobileEffect(d, players, state.myId));
+  }
+  if (soundDescs.length > 0) {
+    // ★効果音★ 演出キューは順次再生（前の演出の完了を待つ）だが、音まで
+    // 待たせると遅れて鳴って違和感が出るので、導出できた時点で先に流す
+    // （PC UIの table-render と同じ考え方）
+    playSoundSequence(soundDescs.map(soundForEffect));
     // ★触覚★ 演出と同じ導出結果を使う（検知ロジックを二重に持たない）。
     // 振動するのは自分に関係する出来事だけ＝hapticForEffect が絞り込む
     if (!first) {
-      for (const d of descs) {
+      for (const d of soundDescs) {
         const h = hapticForEffect(d, state.myId);
         if (h) vibrate(h);
       }
@@ -377,6 +403,9 @@ function _runMobileEffects(room: any, g: any, players: Player[], curId: string |
       && curId === state.myId
       && !(g.rankings || []).some((r: { id: string }) => r.id === state.myId)) {
     flashMyTurn();
+    // 画面から目を離していても気づけるよう、ここだけは音も出す
+    // （他人の手番は毎ターン鳴ってうるさいので無音のまま）
+    playSound('my-turn');
     vibrate('my-turn'); // ★触覚★ 「自分の番に気づかない」対策。音が出せない場面でも届く
   }
   _mgPrevTurnId = curId ?? null;
