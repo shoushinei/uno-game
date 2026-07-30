@@ -49,31 +49,38 @@ export interface NoteInput {
  *
  * 手札の行からラベルと枚数を削ったぶん、枚数はここに集約する。
  * 「トランプ」「UNO」という語は使わず 🃏 / 🎴 のマークで示す。
- * 自分の番でないときは空文字（CSSの :empty で行ごと消える）。
+ *
+ * ★必ず1行に収まる短さにすること★ この行は高さ20px固定で、
+ * 折り返すと下部（操作エリア）の高さが変わってしまう。
+ * ★自分の番でなくても空にしない★ 空にすると行が消えて高さが動くため、
+ * 待っている間は手札の枚数だけを出しておく。
+ * ボタンのラベルを短くした（「出す」「引く」「進む」）ぶん、
+ * 何をする場面かはこの行が担う。
  */
 export function buildNote(i: NoteInput): string {
+  const counts = `🃏 ${i.trumpCount} ／ 🎴 ${i.unoCount}`;
   if (i.iFinished) {
     return i.myRank !== null ? `🏁 ${i.myRank}位で上がり — 観戦中` : '🏁 上がり — 観戦中';
   }
-  if (!i.isMyTurn) return '';
+  if (!i.isMyTurn) return counts;
 
   // 自動で進む場面ではボタンを押させないので、案内も「待っていればよい」に変える
-  if (i.autoAdvancing) return '手札は出し切りました — 自動で次へ進みます…';
+  if (i.autoAdvancing) return '出し切り — 自動で次へ進みます…';
 
   if (i.phase === 'trump') {
-    if (i.trumpCount === 0) return 'トランプは出し切りました — 「UNOへ進む」を押してください';
-    return `出したいトランプを選んでください（🃏 ${i.trumpCount}枚）`;
+    if (i.trumpCount === 0) return '🃏 出し切り — 「進む」で次へ';
+    return `🃏 ${i.trumpCount}枚 — 出すカードを選ぶ`;
   }
 
   // UNOフェイズ
-  if (i.unoCount === 0) return 'UNOは出し切りました — 「次へ進む」を押してください';
+  if (i.unoCount === 0) return '🎴 出し切り — 「進む」で次へ';
   if (i.penaltyAccum > 0) {
-    return `⚠️ +${i.penaltyAccum} 累積中 — 同種で返すか、まとめて引く（🎴 ${i.unoCount}枚）`;
+    return `⚠️ +${i.penaltyAccum} 累積中 — 同種で返すか引く`;
   }
   if (i.needsUnoCall) {
-    return `出す前に 📢UNO! を押してください（🎴 ${i.unoCount}枚）`;
+    return `📢 UNO! を押してから出す（🎴 ${i.unoCount}）`;
   }
-  return `同じ色か同じ数字を1枚（🎴 ${i.unoCount}枚）`;
+  return `🎴 ${i.unoCount}枚 — 同じ色か同じ数字を1枚`;
 }
 
 // ----------------------------------------
@@ -109,49 +116,74 @@ export function renderMobileNote(input: NoteInput): void {
 }
 
 // ----------------------------------------
-// ★モバイルUI M3★ 対人リアクションの被弾トースト
+// ★モバイルUI M3★ リアクションの検知
 //
-// 送り主のチップにはバッジが出るが、それだけでは「誰が自分に投げたか」が
-// 分からない。宛先が自分のときだけ、名前を添えたトーストを1回出す。
-// 「1回だけ」を守るため、宛先ごとに既読の ts を持つ。
+// 「新しく投げられたリアクション」を1回だけ拾う。1回だけを守るため
+// 送り主ごとに既読の ts を持つ。
+//
+// ★自分が投げたぶんも返す★ ここが以前の穴だった。
+// 送信者は②のチップ一覧に並ばない（自分は除外される）ので、自分が投げた
+// リアクションは画面のどこにも出ていなかった。さらに送信時の中央ポップは
+// ☰の全体リアクション（😂😭…）のボタンを探す実装で、対人リアクション
+// （🍅💋💐）には対応するボタンが無く、こちらも空振りしていた。
+// ＝「相手へ投げても自分の画面には何も起きない」状態だった。
 // ----------------------------------------
-let seenHitTs: Record<string, number> | null = null;
+
+export interface MobileReactionEvent {
+  /** 送り主 */
+  fromId: string;
+  fromName: string;
+  emoji: string;
+  /** 対人リアクションの宛先。全体向け（自己リアクション）は null */
+  targetId: string | null;
+  /** 自分が宛先か（＝被弾トーストと着弾音を出す対象） */
+  toMe: boolean;
+}
+
+let seenReactionTs: Record<string, number> | null = null;
 
 /** テスト・ルーム切替用 */
 export function resetHitToast(): void {
-  seenHitTs = null;
+  seenReactionTs = null;
 }
 
 /**
- * 新しく自分宛てに飛んできたリアクションがあれば、その絵文字と送り主名を返す。
- * 無ければ null。初回同期では既読位置を記録するだけで何も返さない
+ * 新しく投げられたリアクションを返す。
+ * 初回同期では既読位置を記録するだけで何も返さない
  * （再接続時に過去分が一斉に出るのを防ぐ）。
  */
-export function takeIncomingHit(
+export function takeReactionEvents(
   reactions: Record<string, { emoji: string; ts: number; targetId?: string } | undefined>,
   myId: string,
   players: Array<{ id: string; name: string }>,
   now: number,
   isBlocked: (id: string) => boolean
-): { emoji: string; fromName: string } | null {
-  const first = seenHitTs === null;
-  if (first) seenHitTs = {};
-  const seen = seenHitTs!;
+): MobileReactionEvent[] {
+  const first = seenReactionTs === null;
+  if (first) seenReactionTs = {};
+  const seen = seenReactionTs!;
 
-  let hit: { emoji: string; fromName: string } | null = null;
+  const out: MobileReactionEvent[] = [];
   for (const fromId of Object.keys(reactions)) {
     const r = reactions[fromId];
     if (!r || typeof r.ts !== 'number') continue;
     const prev = seen[fromId] ?? 0;
     if (r.ts <= prev) continue;
     seen[fromId] = r.ts;
-    if (first) continue;                       // 初回は既読化のみ
-    if (r.targetId !== myId || fromId === myId) continue;
-    if (now - r.ts >= 8000) continue;          // 古すぎるものは出さない
-    if (isBlocked(fromId)) continue;
-    hit = { emoji: r.emoji, fromName: players.find(p => p.id === fromId)?.name ?? '？' };
+    if (first) continue;                                  // 初回は既読化のみ
+    if (now - r.ts >= 8000) continue;                     // 古すぎるものは出さない
+    // ブロックは対人リアクションだけに効かせる（既存のバッジ表示と同じ規則）
+    const targetId = r.targetId ?? null;
+    if (targetId && isBlocked(fromId)) continue;
+    out.push({
+      fromId,
+      fromName: players.find(p => p.id === fromId)?.name ?? '？',
+      emoji: r.emoji,
+      targetId,
+      toMe: targetId === myId && fromId !== myId,
+    });
   }
-  return hit;
+  return out;
 }
 
 /** 被弾トーストを画面中央付近に短く出す */

@@ -27,6 +27,8 @@ const DUR = {
   bubble: 750,
   sweep: 450,
   colorRipple: 700,
+  reactFly: 620,
+  reactHit: 380,
 };
 
 function reducedMotion(): boolean {
@@ -232,6 +234,47 @@ export function flashColorChange(color: string): void {
     field.classList.add('color-flash');
     setTimeout(() => field.classList.remove('color-flash'), DUR.colorRipple);
   }
+}
+
+/**
+ * ★対人リアクションの投擲★
+ *
+ * モバイルには投擲の概念が無く、送り主のチップにバッジが出るだけだったため
+ * 「誰が誰に投げたか」が伝わらず、自分が投げたぶんに至っては（自分は②に
+ * 並ばないので）画面のどこにも出ていなかった。
+ * PC UIと同じく、送り主から宛先へ放物線で飛ばして着弾させる。
+ * 自分が送り主／宛先のときは、カードの演出と同じく手札エリアを起点にする。
+ */
+export function flyReaction(emoji: string, fromId: string, toId: string, myId: string): void {
+  const from = anchorPlayer(fromId, myId);
+  const to = anchorPlayer(toId, myId);
+  const land = (): void => {
+    const hit = spawn(emoji, to, 'mg-fx-react hit', DUR.reactHit);
+    hit?.animate(
+      [
+        { transform: 'translate(-50%, -50%) scale(1.1)', opacity: 1 },
+        { transform: 'translate(-50%, -50%) scale(1.9)', opacity: 0 },
+      ],
+      { duration: DUR.reactHit, easing: 'ease-out', fill: 'forwards' }
+    );
+  };
+
+  if (reducedMotion()) { land(); return; }
+
+  const el = spawn(emoji, from, 'mg-fx-react', DUR.reactFly);
+  if (!el) return;
+  // 山なりに飛ばす。中間点を上へ持ち上げるだけの3キーフレームで十分伝わる
+  const midX = (to.x - from.x) / 2;
+  const midY = (to.y - from.y) / 2 - Math.max(46, Math.abs(to.x - from.x) * 0.28);
+  el.animate(
+    [
+      { transform: 'translate(-50%, -50%) scale(0.75) rotate(0deg)', opacity: 0.9, offset: 0 },
+      { transform: `translate(calc(-50% + ${midX}px), calc(-50% + ${midY}px)) scale(1.15) rotate(180deg)`, opacity: 1, offset: 0.55 },
+      { transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(1) rotate(360deg)`, opacity: 1, offset: 1 },
+    ],
+    { duration: DUR.reactFly, easing: 'cubic-bezier(0.3, 0.1, 0.4, 1)', fill: 'forwards' }
+  );
+  setTimeout(land, DUR.reactFly);
 }
 
 /** 回転方向が変わったとき、環を一度光らせる */

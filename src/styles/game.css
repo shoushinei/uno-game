@@ -331,24 +331,36 @@
 #mgame-bar {
   position:sticky; bottom:0; z-index:40;
   width:100%; max-width:600px;
-  display:flex; flex-wrap:wrap; gap:8px; align-items:stretch;
+  /* ★高さを一定に保つ★ 折り返すとボタンの位置が毎ターン動いて押し間違えるので
+     常に1行に収める（nowrap）。ラベルはそのために短くしてある。 */
+  display:flex; flex-wrap:nowrap; gap:8px; align-items:stretch;
   margin-top:8px;
   padding:8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  /* 中身が空でも1行ぶんの高さを保つ（46px + 上下padding16px + 上枠1px = 63px）。
+     他人の番にバーが消えると、場と手札の位置が毎ターン上下してしまうため。 */
+  min-height:calc(63px + env(safe-area-inset-bottom, 0px));
   background:var(--color-background-primary, #fff);
   border-top:1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
   box-shadow:0 -3px 14px rgba(0,0,0,.10);
 }
-/* 表示するボタンが無いときはバーごと隠す（他人の番に帯だけ残らないように） */
-#mgame-bar.empty { display:none; }
+/* ★他人の番でも帯は消さない★（高さを固定するため）。
+   操作できないことは、影を落として静かにすることで伝える。 */
+#mgame-bar.empty { box-shadow:none; background:var(--color-background-secondary, #f4f5f4); }
 
 #mgame-bar .btn {
   flex:1 1 auto; width:auto; max-width:none; margin:0;
   min-height:46px;              /* iOS推奨44px以上 */
-  padding:12px 10px; font-size:13px; line-height:1.25;
+  padding:12px 8px; font-size:13px; line-height:1.25;
+  /* 1行固定なので、狭い端末でも折り返さずに詰める */
+  min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-/* ピッカーが開いたら1行を占有する */
+/* ★色ピッカーはバーの上に浮かせる★
+   バーの中で開くとバーが3行ぶん(163px)に伸びて画面が大きく動いていた。
+   浮かせればバーの高さは63pxのまま変わらず、下のボタン（「変更せず進む」など）も
+   隠れないので、色を選ばずに抜ける道も残る。 */
 #mgame-bar .cpick {
-  flex:1 1 100%; max-width:none; margin-top:0; padding:10px;
+  position:absolute; left:8px; right:8px; bottom:calc(100% + 6px);
+  z-index:41; width:auto; max-width:none; margin:0; padding:10px;
 }
 #mgame-bar .cpick p { margin-bottom:8px; }
 
@@ -580,18 +592,23 @@
 .mg-hrow .hand-done { padding: 14px 0; }
 
 /* ---- ⑤ 案内の一行（何をすべきか＋手札の枚数） ---- */
+/* ★高さ固定★ 折り返しでも空でも行の高さが変わらないようにする
+   （自分の番だけ表示していた頃は 0↔20px で下部が動いていた）。
+   他人の番でも枚数を出すので :empty になるのは異常時だけ。 */
 .mg-note {
   flex: none;
-  font-size: 11px; line-height: 1.4; text-align: center;
+  height: 20px; line-height: 15px;
+  font-size: 11px; text-align: center;
   padding: 5px 10px 0;
   color: var(--color-text-secondary);
   background: var(--color-background-primary, #fff);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.mg-note:empty { display: none; }
 
 /* M2ではゾーンが固定になり画面自体がスクロールしないため、
-   M1で入れた sticky は不要（同じ位置に留まる） */
-#s-game.active #mgame-bar { position: static; flex: none; }
+   M1で入れた sticky は不要（同じ位置に留まる）。
+   relative なのは、色ピッカーを bar の上へ浮かせる位置基準にするため。 */
+#s-game.active #mgame-bar { position: relative; flex: none; }
 
 /* ---- ☰ メニューシート ---- */
 .mg-scrim {
@@ -793,6 +810,14 @@
 .mg-fx-bubble.uno  { background: #f39c12; color: #4a3000; font-size: 14px; }
 .mg-fx-bubble.gold { background: #f1c40f; color: #4a3800; }
 .mg-fx-bubble.warn { background: #e74c3c; font-size: 15px; }
+
+/* ★対人リアクションの投擲★ 送り主 → 宛先へ飛ぶ絵文字と、その着弾 */
+.mg-fx-react {
+  transform: translate(-50%, -50%);
+  font-size: 26px; line-height: 1;
+  filter: drop-shadow(0 3px 8px rgba(0,0,0,.45));
+}
+.mg-fx-react.hit { font-size: 30px; }
 
 /* ★UNOの色変更★ 新しい色の波紋。色が変わったことに気づかせる */
 .mg-fx-ripple {

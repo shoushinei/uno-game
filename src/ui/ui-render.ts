@@ -16,7 +16,7 @@ import type { GameState, Player, UnoCard } from '../logic/types';
 import type { TrumpCard, TrumpEffect } from '../logic/trump-logic.js';
 import { isPcUi } from './pc/ui-mode.js';
 import { syncMobileActionBar } from './mobile-action-bar.js'; // ★モバイルUI M1★ 下部操作バー
-import { renderMobileField, renderMobileHands, renderMobileNote, takeIncomingHit, showHitToast } from './mobile-layout.js'; // ★モバイルUI M2/M3★
+import { renderMobileField, renderMobileHands, renderMobileNote, takeReactionEvents, showHitToast } from './mobile-layout.js'; // ★モバイルUI M2/M3★
 import { areReactionsOff, isReactorBlocked } from './pc/reaction-menu.js'; // ★モバイルUI M3★ 対人リアクションの表示制御
 // ★モバイルUI★ フェイズ自動進行はPC UIと同じ実装を共有する（UI非依存のため）
 // （滞ったときのフェイルセーフは maybeAutoAdvance の戻り値 false に現れるので、
@@ -28,7 +28,7 @@ import {
   type GameSnap, type EffectDescriptor,
 } from './pc/effects/effect-derive.js';
 import { enqueueEffects, clearEffectQueue } from './pc/effects/effect-queue.js';
-import { playMobileEffect, flashColorChange, flashRing, flashMyTurn } from './mobile-effects.js';
+import { playMobileEffect, flashColorChange, flashRing, flashMyTurn, flyReaction } from './mobile-effects.js';
 import { renderGamePC } from './pc/table-render.js';
 import { syncAccountBar } from './account-bar.js';
 import { soundForEffect } from '../audio/sound-spec.js';                 // ★効果音★ 出来事→音の対応（純粋・PC UIと共有）
@@ -296,12 +296,18 @@ export function renderGame(room: any): void {
   // ★モバイルUI★ 盤面の演出（カードの飛翔・色変更の波紋など）
   _runMobileEffects(room, g, players, curId);
 
-  // ★モバイルUI M3★ 自分宛てに投げられたら、送り主の名前を添えて知らせる
+  // ★モバイルUI M3★ リアクションの表示
+  // 対人リアクションは送り主 → 宛先へ飛ばす。★自分が投げたぶんも含む★
+  // （自分は②のチップ一覧に並ばないため、投げても画面に何も出ていなかった）
   if (!areReactionsOff()) {
-    const hit = takeIncomingHit(reactions as any, state.myId, players, Date.now(), isReactorBlocked);
-    // ★効果音／触覚★ 自分が投げられたときだけ鈍い着弾音＋手応えを返す
-    // （他人同士の投擲まで鳴らすと、8人卓では鳴りっぱなしになる）
-    if (hit) { showHitToast(hit.emoji, hit.fromName); playSound('hit'); vibrate('strong'); }
+    const events = takeReactionEvents(reactions as any, state.myId, players, Date.now(), isReactorBlocked);
+    for (const ev of events) {
+      // 全体向け（自己リアクション）は送り主のチップのバッジで足りるので飛ばさない
+      if (ev.targetId) flyReaction(ev.emoji, ev.fromId, ev.targetId, state.myId);
+      // ★効果音／触覚★ 自分が投げられたときだけ鈍い着弾音＋手応えを返す
+      // （他人同士の投擲まで鳴らすと、8人卓では鳴りっぱなしになる）
+      if (ev.toMe) { showHitToast(ev.emoji, ev.fromName); playSound('hit'); vibrate('strong'); }
+    }
   }
 
   document.getElementById('cpick')?.classList.remove('show');
@@ -711,11 +717,12 @@ function _renderActionButtons(
   const udrawBtn = document.getElementById('uno-draw-btn');
   if (udrawBtn) {
     udrawBtn.style.display = (isMyUnoTurn && !myUnoDone) ? 'inline-block' : 'none';
+    // ラベルはバーを1行に保つため短く固定する（枚数の意味は案内一行が説明する）
     if (g.unoPenaltyAccum > 0) {
-      udrawBtn.textContent = `ペナルティ ${g.unoPenaltyAccum} 枚引く`;
+      udrawBtn.textContent = `+${g.unoPenaltyAccum} 引く`;
       udrawBtn.classList.add('penalty');
     } else {
-      udrawBtn.textContent = 'UNOを1枚引く';
+      udrawBtn.textContent = '引く';
       udrawBtn.classList.remove('penalty');
     }
   }
@@ -730,8 +737,8 @@ function _renderActionButtons(
     // そのときは autoAdvancing=false になり、このボタンは従来どおり出る
     uskipBtn.style.display = (showSkip && isMyUnoTurn && myUnoDone) ? 'inline-block' : 'none';
     uskipBtn.textContent = isParent
-      ? '色を変更せず次へ進む ▶'
-      : 'UNO0枚 → 次のトランプフェイズへ ▶';
+      ? '変更せず進む ▶'
+      : '進む ▶';
   }
 
   // ★バグ修正★ uno-play-btn は selectUnoCard が呼ばれた時しか表示制御されておらず、
@@ -754,11 +761,9 @@ function _renderActionButtons(
   if (parentColorBtn) {
     const isParentNow = isMyTurn && phase === 'uno' && g.hasParent === state.myId;
     parentColorBtn.style.display = isParentNow ? 'block' : 'none';
-    // ★モバイルUI M1★ 下部バーに並ぶため、長い説明文から短いラベルへ変更した
-    // （UNO出し切り済みのときだけ「使うと次へ進む」ことを添える）
-    parentColorBtn.textContent = (isParentNow && myUnoDone)
-      ? '👑 親の権限（使うと次へ）'
-      : '👑 親の権限';
+    // ★モバイルUI M1★ 下部バーに並ぶため短いラベルにしてある。
+    // 最大4つ（📢UNO! / 出す / 引く / 👑）が1行に並ぶので、これ以上長くしないこと。
+    parentColorBtn.textContent = '👑 色変更';
   }
 
   syncMobileActionBar();

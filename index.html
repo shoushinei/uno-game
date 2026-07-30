@@ -239,26 +239,29 @@
       <button class="btn red" id="uno-btn" onclick="sayUno()" style="display:none">
         📢 UNO!
       </button>
+      <!-- ★ラベルは短く固定★ バーを常に1行(63px)に収めるため。
+           何をすべきかは、すぐ上の案内一行と手札の赤帯が伝えている。
+           （PC UIも「出す」の固定ラベルで運用している） -->
       <button class="btn sm red" id="trump-play-btn" onclick="submitTrumpPlay()" style="display:none">
-        選択したトランプを出す
+        出す
       </button>
       <button class="btn sm red" id="uno-play-btn" onclick="submitUnoPlay()" style="display:none">
-        選択したカードを出す
+        出す
       </button>
       <button class="btn sm" id="trump-pass-btn" onclick="trumpPass()" style="display:none">
         パス
       </button>
       <button class="btn sm" id="uno-draw-btn" onclick="unoDraw()" style="display:none">
-        UNOを1枚引く
+        引く
       </button>
       <button class="btn sm red" id="trump-skip-btn" onclick="trumpSkip()" style="display:none">
-        UNOへ進む ▶
+        進む ▶
       </button>
       <button class="btn sm red" id="uno-skip-btn" onclick="unoSkip()" style="display:none">
-        次へ進む ▶
+        進む ▶
       </button>
       <button class="btn warn" id="parent-color-btn" onclick="showParentColorPick()" style="display:none">
-        👑 親の権限
+        👑 色変更
       </button>
 
       <!-- 色選択（開くとバーの中身がピッカーに切り替わる） -->

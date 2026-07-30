@@ -3,7 +3,7 @@
 // ========================================
 import { describe, it, expect, beforeEach } from 'vitest';
 import { buildPlayerSheetHtml } from './mobile-player-sheet.js';
-import { takeIncomingHit, resetHitToast } from './mobile-layout.js';
+import { takeReactionEvents, resetHitToast } from './mobile-layout.js';
 
 const base = {
   id: 'p1', name: 'たろう', icon: '🐶', title: '初勝利',
@@ -75,50 +75,38 @@ describe('buildPlayerSheetHtml', () => {
   });
 });
 
-describe('takeIncomingHit', () => {
+// 被弾トースト（自分が宛先のときだけ名前入りで知らせる）の判定。
+// 検知そのものの規則は mobile-layout.test.js の takeReactionEvents 側で固めており、
+// ここでは「トーストを出すのは自分宛てだけ」という M3 の約束を守る。
+describe('被弾トーストの対象（toMe）', () => {
   const players = [{ id: 'me', name: 'じぶん' }, { id: 'p1', name: 'たろう' }];
   const never = () => false;
+  const toMe = (reactions, now = 2100, isBlocked = never) =>
+    takeReactionEvents(reactions, 'me', players, now, isBlocked).filter(e => e.toMe);
   beforeEach(() => resetHitToast());
 
-  it('初回同期では何も返さない（再接続で過去分が一斉に出るのを防ぐ）', () => {
-    const r = { p1: { emoji: '🍅', ts: 1000, targetId: 'me' } };
-    expect(takeIncomingHit(r, 'me', players, 1100, never)).toBeNull();
+  it('初回同期では何も出さない（再接続で過去分が一斉に出るのを防ぐ）', () => {
+    expect(toMe({ p1: { emoji: '🍅', ts: 1000, targetId: 'me' } }, 1100)).toEqual([]);
   });
 
-  it('2回目以降に新しく自分宛てが来たら送り主の名前とともに返す', () => {
-    takeIncomingHit({}, 'me', players, 1000, never); // 既読化
-    const r = { p1: { emoji: '🍅', ts: 2000, targetId: 'me' } };
-    expect(takeIncomingHit(r, 'me', players, 2100, never)).toEqual({ emoji: '🍅', fromName: 'たろう' });
+  it('新しく自分宛てが来たら送り主の名前とともに出す', () => {
+    toMe({}, 1000); // 既読化
+    expect(toMe({ p1: { emoji: '🍅', ts: 2000, targetId: 'me' } }))
+      .toEqual([expect.objectContaining({ emoji: '🍅', fromName: 'たろう', toMe: true })]);
   });
 
-  it('同じリアクションを二度返さない（トーストが繰り返さない）', () => {
-    takeIncomingHit({}, 'me', players, 1000, never);
-    const r = { p1: { emoji: '🍅', ts: 2000, targetId: 'me' } };
-    expect(takeIncomingHit(r, 'me', players, 2100, never)).not.toBeNull();
-    expect(takeIncomingHit(r, 'me', players, 2200, never)).toBeNull();
+  it('自分宛てでない対人リアクションではトーストを出さない（投擲だけ見せる）', () => {
+    toMe({}, 1000);
+    expect(toMe({ p1: { emoji: '🍅', ts: 2000, targetId: 'p2' } })).toEqual([]);
   });
 
-  it('自分宛てでない対人リアクションは返さない', () => {
-    takeIncomingHit({}, 'me', players, 1000, never);
-    const r = { p1: { emoji: '🍅', ts: 2000, targetId: 'p2' } };
-    expect(takeIncomingHit(r, 'me', players, 2100, never)).toBeNull();
+  it('全体リアクション（宛先なし）ではトーストを出さない', () => {
+    toMe({}, 1000);
+    expect(toMe({ p1: { emoji: '🎉', ts: 2000 } })).toEqual([]);
   });
 
-  it('全体リアクション（宛先なし）は返さない', () => {
-    takeIncomingHit({}, 'me', players, 1000, never);
-    const r = { p1: { emoji: '🎉', ts: 2000 } };
-    expect(takeIncomingHit(r, 'me', players, 2100, never)).toBeNull();
-  });
-
-  it('ブロックしている相手からは返さない', () => {
-    takeIncomingHit({}, 'me', players, 1000, never);
-    const r = { p1: { emoji: '🍅', ts: 2000, targetId: 'me' } };
-    expect(takeIncomingHit(r, 'me', players, 2100, id => id === 'p1')).toBeNull();
-  });
-
-  it('8秒以上前の古いものは返さない（再接続時の一斉再生を防ぐ）', () => {
-    takeIncomingHit({}, 'me', players, 1000, never);
-    const r = { p1: { emoji: '🍅', ts: 2000, targetId: 'me' } };
-    expect(takeIncomingHit(r, 'me', players, 2000 + 9000, never)).toBeNull();
+  it('ブロックしている相手からは出さない', () => {
+    toMe({}, 1000);
+    expect(toMe({ p1: { emoji: '🍅', ts: 2000, targetId: 'me' } }, 2100, id => id === 'p1')).toEqual([]);
   });
 });
