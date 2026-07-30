@@ -30,6 +30,9 @@ import {
 import { enqueueEffects, clearEffectQueue } from './pc/effects/effect-queue.js';
 import { playMobileEffect, flashColorChange, flashRing, flashMyTurn, flyReaction } from './mobile-effects.js';
 import { renderGamePC } from './pc/table-render.js';
+// ★モバイルUI★ 席は場の左右。手番順の計算はPC UIと共有し、左右への割り振りだけ持つ
+import { othersInTurnOrder } from './pc/seat-layout.js';
+import { splitMobileSeats } from './mobile-seat-layout.js';
 import { syncAccountBar } from './account-bar.js';
 import { soundForEffect } from '../audio/sound-spec.js';                 // ★効果音★ 出来事→音の対応（純粋・PC UIと共有）
 import { playSound, playSoundSequence } from '../audio/audio-engine.js'; // ★効果音★ 再生
@@ -484,9 +487,25 @@ function _renderOtherPlayers(
   autoPlayers: Record<string, boolean>,
   leftPlayers: Record<string, boolean>
 ): void {
-  const opl = document.getElementById('opl')!;
-  opl.innerHTML = '';
-  players.filter(p => p.id !== state.myId).forEach(p => {
+  // ★席は場の左右★ 並びは「自分の次の手番が左の下 → 左を上へ → 右を下りて自分へ」
+  // ＝卓を時計回りに囲む。手番順の計算は PC UI と同じ othersInTurnOrder を共有する。
+  const colL = document.getElementById('mg-seats-l');
+  const colR = document.getElementById('mg-seats-r');
+  if (!colL || !colR) return;
+  colL.innerHTML = '';
+  colR.innerHTML = '';
+
+  const byId = new Map(players.map(p => [p.id, p]));
+  const others = othersInTurnOrder(g.order || [], players.map(p => p.id), state.myId);
+  const cols = splitMobileSeats(others);
+  const place: Array<[string, HTMLElement]> = [
+    ...cols.left.map(id => [id, colL] as [string, HTMLElement]),
+    ...cols.right.map(id => [id, colR] as [string, HTMLElement]),
+  ];
+
+  place.forEach(([pid, col]) => {
+    const p = byId.get(pid);
+    if (!p) return;
     const tc = (g.trumpHands && g.trumpHands[p.id]) ? g.trumpHands[p.id]!.length : 0;
     const uc = (g.unoHands && g.unoHands[p.id]) ? g.unoHands[p.id]!.length : 0;
     const active = p.id === curId && g.order.includes(p.id);
@@ -503,32 +522,36 @@ function _renderOtherPlayers(
     const reactHtml = showReact
       ? `<div class="react-badge${react!.targetId ? ' directed' : ''}">${react!.emoji}</div>` : '';
     // ★機能追加★ 他プレイヤーが自動プレイ／退室中／ボットかを表示する
-    // 退室中（灰）・ボット（紫）・自発的な自動プレイ（紫）を区別する
+    // 退室中（灰）・ボット（紫）・自発的な自動プレイ（紫）を区別する。
+    // ★席が細くなったのでアイコンだけにする★ 説明はタップで開くシートで読める
     const isLeft = !!(leftPlayers && leftPlayers[p.id]);
     const isAuto = !!(autoPlayers && autoPlayers[p.id]);
     const isBot = !!p.isBot;
+    const badge = (kind: string, icon: string, label: string): string =>
+      `<div class="auto-badge k-${kind}" title="${label}" aria-label="${label}">${icon}</div>`;
     const autoHtml = isLeft
-      ? `<div class="auto-badge" style="font-size:11px;background:#5f5e5a;color:#fff;border-radius:8px;padding:1px 6px;display:inline-block;margin-top:2px">🚪 退室中（自動）</div>`
+      ? badge('left', '🚪', '退室中（自動プレイ）')
       : isBot
-      ? `<div class="auto-badge" style="font-size:11px;background:#8e44ad;color:#fff;border-radius:8px;padding:1px 6px;display:inline-block;margin-top:2px">🤖 ボット</div>`
+      ? badge('bot', '🤖', 'ボット')
       : isAuto
-      ? `<div class="auto-badge" style="font-size:11px;background:#8e44ad;color:#fff;border-radius:8px;padding:1px 6px;display:inline-block;margin-top:2px">🐒 自動プレイ中</div>`
+      ? badge('auto', '🐒', '自動プレイ中')
       : '';
     const el = document.createElement('div');
     el.className = 'op' + (active ? ' cur' : '');
     // ★戦績刷新★ 長押しで戦績カードを開くための対象マーカー
     el.dataset.playerId = p.id;
+    // ★席に称号は出さない★ 8人＋称号＋状態バッジだと列からはみ出すため
+    // （称号はタップで開くシートとロビーで読める。席は「誰・状態・枚数」に絞る）
     el.innerHTML = `
       ${reactHtml}
       <div class="on">${p.icon ? p.icon + ' ' : ''}${p.name}</div>
-      ${p.title ? `<div class="op-title">${p.title}</div>` : ''}
       ${autoHtml}
       ${rIdx !== -1
         ? `<div class="oc finish-badge">🏁${rIdx + 1}位</div>`
-        : `<div class="oc"><div class="trump-cnt">🃏${tc}枚</div><div class="uno-cnt">🎴${uc}枚</div></div>`
+        : `<div class="oc"><div class="trump-cnt">🃏${tc}</div><div class="uno-cnt">🎴${uc}</div></div>`
       }
     `;
-    opl.appendChild(el);
+    col.appendChild(el);
   });
 }
 

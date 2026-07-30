@@ -171,10 +171,13 @@
     <button class="mg-iconbtn" onclick="openMobileMenu()" title="メニュー">☰</button>
   </div>
 
-  <!-- ② 他プレイヤー（横スクロール） -->
-  <div class="ops mg-players" id="opl"></div>
+  <!-- ③ 場（唯一の可変ゾーン。フェルトの色＝現在のUNOの色）
+       ＋ ② 他プレイヤーの席（フェルトの左右に立てる）
 
-  <!-- ③ 場（唯一の可変ゾーン。フェルトの色＝現在のUNOの色） -->
+       以前は②を画面上端の横スクロール1行に並べていたが、5人を超えると
+       画面外へはみ出し、全員が一箇所に固まるためリアクションの投擲も
+       見えづらかった。左右に分けると8人でも全員が常時見え、
+       投擲が場を横切るので「誰から誰へ」が分かる。 -->
   <div class="mg-field" id="mg-field">
     <!-- 環そのものが回転方向。反転は環ごと scaleX(-1) するので必ず正しい向きになる -->
     <svg class="mg-ring" id="mg-ring" viewBox="0 0 200 200" aria-hidden="true">
@@ -183,6 +186,14 @@
       <polygon points="188.4,79.5 179.0,71.3 190.2,67.2" />
       <polygon points="11.6,120.5 21.0,128.7 9.8,132.9" />
     </svg>
+
+    <!-- ② 他プレイヤーの席。#opl は「席全体の入れ物」として残す
+         （タップ委譲・演出のフォールバック座標がこのIDを見ている）。
+         並びは自分の次の手番が左下 → 左を上へ → 右を下りて自分に戻る＝時計回り -->
+    <div class="mg-seats" id="opl">
+      <div class="mg-seat-col left" id="mg-seats-l"></div>
+      <div class="mg-seat-col right" id="mg-seats-r"></div>
+    </div>
 
     <div id="parent-badge" class="parent-badge" style="display:none">👑 親</div>
 

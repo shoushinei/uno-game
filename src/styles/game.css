@@ -434,6 +434,8 @@
      ①ステータス ②他プレイヤー ③場（唯一の可変） ④手札 ⑤操作バー
    手札を横スクロールにすることでトランプ13枚が4行→1行になり、
    実測で約200px を場に回せた。
+   ※②は後に「場の左右の席」へ移したので、縦のゾーンとしては4層。
+     そのぶん（実測54px）も場に還元されている。
 
    設計原則: 言葉で説明せず、位置・色・マークで伝える。
    （ラベル→上下の位置 / 現在の色→フェルトの色 / 回転方向→環の矢じり）
@@ -442,6 +444,10 @@
      リプレイ画面 (replay/render.ts) がまだ使っているため残してある。
    ============================================================ */
 #s-game.active {
+  /* 席の列の幅と、場の中身に使ってよい中央の安全域。
+     幅の狭い端末では席も細くする（下の @media で上書き） */
+  --mg-seat-w: 68px;
+  --mg-seat-safe: 72px;
   padding: 0;
   width: 100%;
   max-width: 600px;
@@ -482,20 +488,73 @@
 }
 .mg-iconbtn:active { transform: scale(0.94); }
 
-/* ---- ② 他プレイヤー（横スクロール） ---- */
-.mg-players {
-  flex: none;
-  display: flex; flex-wrap: nowrap; justify-content: flex-start;
-  gap: 6px; margin: 0; padding: 7px 8px;
-  overflow-x: auto; overflow-y: hidden;
-  background: var(--color-background-primary, #fff);
-  border-bottom: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
-  scrollbar-width: none;
+/* ============================================================
+   ★モバイルUI★ ② 他プレイヤーの席（フェルトの左右）
+
+   以前は画面上端の横スクロール1行だったが、5人を超えると画面外へ
+   はみ出して見えない人が出ていた。左右2列に分けると8人（他7人）でも
+   縦に収まり、全員が常時見える。全員が一箇所に固まらなくなるので、
+   対人リアクションの投擲が場を横切って「誰から誰へ」も分かる。
+
+   フェルトの上に重ねる方式（案A）。フェルトが全幅のまま残るので
+   「フェルトの色＝現在のUNOの色」という原則を損なわない。
+   ============================================================ */
+.mg-seats {
+  position: absolute; inset: 0; z-index: 3;
+  margin: 0; padding: 0;
+  pointer-events: none;   /* 場のタップを塞がない。チップだけが受ける */
 }
-.mg-players::-webkit-scrollbar { display: none; }
-.mg-players .op { flex: none; }
-/* 横スクロール領域は overflow-y も切られるため、はみ出す位置のバッジを内側へ寄せる */
-.mg-players .react-badge { top: -2px; right: -2px; width: 24px; height: 24px; font-size: 14px; }
+.mg-seat-col {
+  position: absolute; top: 4px; bottom: 4px; width: var(--mg-seat-w, 68px);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: space-evenly;
+}
+.mg-seat-col.left  { left: 2px; }
+.mg-seat-col.right { right: 2px; }
+
+/* 狭い端末（iPhone SE 等）では席を細くして中央の場を守る */
+@media (max-width: 340px) {
+  #s-game.active { --mg-seat-w: 58px; --mg-seat-safe: 62px; }
+  .mg-seats .on { font-size: 9.5px; }
+}
+
+.mg-seats .op {
+  flex: none; pointer-events: auto;
+  width: 100%; min-width: 0; padding: 4px 3px 3px;
+  /* 暗いフェルトの上に乗るので、白い札として浮かせる */
+  background: rgba(255,255,255,.94);
+  border: 1px solid rgba(0,0,0,.14);
+  box-shadow: 0 2px 6px rgba(0,0,0,.28);
+}
+.mg-seats .op.cur {
+  transform: none;
+  border: 2px solid #e74c3c; padding: 3px 2px 2px;   /* 枠が太るぶん内側で吸収して幅を保つ */
+  box-shadow: 0 0 10px rgba(231,76,60,.5);
+}
+.mg-seats .on { font-size: 10px; max-width: none; margin-bottom: 1px; }
+.mg-seats .oc { flex-direction: row; gap: 5px; }
+.mg-seats .trump-cnt, .mg-seats .uno-cnt { font-size: 9.5px; }
+.mg-seats .finish-badge { font-size: 10px; }
+/* ★状態（🤖ボット／🚪退室中／🐒自動プレイ）はチップの角に重ねる★
+   独立した行にすると、8人＝4段のときに列の高さを超えてしまう。
+   文字は置かず、意味は title / aria-label と、タップで開くシートが持つ。 */
+.mg-seats .auto-badge {
+  position: absolute; bottom: -5px;
+  width: 17px; height: 17px; line-height: 16px; text-align: center;
+  font-size: 10px; padding: 0; margin: 0;
+  border-radius: 50%; color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+.mg-seats .auto-badge.k-left { background: #5f5e5a; }
+.mg-seats .auto-badge.k-bot,
+.mg-seats .auto-badge.k-auto { background: #8e44ad; }
+/* はみ出す装飾は内側（場の中央側）へ。画面の外で切れないようにするため */
+.mg-seat-col.left  .auto-badge { right: -5px; }
+.mg-seat-col.right .auto-badge { left: -5px; }
+/* ★はみ出す装飾は内側（場の中央側）へ出す★ 画面の外に切れないようにするため */
+.mg-seats .react-badge { width: 24px; height: 24px; font-size: 14px; top: -7px; }
+.mg-seat-col.left  .react-badge { right: -6px; left: auto; }
+.mg-seat-col.right .react-badge { left: -6px; right: auto; }
 
 /* ---- ③ 場（唯一の可変ゾーン・フェルトの色＝現在のUNOの色） ---- */
 .mg-field {
@@ -503,7 +562,9 @@
   position: relative; overflow: hidden;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 10px;
-  padding: 10px;
+  /* ★左右のpaddingは席の列幅★ 場のカードが席の下に潜り込まないよう、
+     中央の安全域だけを場の中身に使わせる（席は absolute で padding の上に乗る） */
+  padding: 10px var(--mg-seat-safe, 72px);
   /* 色が未確定のあいだは従来の緑フェルト */
   background: radial-gradient(ellipse at center, #2a5a45 0%, #17392a 74%);
   box-shadow: inset 0 0 46px rgba(0,0,0,.5);
@@ -654,15 +715,6 @@
 #s-game.active { animation: fadeInFlat 0.2s ease; }
 @keyframes fadeInFlat { from { opacity: 0; } to { opacity: 1; } }
 
-/* ②のチップは枚数を横並びにして薄くする（縦を場に回すため） */
-.mg-players .op { padding: 4px 8px; min-width: 66px; }
-.mg-players .on { font-size: 10.5px; margin-bottom: 1px; max-width: 76px; }
-.mg-players .oc { flex-direction: row; gap: 6px; }
-.mg-players .trump-cnt, .mg-players .uno-cnt { font-size: 10px; }
-.mg-players .op-title { font-size: 9px; }
-.mg-players .auto-badge { font-size: 9px !important; padding: 0 4px !important; margin-top: 1px !important; }
-.mg-players .op.cur { transform: none; box-shadow: 0 0 0 1.5px #e74c3c; }
-
 /* ④の行の余白を詰める */
 .mg-hrow { padding: 2px 0; }
 
@@ -677,7 +729,7 @@
 #s-game.menu-open  #mg-sheet        { transform: translateY(0); }
 #s-game.player-open #mg-player-sheet { transform: translateY(0); }
 
-.mg-players .op { cursor: pointer; }
+.mg-seats .op { cursor: pointer; }
 
 .mg-ps-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
 .mg-ps-icon { font-size: 22px; }
