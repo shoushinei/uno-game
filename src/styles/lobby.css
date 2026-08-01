@@ -25,6 +25,88 @@
 }
 .home-sub { color: var(--color-text-secondary); font-size: 13px; margin-bottom: 20px; }
 
+/* ============================================================
+   ★ロビーを「画面に収まる固定レイアウト」にする★
+
+   以前は縦に伸びるページで、8人揃うと「ゲーム開始」が上端から886px＝
+   288pxスクロールしないと押せなかった（実測・人数が増えるほど遠ざかる）。
+   ゲーム画面の操作バーで直したのとまったく同じ問題だったので、
+   同じ形（100dvh固定・可変はひとつだけ・下部に固定の操作バー）にする。
+
+   ヘッダー / 情報行 / ヒント は固定、スクロールするのは .lb-body だけ。
+   案内一行と操作バーはゲーム画面と共通の部品（.action-note / .action-bar）。
+   ============================================================ */
+#s-lobby.active {
+  padding: 0;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: hidden;
+}
+/* 100dvhの画面では共通フェードの縦移動6pxが一瞬スクロールを生む
+   （ゲーム画面と同じ対策） */
+#s-lobby.active { animation: fadeInFlat 0.2s ease; }
+
+.lb-head {
+  flex: none;
+  display: flex; align-items: center; gap: 8px;
+  padding: calc(8px + env(safe-area-inset-top, 0px))
+           calc(10px + env(safe-area-inset-right, 0px)) 8px
+           calc(10px + env(safe-area-inset-left, 0px));
+  border-bottom: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+  background: var(--color-background-primary, #fff);
+}
+
+.lb-room {
+  flex: none;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px 2px;
+}
+.lb-room-id { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.lb-room-label {
+  font-size: 10px; letter-spacing: .08em; font-weight: 700;
+  color: var(--color-text-tertiary, #868d95); flex: none;
+}
+.lb-room .room-id { margin: 0; font-size: 26px; letter-spacing: 5px; }
+/* モードは「いま何で遊ぶか」の表示だけ。切替はスクロール域のトグルが持つ */
+.lb-mode-badge {
+  margin-left: auto; flex: none;
+  font-size: 10.5px; font-weight: 700; white-space: nowrap;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--color-background-secondary, #f6f7f8);
+  border: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+  color: var(--color-text-secondary, #6b727c);
+}
+.lb-mode-badge.yacht {
+  background: #f4e9fb; border-color: rgba(142,68,173,.35); color: #6b2d91;
+}
+.lb-hint { flex: none; padding: 0 14px 8px; }
+
+/* ★唯一スクロールする層★ */
+.lb-body {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 8px 14px 10px;
+  background: var(--color-background-secondary, #f6f7f8);
+  border-top: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+}
+/* 固定レイアウトの中では中央寄せの max-width が効かないので幅いっぱいに使う */
+.lb-body .sec,
+.lb-body .plist,
+.lb-body #lobby-mode { max-width: none; width: 100%; }
+.lb-body .pi { background: var(--color-background-primary, #fff); }
+
+/* ロビーの案内一行は .action-note（高さ20px固定）に乗せる。
+   .msg 側の余白・最低高さ・文字サイズを打ち消して、ゲーム画面の
+   案内一行とまったく同じ見え方にする */
+#s-lobby .msg.action-note { margin: 0; min-height: 0; font-size: 11px; }
+
 /* ---- ロビー: ルームID ---- */
 .room-id {
   font-size: 34px; font-weight: 700; letter-spacing: 8px;
@@ -33,16 +115,11 @@
 }
 .room-hint { font-size: 11px; color: var(--color-text-tertiary); text-align: center; }
 
-/* ロビーだけ列を少し広く取る。
-   1行にアバター＋名前＋称号＋タグ（あなた／ホスト／Ready）が載るため、
+/* 1行にアバター＋名前＋称号＋タグ（あなた／ホスト／Ready）が載るため、
    他画面と同じ320pxでは名前＋称号に102pxしか残らず（タグが146px）、
-   称号が次の行に押し出されていた。狭い画面では width:100% が効くので
-   はみ出さない（その場合は称号がチップごと次の行へ落ちる）。 */
-#s-lobby .box,
-#s-lobby .btn,
-#s-lobby .sec,
-#s-lobby .plist,
-#s-lobby #lobby-mode { max-width: 400px; }
+   称号が次の行に押し出されていた。
+   固定レイアウトにしてからは .lb-body が幅いっぱいを渡すので、
+   ここでの max-width の指定自体が不要になっている。 */
 
 /* ---- ロビー: プレイヤーリスト ---- */
 .sec {

@@ -328,32 +328,17 @@
    処理（可変高さなのでJSが要る）が必要になるが、sticky なら要素が
    フロー上の場所を保ったまま画面下端に貼り付くので余白の管理が要らない。
    ============================================================ */
+/* ★寸法（高さ63px・nowrap・ボタン46px）は base.css の .action-bar が持つ★
+   ロビーの操作バーと同じ部品にして、画面が変わっても親指の位置が動かない
+   ようにしている。ここにはゲーム画面固有のことだけを書く。 */
 #mgame-bar {
   position:sticky; bottom:0; z-index:40;
   width:100%; max-width:600px;
-  /* ★高さを一定に保つ★ 折り返すとボタンの位置が毎ターン動いて押し間違えるので
-     常に1行に収める（nowrap）。ラベルはそのために短くしてある。 */
-  display:flex; flex-wrap:nowrap; gap:8px; align-items:stretch;
   margin-top:8px;
-  padding:8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
-  /* 中身が空でも1行ぶんの高さを保つ（46px + 上下padding16px + 上枠1px = 63px）。
-     他人の番にバーが消えると、場と手札の位置が毎ターン上下してしまうため。 */
-  min-height:calc(63px + env(safe-area-inset-bottom, 0px));
-  background:var(--color-background-primary, #fff);
-  border-top:1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
-  box-shadow:0 -3px 14px rgba(0,0,0,.10);
 }
 /* ★他人の番でも帯は消さない★（高さを固定するため）。
    操作できないことは、影を落として静かにすることで伝える。 */
 #mgame-bar.empty { box-shadow:none; background:var(--color-background-secondary, #f4f5f4); }
-
-#mgame-bar .btn {
-  flex:1 1 auto; width:auto; max-width:none; margin:0;
-  min-height:46px;              /* iOS推奨44px以上 */
-  padding:12px 8px; font-size:13px; line-height:1.25;
-  /* 1行固定なので、狭い端末でも折り返さずに詰める */
-  min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
 /* ★色ピッカーはバーの上に浮かせる★
    バーの中で開くとバーが3行ぶん(163px)に伸びて画面が大きく動いていた。
    浮かせればバーの高さは63pxのまま変わらず、下のボタン（「変更せず進む」など）も
@@ -487,15 +472,8 @@
 .mg-status .turn-timer {
   flex: none; margin: 0; padding: 4px 9px; font-size: 12px; border-width: 1.5px;
 }
-.mg-iconbtn {
-  flex: none; width: 42px; height: 42px; border-radius: 10px;
-  border: 1px solid var(--color-border-secondary, rgba(0,0,0,.15));
-  background: var(--color-background-secondary, #f5f5f5);
-  color: var(--color-text-primary);
-  font-size: 17px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-}
-.mg-iconbtn:active { transform: scale(0.94); }
+/* ①のアイコンボタン（😀 / ☰）は base.css の .icon-btn を使う
+   （ロビーの 📖 / 🚪 と同じ部品・44px） */
 
 /* ============================================================
    ★モバイルUI★ ② 他プレイヤーの席（フェルトの左右）
@@ -668,19 +646,9 @@
 .mg-hrow .hcd.selected { transform: translateY(-7px); }
 .mg-hrow .hand-done { padding: 14px 0; }
 
-/* ---- ⑤ 案内の一行（何をすべきか＋手札の枚数） ---- */
-/* ★高さ固定★ 折り返しでも空でも行の高さが変わらないようにする
-   （自分の番だけ表示していた頃は 0↔20px で下部が動いていた）。
-   他人の番でも枚数を出すので :empty になるのは異常時だけ。 */
-.mg-note {
-  flex: none;
-  height: 20px; line-height: 15px;
-  font-size: 11px; text-align: center;
-  padding: 5px 10px 0;
-  color: var(--color-text-secondary);
-  background: var(--color-background-primary, #fff);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+/* ---- ⑤ 案内の一行（何をすべきか＋手札の枚数） ----
+   高さ固定・折り返し禁止の実体は base.css の .action-note が持つ
+   （ロビーの案内一行と共通の部品）。 */
 
 /* M2ではゾーンが固定になり画面自体がスクロールしないため、
    M1で入れた sticky は不要（同じ位置に留まる）。

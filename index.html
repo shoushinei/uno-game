@@ -112,33 +112,48 @@
 <!-- =====================================================
      ロビー画面
      ===================================================== -->
-<div id="s-lobby" class="screen">
-  <h2 style="font-size:20px;font-weight:600;margin-bottom:4px">ロビー</h2>
-  <p class="home-sub">3〜8人でゲームを始めよう</p>
+<!-- ★ロビーもゲーム画面と同じ「画面に収まる固定レイアウト」★
+     以前は縦に伸びるページで、8人揃うと「ゲーム開始」が上端から886px＝
+     288pxスクロールしないと押せなかった（人数が増えるほど遠ざかる）。
+     ゲーム画面の操作バーで直したのと同じ問題なので、同じ形にする。
 
-  <div class="box">
-    <p style="font-size:11px;color:var(--color-text-secondary)">ルームID（友達に共有しよう）</p>
-    <div class="room-id" id="lrid">----</div>
-    <p class="room-hint">友達は同じIDを入力して参加できます</p>
+       固定ヘッダー（📖ルール / 🚪退室・右上はアカウント状態欄が乗る）
+       固定の情報行（ルームID・モード）
+       ★ここだけスクロール★（モード切替とプレイヤー一覧）
+       案内の一行（高さ固定）
+       固定の操作バー（ゲーム画面と同じ .action-bar） -->
+<div id="s-lobby" class="screen">
+
+  <div class="lb-head">
+    <button class="icon-btn" onclick="openRuleModal()" title="ゲームのルール" aria-label="ゲームのルールを見る">📖</button>
+    <button class="icon-btn" id="lbtn" onclick="leaveGame()" title="ロビーから退室" aria-label="ロビーから退室する">🚪</button>
+    <!-- 右側はアカウント状態欄（position:fixed）が浮くので空けておく -->
   </div>
 
-  <!-- ルール概要 -->
-  <button class="btn" onclick="openRuleModal()" style="margin-bottom:12px">
-    📖 ゲームのルールを見る
-  </button>
+  <div class="lb-room">
+    <div class="lb-room-id">
+      <span class="lb-room-label">ルームID</span>
+      <span class="room-id" id="lrid">----</span>
+    </div>
+    <div class="lb-mode-badge" id="lb-mode-badge"></div>
+  </div>
+  <p class="room-hint lb-hint">友達に同じIDを入力してもらえば参加できます</p>
 
-  <!-- ★ヨットモード Step 1★ ゲームモード（ホストは切替可・他は表示のみ）。
-       中身は renderLobby(ui-render.ts) が描画する -->
-  <div id="lobby-mode"></div>
+  <div class="lb-body">
+    <!-- ★ヨットモード Step 1★ ゲームモード（ホストのみ切替可）。
+         中身は renderLobby(ui-render.ts) が描画する -->
+    <div id="lobby-mode"></div>
 
-  <p class="sec">参加中のプレイヤー</p>
-  <div class="plist" id="lpl"></div>
+    <p class="sec" id="lb-count">参加中のプレイヤー</p>
+    <div class="plist" id="lpl"></div>
+  </div>
 
-  <button class="btn" id="addbot-btn" onclick="addBot()" style="display:none;margin-bottom:8px">🤖 ボットを追加</button>
-  <button class="btn red" id="sbtn" onclick="startGame()" style="display:none">ゲーム開始</button>
-  <button class="btn" id="rbtn" onclick="toggleReady()" style="display:none">準備完了！</button>
-  <button class="btn quiet" id="lbtn" onclick="leaveGame()" style="margin-top:8px">ロビーから退室する</button>
-  <p class="msg" id="lm"></p>
+  <p class="msg action-note" id="lm"></p>
+  <div class="action-bar">
+    <button class="btn narrow" id="addbot-btn" onclick="addBot()" style="display:none" title="ボットを追加" aria-label="ボットを追加">🤖</button>
+    <button class="btn red" id="sbtn" onclick="startGame()" style="display:none">ゲーム開始</button>
+    <button class="btn" id="rbtn" onclick="toggleReady()" style="display:none">準備完了！</button>
+  </div>
 </div>
 
 
@@ -164,8 +179,8 @@
   <div class="mg-status">
     <div id="tbnr" class="tb wait">読み込み中...</div>
     <div id="turn-timer-classic" class="turn-timer" style="display:none"></div>
-    <button class="mg-iconbtn" id="mg-react-btn" onclick="openMobileMenu('react')" title="リアクション">😀</button>
-    <button class="mg-iconbtn" onclick="openMobileMenu()" title="メニュー">☰</button>
+    <button class="icon-btn" id="mg-react-btn" onclick="openMobileMenu('react')" title="リアクション" aria-label="リアクション">😀</button>
+    <button class="icon-btn" onclick="openMobileMenu()" title="メニュー" aria-label="メニュー">☰</button>
   </div>
 
   <!-- ③ 場（唯一の可変ゾーン。フェルトの色＝現在のUNOの色）
@@ -225,8 +240,9 @@
     </div>
   </div>
 
-  <!-- ⑤ 操作バーの上の案内一行（何をすべきか＋手札の枚数をここに集約） -->
-  <div class="mg-note" id="mg-note"></div>
+  <!-- ⑤ 操作バーの上の案内一行（何をすべきか＋手札の枚数をここに集約）
+       .action-note はロビーと共通の部品（高さ20px固定・折り返し禁止） -->
+  <div class="mg-note action-note" id="mg-note"></div>
 
   <!-- =====================================================
          ★モバイルUI M1★ 操作バー（画面下部に貼り付く）
@@ -243,7 +259,7 @@
          表示するボタンが1つも無いとき（他人の番など）は ui-render.ts が
          .empty を付けてバーごと隠す。
          ===================================================== -->
-    <div id="mgame-bar" class="empty">
+    <div id="mgame-bar" class="action-bar empty">
       <button class="btn red" id="uno-btn" onclick="sayUno()" style="display:none">
         📢 UNO!
       </button>
@@ -404,24 +420,32 @@
 <!-- =====================================================
      リザルト画面
      ===================================================== -->
+<!-- ロビー・ゲーム画面と同じ固定レイアウト。
+     8人ぶんの順位表があると以前は474pxはみ出し、「ロビーに戻る」まで
+     スクロールが要った。順位表だけをスクロールさせ、操作は下に固定する。 -->
 <div id="s-result" class="screen">
-  <div class="res">
-    <div class="res-icon" id="ric">🏆</div>
-    <h2 style="font-size:24px;font-weight:700" id="rtit">最終結果</h2>
-    <div class="box"
-      style="text-align:left;max-width:300px;display:flex;flex-direction:column;gap:4px"
-      id="rlist"></div>
-    <button class="btn" onclick="saveReplay()" style="max-width:280px">
-      📼 リプレイを保存
-    </button>
-    <!-- リプレイ保存の成否メッセージ（app.ts の saveReplay が書き込む） -->
-    <p class="msg" id="replay-save-msg"></p>
-    <button class="btn" onclick="openBugReport()" style="max-width:280px">🐛 バグを報告</button>
-    <button class="btn red" id="res-back-btn" onclick="backToLobby()"
-      style="max-width:280px">
-      ロビーに戻る
-    </button>
-    <button class="btn quiet" onclick="leaveGame()" style="max-width:280px">ホームに戻る</button>
+
+  <div class="lb-head">
+    <button class="icon-btn" onclick="openBugReport()" title="バグを報告" aria-label="バグを報告">🐛</button>
+    <button class="icon-btn" onclick="leaveGame()" title="ホームに戻る" aria-label="ホームに戻る">🚪</button>
+    <!-- 右側はアカウント状態欄（position:fixed）が浮くので空けておく -->
+  </div>
+
+  <div class="res-body">
+    <div class="res">
+      <div class="res-icon" id="ric">🏆</div>
+      <h2 style="font-size:24px;font-weight:700" id="rtit">最終結果</h2>
+      <div class="box"
+        style="text-align:left;max-width:320px;display:flex;flex-direction:column;gap:4px"
+        id="rlist"></div>
+    </div>
+  </div>
+
+  <!-- リプレイ保存の成否メッセージ（app.ts の saveReplay が書き込む） -->
+  <p class="msg action-note" id="replay-save-msg"></p>
+  <div class="action-bar">
+    <button class="btn narrow" onclick="saveReplay()" title="リプレイを保存" aria-label="リプレイを保存">📼</button>
+    <button class="btn red" id="res-back-btn" onclick="backToLobby()">ロビーに戻る</button>
   </div>
 </div>
 <!-- =====================================================

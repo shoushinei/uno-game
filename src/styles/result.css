@@ -2,12 +2,43 @@
    result.css — リザルト画面
    ============================================================ */
 
+/* ★リザルトもロビー・ゲーム画面と同じ固定レイアウト★
+   8人ぶんの順位表があると以前はページが1114pxになり（画面640）、
+   「ロビーに戻る」まで474pxスクロールが必要だった。
+   順位表だけをスクロールさせ、操作は下に固定する。 */
+#s-result.active {
+  padding: 0;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: hidden;
+  animation: fadeInFlat 0.2s ease;
+}
+/* ★唯一スクロールする層★ */
+.res-body {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 16px;
+  background: var(--color-background-secondary, #f6f7f8);
+  border-top: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+}
+#s-result .msg.action-note { margin: 0; min-height: 0; font-size: 11px; }
+/* 順位表の中身は白地のカードとして浮かせる */
+.res-body .box { background: var(--color-background-primary, #fff); margin: 0 auto; }
+
 .res {
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  min-height: 380px; gap: 10px;
+  align-items: center; justify-content: flex-start;
+  gap: 10px;
 }
-.res-icon { font-size: 76px; }
+/* 固定レイアウトでは大きすぎるので少し詰める（それでも主役の大きさは保つ） */
+.res-icon { font-size: 58px; line-height: 1.1; }
 
 .rank-row {
   display: flex; align-items: center; gap: 10px;

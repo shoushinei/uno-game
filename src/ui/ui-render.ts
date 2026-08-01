@@ -105,24 +105,30 @@ export function renderLobby(room: any): void {
 
   const iAmHost = state.myId === room.host;
 
-  // ★ヨットモード Step 1★ ゲームモードの表示/切替（ホストのみ切替可）
+  // ★ヨットモード Step 1★ ゲームモード
+  // 「いま何で遊ぶか」は固定の情報行のバッジが常に見せ、切替（ホストのみ）と
+  // 説明はスクロール域が持つ。以前は非ホストにも .mode-label を出していたが、
+  // バッジと二重になるのでやめた。
+  const mode = room.mode === 'yacht' ? 'yacht' : 'classic';
+  const badge = document.getElementById('lb-mode-badge');
+  if (badge) {
+    badge.textContent = mode === 'yacht' ? '🎲 ヨットモード' : '🃏 クラシック';
+    badge.classList.toggle('yacht', mode === 'yacht');
+  }
   const modeEl = document.getElementById('lobby-mode');
   if (modeEl) {
-    const mode = room.mode === 'yacht' ? 'yacht' : 'classic';
-    if (iAmHost) {
-      modeEl.innerHTML = `
+    const desc = mode === 'yacht'
+      ? '<p class="mode-desc">各プレイヤーは1回だけ、自分のターン開始時に相手へ🎲ヨット対決を挑めます。敗者はUNOを4枚引きます（挑んだ側が負けても同じ）</p>'
+      : '';
+    modeEl.innerHTML = iAmHost
+      ? `
         <div class="mode-toggle">
           <button class="mode-btn${mode === 'classic' ? ' sel' : ''}" onclick="setRoomMode('classic')">🃏 クラシック</button>
           <button class="mode-btn${mode === 'yacht' ? ' sel' : ''}" onclick="setRoomMode('yacht')">🎲 ヨットモード</button>
         </div>
-        ${mode === 'yacht' ? '<p class="mode-desc">各プレイヤーは1回だけ、自分のターン開始時に相手へ🎲ヨット対決を挑めます。敗者はUNOを4枚引きます（挑んだ側が負けても同じ）</p>' : ''}
-      `;
-    } else {
-      modeEl.innerHTML = `
-        <div class="mode-label">${mode === 'yacht' ? '🎲 ヨットモード（スキル対決あり）' : '🃏 クラシックモード'}</div>
-        ${mode === 'yacht' ? '<p class="mode-desc">各プレイヤーは1回だけ、自分のターン開始時に相手へ🎲ヨット対決を挑めます。敗者はUNOを4枚引きます</p>' : ''}
-      `;
-    }
+        ${desc}
+      `
+      : desc;
   }
   let allReady = true;
   players.forEach((p, i) => {
@@ -158,6 +164,10 @@ export function renderLobby(room: any): void {
     `;
     pl.appendChild(el);
   });
+
+  // 人数は見出しに出す（3人集まったか・満員かがひと目で分かるように）
+  const countEl = document.getElementById('lb-count');
+  if (countEl) countEl.textContent = `参加中のプレイヤー ${players.length} / 8`;
 
   const sb = document.getElementById('sbtn') as HTMLButtonElement;
   const rb = document.getElementById('rbtn') as HTMLButtonElement;
