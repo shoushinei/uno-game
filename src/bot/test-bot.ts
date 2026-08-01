@@ -191,7 +191,9 @@ function turnAutoPlayOff(): void {
   lastChangeAt = 0;
   isProcessing = false;
   window._botActive = false; // 即時フラグ（auto-advance の二重発火防止用）
-  if (btn) { btn.textContent = '🐒 自動ON'; btn.style.background = '#ff9800'; }
+  // 色は状態そのもの（ONのあいだだけ .state-on が乗る）。
+  // 以前は OFF=橙 / ON=赤 と2色使っていて、色から状態が読めなかった
+  if (btn) { btn.textContent = '🐒 自動ON'; btn.classList.remove('state-on'); }
   log('停止しました');
   // 他プレイヤーにも自動プレイOFFを知らせる（🐒バッジを消す）
   void actionSetAutoPlay(false);
@@ -200,7 +202,7 @@ function turnAutoPlayOff(): void {
 window.toggleTestBot = (): void => {
   const btn = document.getElementById('monkey-toggle-btn');
   if (botTimer) { turnAutoPlayOff(); return; }
-  if (btn) { btn.textContent = '🐒 自動OFF'; btn.style.background = '#e74c3c'; }
+  if (btn) { btn.textContent = '🐒 自動OFF'; btn.classList.add('state-on'); }
   log('開始しました（出せるカードがあれば必ず出す greedy AI）');
   window._botActive = true; // 即時フラグ（auto-advance の二重発火防止用）
   botTimer = setInterval(step, 800);

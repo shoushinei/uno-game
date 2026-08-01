@@ -19,9 +19,9 @@
   width: 100%;
   max-width: 1920px;
   margin: 0 auto;
-  background: #152e23;
-  border-left: 6px solid #5d4027;
-  border-right: 6px solid #5d4027;
+  background: var(--board-bg, #152e23);
+  border-left: 6px solid var(--board-wood, #5d4027);
+  border-right: 6px solid var(--board-wood, #5d4027);
   box-sizing: border-box;
   position: relative; /* 演出レイヤー（pcg-effect-layer）の基準 */
 }
@@ -69,7 +69,7 @@
 #s-game-pc .pcg-turn-timer {
   font-size: 13px;
   font-weight: 700;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid #4a6b5c;
   border-radius: 12px;
@@ -78,7 +78,7 @@
 }
 /* 自分の番は金色の塗りつぶしで強調（箱サイズは据え置き） */
 #s-game-pc .pcg-turn-timer.me {
-  color: #412402; background: #ffd166; border-color: #ffd166;
+  color: #412402; background: var(--board-gold, #ffd166); border-color: var(--board-gold, #ffd166);
 }
 #s-game-pc .pcg-turn-timer.warn {
   color: #fff; background: #e0554e; border-color: #ff6f61;
@@ -104,7 +104,7 @@
 /* 使える: 金色で目立たせ、常時ゆっくり脈打って存在に気づかせる */
 #s-game-pc .pcg-skill-indicator.available {
   color: #412402;
-  background: #ffd166;
+  background: var(--board-gold, #ffd166);
   border-color: #ffe08a;
   box-shadow: 0 0 0 0 rgba(255, 209, 102, 0.5);
   animation: skillGlow 1.8s ease-in-out infinite;
@@ -133,12 +133,12 @@
 
 #s-game-pc .pcg-room {
   font-size: 13px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
 }
 
 #s-game-pc .pcg-turn {
   font-size: 13px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
   background: rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 3px 12px;
@@ -148,7 +148,7 @@
 }
 
 #s-game-pc .pcg-turn-me {
-  background: #ffd166;
+  background: var(--board-gold, #ffd166);
   color: #412402;
   font-weight: 600;
 }
@@ -173,7 +173,7 @@
 #s-game-pc .pcg-btn {
   font-size: 12px;
   background: transparent;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
   border: 1px solid #4a6b5c;
   border-radius: 6px;
   padding: 5px 12px;
@@ -238,7 +238,7 @@
 #s-game-pc .pcg-drawer-toggle {
   background: none;
   border: none;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
   font-size: 15px;
   cursor: pointer;
   padding: 4px 8px;
@@ -264,9 +264,9 @@
 }
 
 #s-game-pc .pcg-drawer-tab.active {
-  color: #ffd166;
+  color: var(--board-gold, #ffd166);
   font-weight: 600;
-  border-bottom-color: #ffd166;
+  border-bottom-color: var(--board-gold, #ffd166);
 }
 
 #s-game-pc .pcg-drawer-body {
@@ -274,7 +274,7 @@
   overflow-y: auto;
   padding: 8px 12px;
   font-size: 11.5px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
   line-height: 1.7;
   min-width: 200px;
 }
@@ -289,9 +289,9 @@
 #s-game-pc .pcg-drawer-setting {
   width: 100%;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid #3a5c4c;
+  border: 1px solid var(--board-felt, #3a5c4c);
   border-radius: 8px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
   font-size: 11px;
   padding: 6px 8px;
   cursor: pointer;
@@ -310,7 +310,7 @@
 }
 
 #s-game-pc .pcg-log-line { padding: 1px 0; }
-#s-game-pc .pcg-log-line.hl-gold  { color: #ffd166; }
+#s-game-pc .pcg-log-line.hl-gold  { color: var(--board-gold, #ffd166); }
 #s-game-pc .pcg-log-line.hl-red   { color: #f09595; }
 #s-game-pc .pcg-log-line.hl-green { color: #9fe1cb; }
 
@@ -322,7 +322,7 @@
 
 #s-game-pc .pcg-rule-active {
   background: rgba(255, 209, 102, 0.12);
-  border-left: 3px solid #ffd166;
+  border-left: 3px solid var(--board-gold, #ffd166);
   padding: 5px 8px;
   margin-bottom: 6px;
   font-size: 11px;
@@ -345,7 +345,7 @@
 }
 
 #s-game-pc .pcg-rule-sec {
-  color: #ffd166;
+  color: var(--board-gold, #ffd166);
   font-weight: 600;
   font-size: 12px;
   margin-top: 10px;
@@ -451,8 +451,8 @@
 }
 
 @keyframes pcg-turn-glow {
-  0%, 100% { box-shadow: 0 0 0 3px #ffd166, 0 0 10px 2px rgba(255, 209, 102, 0.45); }
-  50%      { box-shadow: 0 0 0 3px #ffd166, 0 0 20px 5px rgba(255, 209, 102, 0.75); }
+  0%, 100% { box-shadow: 0 0 0 3px var(--board-gold, #ffd166), 0 0 10px 2px rgba(255, 209, 102, 0.45); }
+  50%      { box-shadow: 0 0 0 3px var(--board-gold, #ffd166), 0 0 20px 5px rgba(255, 209, 102, 0.75); }
 }
 
 #s-game-pc .pcg-crown {
@@ -472,17 +472,17 @@
 }
 
 #s-game-pc .pcg-seat.current .pcg-seat-name {
-  color: #ffd166;
+  color: var(--board-gold, #ffd166);
   font-weight: 600;
 }
 
 #s-game-pc .pcg-seat-counts {
   display: block;
   font-size: 11px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
 }
 
-#s-game-pc .pcg-uno-dot { color: #e74c3c; }
+#s-game-pc .pcg-uno-dot { color: var(--uno-red, #e74c3c); }
 
 #s-game-pc .pcg-said-uno {
   color: #f09595;
@@ -492,7 +492,7 @@
 #s-game-pc .pcg-seat-phase {
   display: inline-block;
   font-size: 11px;
-  background: #ffd166;
+  background: var(--board-gold, #ffd166);
   color: #412402;
   font-weight: 600;
   border-radius: 8px;
@@ -529,7 +529,7 @@
   font-size: 30px;
   line-height: 1;
   margin-bottom: 6px;
-  color: #ffd166;
+  color: var(--board-gold, #ffd166);
   animation: pcgDirGlow 2.2s ease-in-out infinite;
 }
 /* 反時計回りは色でも区別する（⟳金 ／ ⟲青） */
@@ -545,7 +545,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  border: 2px solid #3a5c4c;
+  border: 2px solid var(--board-felt, #3a5c4c);
   border-radius: 10px;
   padding: 8px 14px;
   opacity: 0.6;
@@ -556,20 +556,20 @@
 #s-game-pc .pcg-field-zone + .pcg-field-zone { margin-top: 7px; }
 
 #s-game-pc .pcg-field-zone.active {
-  border-color: #ffd166;
+  border-color: var(--board-gold, #ffd166);
   background: rgba(255, 209, 102, 0.08);
   opacity: 1;
 }
 
 #s-game-pc .pcg-field-label {
   font-size: 12px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
   font-weight: 600;
   width: 58px;
   flex-shrink: 0;
 }
 
-#s-game-pc .pcg-field-zone.active .pcg-field-label { color: #ffd166; }
+#s-game-pc .pcg-field-zone.active .pcg-field-label { color: var(--board-gold, #ffd166); }
 
 #s-game-pc .pcg-field-cards {
   display: flex;
@@ -594,7 +594,7 @@
 
 #s-game-pc .pcg-field-meta {
   font-size: 11px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
 }
 
 #s-game-pc .pcg-deck {
@@ -643,7 +643,7 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
-#s-game-pc .pcg-tcard.red { color: #c0392b; }
+#s-game-pc .pcg-tcard.red { color: var(--color-accent-strong, #c0392b); }
 #s-game-pc .pcg-tcard.joker { background: #f5e9d0; }
 
 #s-game-pc .pcg-tc-s { font-size: 13px; line-height: 1; }
@@ -676,11 +676,11 @@
 
 #s-game-pc .pcg-uc-red    { background: #d64541; }
 #s-game-pc .pcg-uc-blue   { background: #2e86de; }
-#s-game-pc .pcg-uc-green  { background: #27ae60; }
+#s-game-pc .pcg-uc-green  { background: var(--uno-green, #27ae60); }
 #s-game-pc .pcg-uc-yellow { background: #e5b800; }
 /* ワイルドは従来UIと同じ4色ストライプ（見分けやすさ優先） */
 #s-game-pc .pcg-uc-w {
-  background: linear-gradient(135deg, #e74c3c 25%, #2980b9 25%, #2980b9 50%, #27ae60 50%, #27ae60 75%, #f39c12 75%);
+  background: linear-gradient(135deg, var(--uno-red, #e74c3c) 25%, var(--uno-blue, #2980b9) 25%, var(--uno-blue, #2980b9) 50%, var(--uno-green, #27ae60) 50%, var(--uno-green, #27ae60) 75%, var(--uno-yellow, #f39c12) 75%);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
@@ -697,13 +697,13 @@
 
 #s-game-pc .pcg-hand-label {
   font-size: 12px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
   width: 92px;
   flex-shrink: 0;
 }
 
 #s-game-pc .pcg-hand-row.active .pcg-hand-label {
-  color: #ffd166;
+  color: var(--board-gold, #ffd166);
   font-weight: 600;
 }
 
@@ -726,7 +726,7 @@
 
 #s-game-pc .pcg-hand-card.selected {
   transform: translateY(-7px);
-  box-shadow: 0 0 0 2px #ffd166;
+  box-shadow: 0 0 0 2px var(--board-gold, #ffd166);
 }
 
 #s-game-pc .pcg-hand-empty {
@@ -737,7 +737,7 @@
 #s-game-pc .pcg-hand-done {
   text-align: center;
   font-size: 14px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
   padding: 16px 0;
 }
 
@@ -784,19 +784,19 @@
 }
 
 #s-game-pc .pcg-btn-parent {
-  background: #ffd166;
-  border-color: #ffd166;
+  background: var(--board-gold, #ffd166);
+  border-color: var(--board-gold, #ffd166);
   color: #412402;
   font-weight: 600;
 }
 
 #s-game-pc .pcg-bar-note {
   font-size: 13px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
 }
 
 #s-game-pc .pcg-note-parent {
-  color: #ffd166;
+  color: var(--board-gold, #ffd166);
   font-weight: 600;
 }
 
@@ -810,7 +810,7 @@
   50%      { opacity: 0.55; }
 }
 
-#s-game-pc .pcg-bar-sep { color: #3a5c4c; }
+#s-game-pc .pcg-bar-sep { color: var(--board-felt, #3a5c4c); }
 
 #s-game-pc .pcg-color-btn {
   width: 30px;
@@ -825,7 +825,7 @@
 
 #s-game-pc .pcg-cb-red    { background: #d64541; }
 #s-game-pc .pcg-cb-blue   { background: #2e86de; }
-#s-game-pc .pcg-cb-green  { background: #27ae60; }
+#s-game-pc .pcg-cb-green  { background: var(--uno-green, #27ae60); }
 #s-game-pc .pcg-cb-yellow { background: #e5b800; }
 
 /* ---------- 自己リアクションのストリップ ---------- */
@@ -868,12 +868,12 @@
   top: -7px;
   bottom: auto;
   border-top: none;
-  border-bottom: 7px solid #3a5c4c;
+  border-bottom: 7px solid var(--board-felt, #3a5c4c);
 }
 
 #s-game-pc .pcg-rm-card {
   background: #0e241b;
-  border: 1px solid #3a5c4c;
+  border: 1px solid var(--board-felt, #3a5c4c);
   border-radius: 12px;
   padding: 10px 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -889,7 +889,7 @@
   transform: translateX(-50%);
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
-  border-top: 7px solid #3a5c4c;
+  border-top: 7px solid var(--board-felt, #3a5c4c);
 }
 
 #s-game-pc .pcg-rm-title {
@@ -959,7 +959,7 @@
   top: -6px;
   width: 190px;
   background: #0e241b;
-  border: 1px solid #3a5c4c;
+  border: 1px solid var(--board-felt, #3a5c4c);
   border-radius: 8px;
   padding: 8px 10px;
   z-index: 50; /* hover中の席(z-index:40)よりさらに手前 */
@@ -989,7 +989,7 @@
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: #cfe0d6;
+  color: var(--board-text, #cfe0d6);
   margin-top: 3px;
   flex-wrap: wrap;
 }
@@ -1051,7 +1051,7 @@
 /* 吹き出し（パス・+N枚・着弾バースト等） */
 #s-game-pc .pcg-fx-bubble {
   background: rgba(14, 36, 27, 0.92);
-  border: 1px solid #3a5c4c;
+  border: 1px solid var(--board-felt, #3a5c4c);
   border-radius: 14px;
   padding: 4px 12px;
   font-size: 13px;
@@ -1061,8 +1061,8 @@
 }
 
 #s-game-pc .pcg-fx-burst {
-  background: #ffd166;
-  border-color: #ffd166;
+  background: var(--board-gold, #ffd166);
+  border-color: var(--board-gold, #ffd166);
   color: #412402;
   font-weight: 700;
 }
@@ -1076,7 +1076,7 @@
 }
 
 #s-game-pc .pcg-fx-finish {
-  background: #ffd166;
+  background: var(--board-gold, #ffd166);
   border-color: #fff;
   color: #412402;
   font-weight: 700;
@@ -1097,14 +1097,14 @@
 #s-game-pc .pcg-fx-start-icon,
 #s-game-pc .pcg-fx-rev-icon {
   font-size: 52px;
-  color: #ffd166;
+  color: var(--board-gold, #ffd166);
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
 }
 
 #s-game-pc .pcg-ep-title {
   font-size: 26px;
   font-weight: 700;
-  color: #ffd166;
+  color: var(--board-gold, #ffd166);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
   margin-top: 4px;
   white-space: nowrap;
@@ -1149,7 +1149,7 @@
 #s-game-pc .pcg-fx-turnflash {
   width: 64px;
   height: 64px;
-  border: 3px solid #ffd166;
+  border: 3px solid var(--board-gold, #ffd166);
   border-radius: 50%;
   z-index: 4;
 }
@@ -1167,7 +1167,7 @@
 }
 
 #s-game-pc .pcg-fx-myturn {
-  background: #ffd166;
+  background: var(--board-gold, #ffd166);
   color: #412402;
   font-weight: 700;
   font-size: 18px;
@@ -1202,7 +1202,7 @@
 #s-game-pc .pcg-fx-dirflip {
   font-size: 44px;
   line-height: 1;
-  color: #ffd166;
+  color: var(--board-gold, #ffd166);
   text-shadow: 0 0 18px currentColor, 0 0 36px currentColor;
   z-index: 12;
 }
@@ -1232,7 +1232,7 @@
 #s-game-pc .pcg-avatar-icon { font-size: 20px; line-height: 1; }
 #s-game-pc .pcg-seat-title {
   font-size: 10px;
-  color: #ffd166;
+  color: var(--board-gold, #ffd166);
   font-weight: 600;
   margin-top: 1px;
 }
@@ -1253,7 +1253,7 @@
   font-size: 11.5px;
   font-weight: 700;
   color: #412402;
-  background: #ffd166;
+  background: var(--board-gold, #ffd166);
   border: none;
   border-radius: 8px;
   padding: 6px 8px;

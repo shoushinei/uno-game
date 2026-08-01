@@ -58,25 +58,24 @@
   <p class="home-sub">トランプとUNOを同時に使う融合カードゲーム（3〜8人）</p>
 
   <!-- ルール概要（ホーム画面からも確認できるように） -->
-  <button class="btn" onclick="openRuleModal()" style="margin-bottom:12px;max-width:320px;background:#34495e;color:#fff;">
+  <button class="btn" onclick="openRuleModal()" style="margin-bottom:12px">
     📖 ゲームのルールを見る
   </button>
 
   <!-- リプレイ再生（保存した .json ファイルをローカルから読み込んで再生する） -->
-  <button class="btn" onclick="openReplayScreen()" style="margin-bottom:12px;max-width:320px;background:#8e44ad;color:#fff;">
+  <button class="btn" onclick="openReplayScreen()" style="margin-bottom:12px">
     📼 保存したリプレイを見る
   </button>
 
   <div id="login-area" style="width:100%;max-width:320px;margin-bottom:12px;text-align:center;">
-    <button class="btn" id="login-btn"
-      style="background:#fff;color:#757575;border:1px solid #ddd;font-weight:600;
-             display:flex;align-items:center;justify-content:center;gap:8px;margin:0 auto 8px;">
+    <!-- ログインの3手段は対等。Googleだけは「Googleのボタンに見えること」が
+         要件なので .btn.brand で例外的に白＋ロゴのままにする -->
+    <button class="btn brand" id="login-btn" style="margin:0 auto 8px">
       <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px;">
       Googleアカウントでログイン
     </button>
     <!-- ★Phase 1★ ゲストプレイ（匿名認証）。アカウント機能なしでプレイだけできる -->
-    <button class="btn" id="guest-login-btn"
-      style="background:#666;color:#fff;font-weight:600;margin:0 auto;">
+    <button class="btn" id="guest-login-btn" style="margin:0 auto">
       👤 ゲストでプレイ（アカウントなし）
     </button>
     <!-- ★Phase 1.5★ メールリンク認証（パスワードレス）。
@@ -84,8 +83,7 @@
     <div class="or">または</div>
     <input id="email-input" type="email" placeholder="メールアドレスでログイン" maxlength="254"
       style="width:100%;box-sizing:border-box;margin-bottom:8px;">
-    <button class="btn" id="email-login-btn"
-      style="background:#2e86de;color:#fff;font-weight:600;margin:0 auto;">
+    <button class="btn" id="email-login-btn" style="margin:0 auto">
       ✉️ ログインリンクを送信
     </button>
     <p class="msg" id="email-msg" style="margin-top:6px;"></p>
@@ -100,8 +98,7 @@
     <input id="ri" placeholder="ルームID（4文字）を入力" maxlength="4" style="text-transform:uppercase">
     <button class="btn" id="join-btn" onclick="joinRoom()">ルームに参加する</button>
     <!-- ゲスト中だけ表示される（auth.ts が表示制御）。戦績などのアカウント機能を使いたい人向け -->
-    <button class="btn" id="guest-to-google-btn"
-      style="display:none;background:#fff;color:#757575;border:1px solid #ddd;margin-top:8px;">
+    <button class="btn brand" id="guest-to-google-btn" style="display:none;margin-top:8px">
       Googleアカウントに切り替える（戦績等が使えるように）
     </button>
   </div>
@@ -126,7 +123,7 @@
   </div>
 
   <!-- ルール概要 -->
-  <button class="btn" onclick="openRuleModal()" style="margin-bottom:12px; background:#34495e; color:#fff;">
+  <button class="btn" onclick="openRuleModal()" style="margin-bottom:12px">
     📖 ゲームのルールを見る
   </button>
 
@@ -137,10 +134,10 @@
   <p class="sec">参加中のプレイヤー</p>
   <div class="plist" id="lpl"></div>
 
-  <button class="btn" id="addbot-btn" onclick="addBot()" style="display:none; background:#8e44ad; color:#fff; margin-bottom:8px">🤖 ボットを追加</button>
+  <button class="btn" id="addbot-btn" onclick="addBot()" style="display:none;margin-bottom:8px">🤖 ボットを追加</button>
   <button class="btn red" id="sbtn" onclick="startGame()" style="display:none">ゲーム開始</button>
   <button class="btn" id="rbtn" onclick="toggleReady()" style="display:none">準備完了！</button>
-  <button class="btn" id="lbtn" onclick="leaveGame()" style="margin-top: 8px; background: #666; color: #fff;">ロビーから退室する</button>
+  <button class="btn quiet" id="lbtn" onclick="leaveGame()" style="margin-top:8px">ロビーから退室する</button>
   <p class="msg" id="lm"></p>
 </div>
 
@@ -357,9 +354,9 @@
 
     <div class="mg-sheet-label">その他</div>
     <div class="mg-sheet-actions">
-      <button class="btn sm" id="monkey-toggle-btn" onclick="toggleMonkeyPlay()" style="background:#ff9800">🐒 自動ON</button>
+      <button class="btn sm" id="monkey-toggle-btn" onclick="toggleMonkeyPlay()">🐒 自動ON</button>
       <button class="btn sm" onclick="openBugReport()">🐛 バグを報告</button>
-      <button class="btn sm" onclick="leaveGame()">🚪 退室する</button>
+      <button class="btn sm quiet" onclick="leaveGame()">🚪 退室する</button>
     </div>
   </div>
 
@@ -414,8 +411,7 @@
     <div class="box"
       style="text-align:left;max-width:300px;display:flex;flex-direction:column;gap:4px"
       id="rlist"></div>
-    <button class="btn" onclick="saveReplay()"
-      style="max-width:280px;background:#8e44ad;color:#fff;">
+    <button class="btn" onclick="saveReplay()" style="max-width:280px">
       📼 リプレイを保存
     </button>
     <!-- リプレイ保存の成否メッセージ（app.ts の saveReplay が書き込む） -->
@@ -425,7 +421,7 @@
       style="max-width:280px">
       ロビーに戻る
     </button>
-    <button class="btn" onclick="leaveGame()" style="max-width:280px">ホームに戻る</button>
+    <button class="btn quiet" onclick="leaveGame()" style="max-width:280px">ホームに戻る</button>
   </div>
 </div>
 <!-- =====================================================

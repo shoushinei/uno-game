@@ -2,6 +2,73 @@
    base.css — リセット・共通スタイル・変数
    ============================================================ */
 
+/* ============================================================
+   ★デザイントークン（唯一の定義元）★
+
+   ここに書くまで --color-* は**どこにも定義されていなかった**。
+   そのため `var(--x, #fff)` とフォールバック付きで書かれた場所だけが
+   色を持ち、フォールバックの無い箇所（入力欄の枠・.box の背景・
+   通常ボタンの枠／背景・ロビーのタグ・盤面の手番バナー等）は
+   透明や枠なしのまま描かれていた。
+
+   値は「これまでフォールバックとして実際に使われていた値」を
+   そのまま採用している。＝正しく色が出ていた場所の見た目は変わらず、
+   壊れていた場所だけが本来の姿になる。
+   （例外は文字色の2つ。定義した結果、薄いグレーの面の上でコントラストが
+     足りなくなったため、読める下限まで詰めた。理由は各行のコメント参照）
+
+   ★色を変えるときはここだけを書き換える★
+   既存のコードには `var(--x, #f6f7f8)` のようにフォールバック付きで
+   書かれた箇所が残っているが、それらは「ここと同じ値の写し」であって
+   別の設定値ではない。値を変えるときは両方を合わせること。
+   ============================================================ */
+:root {
+  /* ---- 面と文字（中立色） ---- */
+  --color-background-primary:   #fff;        /* 画面・カードの地 */
+  --color-background-secondary: #f6f7f8;     /* 一段沈めた面・通常ボタン */
+  --color-background-tertiary:  rgba(0,0,0,.06); /* hover */
+  --color-text-primary:   #2c3e50;
+  /* ★これまでの実値は #888 / #999 だったが、変数を定義して実際に色が乗ると
+     薄いグレーの面（#f6f7f8）の上でコントラスト不足になる（手番バナー
+     .tb.wait が実測3.5:1）。読める最低限まで詰めた値にしている。 */
+  --color-text-secondary: #6b727c;   /* 薄いグレーの面の上でも 4.5:1 を満たす下限 */
+  --color-text-tertiary:  #868d95;   /* 補助的な注記用（枚数の内訳・ヒント） */
+  --color-border-secondary: rgba(0,0,0,.16); /* 入力欄・ボタンの枠 */
+  --color-border-tertiary:  rgba(0,0,0,.12); /* 区切り線 */
+
+  /* ---- 状態の色（ロビーのタグ等） ---- */
+  --color-background-info:    #e8f1fb;
+  --color-text-info:          #1f6dbf;
+  --color-background-warning: #fdf0d8;
+  --color-text-warning:       #8a5d05;
+
+  /* ---- かたち ---- */
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  /* タップ領域の下限（iOS/Android の推奨値）。
+     ゲーム画面は M1 から46pxで統一済みで、その外もこれに揃える */
+  --tap-min: 44px;
+
+  --font-sans: system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+
+  /* ---- ゲームの色（UNOの4色・トランプ・盤面） ---- */
+  --uno-red:    #e74c3c;
+  --uno-blue:   #2980b9;
+  --uno-green:  #27ae60;
+  --uno-yellow: #f39c12;
+  /* 主操作の色。「赤＝自分が行動する」という盤面の約束を全画面で使う */
+  --color-accent:        #e74c3c;
+  --color-accent-strong: #c0392b;
+  --color-bot:           #8e44ad;   /* ボット・自動プレイ */
+  /* PC盤面（#s-game-pc）の卓 */
+  --board-felt:   #3a5c4c;
+  --board-bg:     #152e23;
+  --board-wood:   #5d4027;
+  --board-text:   #cfe0d6;
+  --board-gold:   #ffd166;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -37,15 +104,28 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ---- 共通ボタン ---- */
+/* ============================================================
+   共通ボタン
+
+   ★色は「意味」に割り当てる★ 以前はHTMLのインラインstyleで1つずつ
+   色を決めていたため、ホーム画面だけでボタン7個に背景色7種があり、
+   同じ紫が「リプレイ」と「ボット追加」で共用されるなど、色から意味が
+   読み取れなかった。役割は次の4つだけに絞る。
+
+     .btn.red    主操作 … 作る／始める／出す（盤面の「赤＝自分が行動」と同じ）
+     .btn        副次操作 … 見る／参加する／設定する（既定）
+     .btn.quiet  離脱 … 退室する／ホームに戻る
+     .btn.brand  そのサービスの見た目が必要なもの（Googleログイン）
+   ============================================================ */
 .btn {
   width: 100%;
   max-width: 320px;
+  min-height: var(--tap-min, 44px);   /* ★タップ領域★ 以前は42pxだった */
   padding: 11px 16px;
   border-radius: var(--border-radius-md, 8px);
-  border: 0.5px solid var(--color-border-secondary);
-  background: var(--color-background-secondary);
-  color: var(--color-text-primary);
+  border: 0.5px solid var(--color-border-secondary, rgba(0,0,0,.16));
+  background: var(--color-background-secondary, #f6f7f8);
+  color: var(--color-text-primary, #2c3e50);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -53,10 +133,25 @@ body {
   margin-bottom: 8px;
   text-align: center;
 }
-.btn:hover  { background: var(--color-background-tertiary); }
+.btn:hover  { background: var(--color-background-tertiary, rgba(0,0,0,.06)); }
 .btn:active { transform: scale(0.98); }
-.btn.red    { background: #e74c3c; border-color: #e74c3c; color: white; font-weight: 600; }
-.btn.red:hover  { background: #c0392b; }
+.btn.red    { background: var(--color-accent, #e74c3c); border-color: var(--color-accent, #e74c3c); color: white; font-weight: 600; }
+.btn.red:hover  { background: var(--color-accent-strong, #c0392b); }
+/* 離脱。押せることは分かるが、主操作と競らない強さにする */
+.btn.quiet {
+  background: transparent;
+  color: var(--color-text-secondary, #888);
+  border-color: var(--color-border-tertiary, rgba(0,0,0,.12));
+}
+.btn.quiet:hover { background: var(--color-background-tertiary, rgba(0,0,0,.06)); }
+/* Googleログインは「Googleのボタンに見えること」自体が要件なので例外 */
+.btn.brand {
+  background: #fff; color: #757575; border: 1px solid #ddd; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn.brand:hover { background: #f7f7f7; }
+/* ON/OFFの状態を持つボタン（🐒自動プレイ）。ONのあいだだけ色が乗る */
+.btn.state-on { background: #ff9800; border-color: #ff9800; color: #fff; font-weight: 600; }
 .btn.red:disabled,
 .btn:disabled   { opacity: 0.45; cursor: not-allowed; transform: none; }
 .btn.sm {
@@ -64,6 +159,14 @@ body {
   padding: 6px 12px;
   font-size: 12px;
   margin: 0;
+}
+
+/* ★キーボード操作の可視フォーカス★ これまで一切無く、Tabでどこにいるか
+   分からなかった。マウス操作では出ない :focus-visible を使う */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent, #e74c3c);
+  outline-offset: 2px;
+  border-radius: var(--border-radius-md, 8px);
 }
 
 /* ---- 共通 input ---- */
