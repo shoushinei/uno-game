@@ -361,6 +361,15 @@
 #mgame-bar .cpick {
   position:absolute; left:8px; right:8px; bottom:calc(100% + 6px);
   z-index:41; width:auto; max-width:none; margin:0; padding:10px;
+  /* ★背景は必ず不透明にする★ .cpick の基底は
+     `background: var(--color-background-secondary)` だが、この変数は
+     どこにも定義されていない（フォールバック付きで書かれた箇所だけが
+     色を持っている）。＝ピッカーはずっと背景が透明だった。
+     バーの中で開いていた頃はバーの白地の上だったので見えなかったが、
+     手札の上へ浮かせたことで下の文字が透けて重なって見えていた。 */
+  background: var(--color-background-secondary, #ffffff);
+  border: 1px solid var(--color-border-tertiary, rgba(0,0,0,.16));
+  box-shadow: 0 -6px 22px rgba(0,0,0,.24);
 }
 #mgame-bar .cpick p { margin-bottom:8px; }
 
@@ -516,6 +525,8 @@
 @media (max-width: 340px) {
   #s-game.active { --mg-seat-w: 58px; --mg-seat-safe: 62px; }
   .mg-seats .on { font-size: 9.5px; }
+  /* 称号は1文字でも多く見せる（長いものは省略になる。全文はシートで読める） */
+  .mg-seats .op-title { font-size: 8px; letter-spacing: -0.02em; }
 }
 
 .mg-seats .op {
@@ -535,6 +546,11 @@
 .mg-seats .oc { flex-direction: row; gap: 5px; }
 .mg-seats .trump-cnt, .mg-seats .uno-cnt { font-size: 9.5px; }
 .mg-seats .finish-badge { font-size: 10px; }
+/* 称号はチップのいちばん下。長い称号でも必ず1行に収める（段の高さを揃えるため） */
+.mg-seats .op-title {
+  font-size: 8.5px; line-height: 1.25; margin-top: 1px;
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 /* ★状態（🤖ボット／🚪退室中／🐒自動プレイ）はチップの角に重ねる★
    独立した行にすると、8人＝4段のときに列の高さを超えてしまう。
    文字は置かず、意味は title / aria-label と、タップで開くシートが持つ。 */

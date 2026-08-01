@@ -527,21 +527,22 @@ function _renderOtherPlayers(
     const isLeft = !!(leftPlayers && leftPlayers[p.id]);
     const isAuto = !!(autoPlayers && autoPlayers[p.id]);
     const isBot = !!p.isBot;
+    // ★ボットには角バッジを出さない★ ボット名は先頭が🤖（🤖ポンタ 等）なので、
+    // 角にも🤖を出すと同じアイコンが1つのチップに二度出てしまう。
+    // 🚪退室中・🐒自動プレイは名前から分からないので角に出す。
     const badge = (kind: string, icon: string, label: string): string =>
       `<div class="auto-badge k-${kind}" title="${label}" aria-label="${label}">${icon}</div>`;
     const autoHtml = isLeft
       ? badge('left', '🚪', '退室中（自動プレイ）')
-      : isBot
-      ? badge('bot', '🤖', 'ボット')
-      : isAuto
+      : (isAuto && !isBot)
       ? badge('auto', '🐒', '自動プレイ中')
       : '';
     const el = document.createElement('div');
     el.className = 'op' + (active ? ' cur' : '');
     // ★戦績刷新★ 長押しで戦績カードを開くための対象マーカー
     el.dataset.playerId = p.id;
-    // ★席に称号は出さない★ 8人＋称号＋状態バッジだと列からはみ出すため
-    // （称号はタップで開くシートとロビーで読める。席は「誰・状態・枚数」に絞る）
+    // 称号はいちばん下の行。状態バッジを角に逃がしたことで1行ぶんの余裕ができた
+    // （8人＝4段でも列に収まることは実測で確認済み）
     el.innerHTML = `
       ${reactHtml}
       <div class="on">${p.icon ? p.icon + ' ' : ''}${p.name}</div>
@@ -550,6 +551,7 @@ function _renderOtherPlayers(
         ? `<div class="oc finish-badge">🏁${rIdx + 1}位</div>`
         : `<div class="oc"><div class="trump-cnt">🃏${tc}</div><div class="uno-cnt">🎴${uc}</div></div>`
       }
+      ${p.title ? `<div class="op-title">${p.title}</div>` : ''}
     `;
     col.appendChild(el);
   });
