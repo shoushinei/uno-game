@@ -264,7 +264,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal, 200);
   padding: 16px;
   box-sizing: border-box;
   backdrop-filter: blur(2px);
@@ -287,6 +287,62 @@
   from { transform: scale(0.9); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+/* ============================================================
+   ★モバイルではモーダルを下から出るシートにする★
+
+   ゲーム画面の☰メニューとプレイヤーのシートは「下から出て、上端が
+   角丸、暗幕をタップで閉じる」形なのに、ルール・プロフィール・
+   フレンド・バグ報告・戦績の5つだけが画面中央のモーダルだった。
+   同じ「何かを開く」操作なのに作法が2つあり、しかも中央のモーダルは
+   指が届きにくい（閉じるボタンが画面の上の方に出る）。
+
+   中身のHTMLは共通（.modal-content > header/body/footer）なので、
+   置き場所と角丸と出方だけを差し替えればシートになる。
+   ★PCは中央のモーダルのままにする★（マウスなら中央が自然で、
+   下から出すと画面の端まで視線を動かすことになる）
+   ============================================================ */
+html:not(.pc-ui) .modal-overlay {
+  align-items: flex-end;
+  padding: 0;
+}
+html:not(.pc-ui) .modal-content {
+  width: 100%;
+  max-width: none;
+  max-height: 86vh;
+  border-radius: 18px 18px 0 0;
+  animation: sheetUp 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  /* ホーム画面から全画面起動したときのホームバーを避ける */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not(.pc-ui) .modal-content { animation: none; }
+}
+/* シートらしく、上端につまみを出す（☰メニューと同じ印） */
+html:not(.pc-ui) .modal-content::before {
+  content: '';
+  flex: none;
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--color-border-secondary, rgba(0,0,0,.2));
+  margin: 8px auto 0;
+}
+
+/* ★PCは中央モーダル★ 1440pxの画面で396px（28%）と細長かったので、
+   中身に合わせて読みやすい幅にする */
+.pc-ui #rule-modal .modal-content        { max-width: 560px; }
+.pc-ui #profile-modal .modal-content     { max-width: 420px; }
+.pc-ui #friends-modal .modal-content     { max-width: 420px; }
+.pc-ui #bug-report-modal .modal-content  { max-width: 460px; }
+.pc-ui #player-stats-modal .modal-content { max-width: 360px; }
+
+/* フレンド一覧から開く戦績カードは、そのモーダルより1段上に出す。
+   （以前は同じ段だったため「先にフレンドを閉じてから開く」という
+     回避コードが friends-ui.ts に入っていた） */
+#player-stats-modal { z-index: var(--z-modal-top, 210); }
 
 .modal-header {
   padding: 14px 16px;
@@ -491,7 +547,7 @@
   top: calc(16px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 3000;
+  z-index: var(--z-toast, 500);
   display: flex;
   flex-direction: column;
   gap: 8px;

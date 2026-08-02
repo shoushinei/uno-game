@@ -133,7 +133,7 @@
   align-items:center;
   justify-content:center;
   pointer-events:none;
-  z-index:9998;
+  z-index:var(--z-effect, 400);
 }
 .trump-effect.show { display:flex; animation:effectFade 2.8s ease forwards; }
 .trump-effect::before {
@@ -332,7 +332,7 @@
    ロビーの操作バーと同じ部品にして、画面が変わっても親指の位置が動かない
    ようにしている。ここにはゲーム画面固有のことだけを書く。 */
 #mgame-bar {
-  position:sticky; bottom:0; z-index:40;
+  position:sticky; bottom:0; z-index:var(--z-bar, 40);
   width:100%; max-width:600px;
   margin-top:8px;
 }
@@ -345,7 +345,7 @@
    隠れないので、色を選ばずに抜ける道も残る。 */
 #mgame-bar .cpick {
   position:absolute; left:8px; right:8px; bottom:calc(100% + 6px);
-  z-index:41; width:auto; max-width:none; margin:0; padding:10px;
+  z-index:var(--z-popover, 45); width:auto; max-width:none; margin:0; padding:10px;
   /* ★背景は必ず不透明にする★ .cpick の基底は
      `background: var(--color-background-secondary)` だが、この変数は
      どこにも定義されていない（フォールバック付きで書かれた箇所だけが
@@ -410,7 +410,7 @@
 #self-react-popup {
   position:fixed; top:50%; left:50%;
   transform:translate(-50%,-50%) scale(0);
-  font-size:72px; pointer-events:none; z-index:9999;
+  font-size:72px; pointer-events:none; z-index:var(--z-effect, 400);
   filter:drop-shadow(0 4px 20px rgba(0,0,0,.3));
 }
 #self-react-popup.pop-anim { animation:selfPop 1.2s cubic-bezier(0.22,1,0.36,1) forwards; }
@@ -657,12 +657,12 @@
 
 /* ---- ☰ メニューシート ---- */
 .mg-scrim {
-  position: absolute; inset: 0; z-index: 50;
+  position: absolute; inset: 0; z-index: var(--z-scrim, 99);
   background: rgba(10,18,14,.45);
   opacity: 0; pointer-events: none; transition: opacity .2s ease;
 }
 .mg-sheet {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 51;
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--z-sheet, 100);
   max-height: 86%; overflow-y: auto;
   padding: 8px 12px calc(14px + env(safe-area-inset-bottom, 0px));
   background: var(--color-background-primary, #fff);
@@ -682,6 +682,24 @@
   font-size: 10px; letter-spacing: .1em; font-weight: 700;
   color: var(--color-text-tertiary); margin: 12px 0 6px;
 }
+/* ★ルールの早見表★ 中身はPC引き出しと同じ（rules-summary.ts）。
+   PC側のスタイルは #s-game-pc に閉じているので、明るいシート用に別途当てる */
+.mg-rules { font-size: 12px; line-height: 1.6; color: var(--color-text-primary, #2c3e50); }
+.mg-rules .pcg-rule-active {
+  background: rgba(243,156,18,.14);
+  border-left: 3px solid var(--uno-yellow, #f39c12);
+  padding: 6px 9px; margin-bottom: 6px; border-radius: 0 6px 6px 0;
+}
+.mg-rules .pcg-rule-none {
+  color: var(--color-text-secondary, #6b727c); margin-bottom: 6px;
+}
+.mg-rules .pcg-rule-sec {
+  font-weight: 700; margin-top: 12px; margin-bottom: 2px;
+  color: var(--color-accent-strong, #c0392b);
+}
+.mg-rules .pcg-rule-list { margin: 0; padding-left: 18px; }
+.mg-rules .pcg-rule-list li { margin-bottom: 4px; }
+
 .mg-sheet .react-row { margin: 0; }
 .mg-sheet .glog { max-height: 150px; margin: 0; width: 100%; }
 .mg-sheet .phase-indicator,
@@ -766,7 +784,7 @@
 
 /* 被弾トースト（自分が宛先のときだけ・送り主の名前を添える） */
 .mg-hit-toast {
-  position: absolute; left: 50%; bottom: 34%; z-index: 45;
+  position: absolute; left: 50%; bottom: 34%; z-index: var(--z-popover, 45);
   transform: translate(-50%, 0);
   padding: 8px 16px; border-radius: 999px;
   background: rgba(20,20,24,.88); color: #fff;
@@ -806,7 +824,7 @@
    再生中の演出が消えないよう、外側に置いてある。
    ============================================================ */
 .mg-fx {
-  position: absolute; inset: 0; z-index: 30;
+  position: absolute; inset: 0; z-index: var(--z-fx, 30);
   pointer-events: none; overflow: hidden;
 }
 .mg-fx > * { position: absolute; }

@@ -52,6 +52,23 @@
   --font-sans: system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
 
+  /* ---- 重なりの段（★新しく重ねるものは必ずこの段のどれかを使う★） ----
+     以前は 30/40/41/45/50/51/900/1000/2000/3000/3100/9998/9999 が
+     その場ごとに付けられていて、段の設計が無かった。そのせいで
+     「フレンド一覧から戦績を開くと、同じ1000で裏に隠れる」ため
+     一度フレンドを閉じてから開く、という回避コードが実在していた。 */
+  --z-fx:        30;   /* 盤面の演出レイヤー */
+  --z-bar:       40;   /* 画面下部の操作バー */
+  --z-popover:   45;   /* 色ピッカー・被弾トースト（バーの上に浮くもの） */
+  --z-chrome:    50;   /* アカウント状態欄（常駐の枠） */
+  --z-scrim:     99;   /* シートの背後の暗幕 */
+  --z-sheet:    100;   /* ☰メニュー・プレイヤーのシート */
+  --z-modal:    200;   /* モーダル（ルール/プロフィール/フレンド/バグ報告） */
+  --z-modal-top:210;   /* モーダルの上に開くモーダル（フレンド→戦績） */
+  --z-overlay:  300;   /* 全画面の切り替え（⚔ヨット対決） */
+  --z-effect:   400;   /* 全画面の演出（特殊効果バナー・自己リアクション） */
+  --z-toast:    500;   /* 通知（実績解除・更新のお知らせ）＝常に最前面 */
+
   /* ---- ゲームの色（UNOの4色・トランプ・盤面） ---- */
   --uno-red:    #e74c3c;
   --uno-blue:   #2980b9;
@@ -340,7 +357,7 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
   /* ★PWA★ 全画面起動時にノッチへ潜り込まないようにする */
   top: calc(10px + env(safe-area-inset-top, 0px));
   right: calc(12px + env(safe-area-inset-right, 0px));
-  z-index: 900;
+  z-index: var(--z-chrome, 50);
   display: none; /* JS(account-bar.ts)が制御 */
   align-items: center;
   gap: 8px;
@@ -389,7 +406,7 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
 #duel-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  z-index: var(--z-overlay, 300);
   background: rgba(8, 20, 15, 0.82);
   display: none;
   align-items: center;
@@ -619,7 +636,7 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
   left: 50%;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
-  z-index: 3100;
+  z-index: var(--z-toast, 500);
   display: flex;
   align-items: center;
   gap: 10px;

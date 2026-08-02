@@ -367,6 +367,15 @@
     <div id="turn-order" class="turn-order"></div>
     <div id="current-color" class="current-color-badge">現在の色</div>
 
+    <!-- ★ルールの早見表★ 以前はモバイルにゲーム中のルール確認手段が無く、
+         PC UIの引き出しにしか存在しなかった。中身は mobile-menu.ts が
+         rules-summary.ts（PCの引き出しと共通）で組み立てる -->
+    <div class="mg-sheet-label">ルール（いまの状況つき）</div>
+    <div class="mg-rules" id="mg-rules"></div>
+    <div class="mg-sheet-actions">
+      <button class="btn sm" onclick="closeMobileMenu();openRuleModal()">📖 ルールの全文を見る</button>
+    </div>
+
     <div class="mg-sheet-label">ログ</div>
     <div class="glog" id="glog"></div>
 
@@ -528,7 +537,7 @@
 
 <!-- ★戦績刷新★ 他人の戦績カード（席の長押し・フレンドの📊から開く） -->
 <div id="player-stats-modal" class="modal-overlay" onclick="closePlayerStats()" style="display:none;">
-  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:320px;">
+  <div class="modal-content" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h3 id="player-stats-name">📊</h3>
       <button class="modal-close-x" onclick="closePlayerStats()">&times;</button>
@@ -539,7 +548,7 @@
 
 <!-- ★Phase 4★ フレンドモーダル。中身は src/ui/friends-ui.ts が描画する -->
 <div id="friends-modal" class="modal-overlay" onclick="closeFriends()" style="display:none;">
-  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:360px;">
+  <div class="modal-content" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h3>🤝 フレンド</h3>
       <button class="modal-close-x" onclick="closeFriends()">&times;</button>
@@ -550,7 +559,7 @@
 
 <!-- ★バグ報告★ 🐛 モーダル。src/ui/bug-report-ui.ts が制御する -->
 <div id="bug-report-modal" class="modal-overlay" onclick="closeBugReport()" style="display:none;">
-  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:360px;">
+  <div class="modal-content" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h3>🐛 バグを報告</h3>
       <button class="modal-close-x" onclick="closeBugReport()">&times;</button>
@@ -573,7 +582,7 @@
 
 <!-- ★Phase 2★ プロフィール（戦績）モーダル。中身は src/ui/profile.ts が描画する -->
 <div id="profile-modal" class="modal-overlay" onclick="closeProfile()" style="display:none;">
-  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:360px;">
+  <div class="modal-content" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h3>📊 プロフィール</h3>
       <button class="modal-close-x" onclick="closeProfile()">&times;</button>

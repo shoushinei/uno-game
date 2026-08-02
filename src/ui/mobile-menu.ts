@@ -12,6 +12,8 @@
 
 import { isSoundOn, toggleSound } from '../audio/audio-engine.js';
 import { isHapticOn, toggleHaptic, isHapticSupported } from '../audio/haptics.js';
+// ★ルールの早見表★ PC UIの引き出しと同じものを使う（実装は1つ）
+import { buildRulesSummaryHtml } from './rules-summary.js';
 
 declare global {
   interface Window {
@@ -50,6 +52,17 @@ function screenEl(): HTMLElement | null {
   return document.getElementById('s-game');
 }
 
+/**
+ * ★ルールの早見表★ 開くたびに今の盤面の状態で組み直す
+ * （「いま革命中」「いましばり中」を先頭に出すため）。
+ * PC UIの引き出しの「ルール」タブとまったく同じものを表示する。
+ */
+function syncRules(): void {
+  const el = document.getElementById('mg-rules');
+  if (!el) return;
+  el.innerHTML = buildRulesSummaryHtml(window._currentGame ?? null);
+}
+
 export function openMobileMenu(section?: string): void {
   const el = screenEl();
   if (!el) return;
@@ -57,6 +70,7 @@ export function openMobileMenu(section?: string): void {
   el.classList.add('menu-open');
   syncSoundButton();  // 開くたびに今の設定を反映する
   syncHapticButton();
+  syncRules();
   const sheet = document.getElementById('mg-sheet');
   if (!sheet) return;
   // 「😀」から開いたときはリアクションが目に入る位置から始める

@@ -229,10 +229,10 @@ function renderFriends(): void {
         } else if (p?.state === 'online') {
           status = '<span class="friend-presence on">🟢 オンライン</span>';
         }
-        // ★重なり解消★ 戦績カードはフレンドモーダルと同じ z-index で DOM 上は
-        // 手前（後ろ）に描かれるため、そのまま開くとフレンド画面の下に隠れる。
-        // 先にフレンドモーダルを閉じてから開く。
-        const statsBtn = `<button class="friend-btn" onclick="closeFriends();showPlayerStats('${uid}','${nameOf(uid).replace(/'/g, '')}')">📊</button>`;
+        // 戦績カードはフレンドモーダルの1段上（--z-modal-top）に出るので、
+        // フレンド一覧を開いたまま重ねて開ける。
+        // （以前は同じ段だったため、先にフレンドを閉じる回避が必要だった）
+        const statsBtn = `<button class="friend-btn" onclick="showPlayerStats('${uid}','${nameOf(uid).replace(/'/g, '')}')">📊</button>`;
         return row(`${nameOf(uid)} ${status}`,
           `${joinBtn}${statsBtn}<button class="friend-btn ghost" onclick="unfriend('${f.pairId}')">解除</button>`);
       }).join('')
