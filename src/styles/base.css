@@ -218,9 +218,50 @@ body {
   background: var(--color-background-secondary, #f6f7f8);
   color: var(--color-text-primary, #2c3e50);
   font-size: 17px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
 }
 .icon-btn:active { transform: scale(0.94); }
+/* 文字ラベルは既定では出さない（指で操作する画面は幅が無い）。
+   .pc-ui のときだけ言葉を添える → 下の「PCのときの上書き」を参照 */
+.btn-label { display: none; }
+
+/* ============================================================
+   ★PCのときの上書き★
+
+   ここまでの .action-bar / .action-note / .icon-btn は
+   「指・ホバー無し・狭い画面」への回答であって、PCへの回答ではない。
+
+     モバイル … 一等地は画面下端（親指が届く）。だから操作バーを下に貼る
+     PC       … 一等地は視線とマウスのある場所＝操作対象のすぐ隣。
+                画面下端は逆に**いちばん遠い場所**になる
+
+   PCでは帯をやめて、ボタンを中身の近くに・幅なりに置く。
+   ホバーで補足が出せるぶん、アイコンには言葉を添える。
+   ============================================================ */
+.pc-ui .action-bar {
+  background: transparent;
+  border-top: 0;
+  box-shadow: none;
+  padding: 0;
+  min-height: 0;
+  gap: 10px;
+}
+/* 522pxの帯にせず、内容なりの幅にする */
+.pc-ui .action-bar .btn {
+  flex: 0 0 auto;
+  min-width: 190px;
+  min-height: 42px;
+  font-size: 14px;
+  padding: 10px 20px;
+}
+.pc-ui .action-bar .btn.narrow { width: auto; font-size: 14px; padding: 10px 16px; }
+.pc-ui .action-note {
+  height: auto; line-height: 1.6;
+  padding: 0; text-align: left; white-space: normal;
+  background: transparent; font-size: 12.5px;
+}
+.pc-ui .icon-btn { width: auto; height: 38px; padding: 0 14px; font-size: 15px; }
+.pc-ui .btn-label { display: inline; font-size: 13px; font-weight: 500; }
 
 /* ---- 共通 input ---- */
 input {

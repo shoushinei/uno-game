@@ -49,3 +49,19 @@ export function isPcUi(): boolean {
   if (cachedIsPcUi === null) cachedIsPcUi = computeIsPcUi();
   return cachedIsPcUi;
 }
+
+/**
+ * 判定結果を `<html class="pc-ui">` として CSS からも見えるようにする。
+ * 起動時に1回だけ呼ぶ。
+ *
+ * ★CSSのメディアクエリで別々に判定しないこと★
+ * 上の computeIsPcUi は「UA・ポインタ・ホバー・?ui= の指定」まで見ており、
+ * 幅だけを見るメディアクエリでは同じ答えにならない。判定が2つあると、
+ * 「JSは従来UIを描いているのにCSSはPC用の見た目を当てている」という
+ * 食い違いが起きる（過去に画面幅の境界で実際に事故った）。
+ * 判定は1つにして、その結果をクラスで配る。
+ */
+export function applyUiModeClass(): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.classList.toggle('pc-ui', isPcUi());
+}

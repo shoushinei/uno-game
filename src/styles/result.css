@@ -40,6 +40,65 @@
 /* 固定レイアウトでは大きすぎるので少し詰める（それでも主役の大きさは保つ） */
 .res-icon { font-size: 58px; line-height: 1.1; }
 
+/* ============================================================
+   ★PC版リザルト★ 横2カラム（左＝結果の実感 / 右＝順位表と操作）
+
+   1440×900の実測で、順位表の下端から「ロビーに戻る」まで464px空いていた。
+   さらに縦に積んだままだと 1280×720 のノートPCでは8人で163pxはみ出し、
+   肝心の「ロビーに戻る」が初期表示で見えなかった。
+
+   PCは横が余っているので、🏆と見出しを左に逃がして縦を半分にする。
+   （順位表そのものは縦に読むものなので分割しない。分けるのは
+     「祝う部分」と「読む部分」の2つ）
+   ============================================================ */
+.pc-ui #s-result.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  padding: 0 24px 24px;
+  animation: fadeIn 0.2s ease;
+}
+.pc-ui .res {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  column-gap: 30px;
+  align-items: start;
+  width: 100%;
+}
+.pc-ui .res-icon { grid-column: 1; grid-row: 1; }
+.pc-ui .res h2   { grid-column: 1; grid-row: 2; text-align: center; }
+.pc-ui .res .box { grid-column: 2; grid-row: 1 / span 2; max-width: none; }
+.pc-ui #s-result .lb-head {
+  align-self: stretch;
+  gap: 10px;
+  padding: 16px 0 12px;
+  border-bottom: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+  margin-bottom: 16px;
+}
+.pc-ui .res-body {
+  flex: none; align-self: stretch;
+  overflow: visible;
+  background: transparent;
+  border-top: 0;
+  padding: 0;
+}
+/* PCは縦に余裕があるので、勝った瞬間の主役を大きく見せる。
+   ただし8人ぶんの順位表が入ってもノートPC（900px高）で
+   「ロビーに戻る」まで初期表示に収まる範囲に留める */
+.pc-ui .res-icon { font-size: 68px; }
+/* 8人ぶんの順位表でも 1280×720 のノートPCで「ロビーに戻る」まで
+   初期表示に収まるよう、行と囲みを詰める（マウス操作なので44pxは不要） */
+.pc-ui .rank-row { padding: 6px 12px; }
+.pc-ui .res .box { padding: 12px 16px; }
+.pc-ui #s-result .msg.action-note { margin: 12px 0 10px; font-size: 12.5px; text-align: center; }
+.pc-ui #s-result .action-bar { justify-content: center; }
+
 .rank-row {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px;

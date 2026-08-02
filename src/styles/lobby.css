@@ -107,6 +107,78 @@
    案内一行とまったく同じ見え方にする */
 #s-lobby .msg.action-note { margin: 0; min-height: 0; font-size: 11px; }
 
+/* ============================================================
+   ★PC版ロビー★ 横2カラム
+
+   上のレイアウトは指で操作する画面のもの（100dvh固定・下端に操作バー）。
+   PCにそのまま出すと、1440×900の実測で
+     ・3人のとき一覧の下に533pxの空白ができる
+     ・一覧の下端から「ゲーム開始」まで451px離れる
+     ・522px幅のボタンが1本だけ並ぶ
+   という状態になっていた。マウスは一覧のところにあるのに、押すボタンは
+   画面のいちばん下＝もっとも遠い場所にある、という作りだった。
+
+   PCでは横幅が余っているので、
+     左 = ルームの情報（ID・モード）
+     右 = プレイヤー一覧と、そのすぐ下の「ゲーム開始」
+   に分け、視線・マウス・ボタンを同じ場所へ集める。
+   高さは中身なり（PCではホイールで自然にスクロールできる）。
+   ============================================================ */
+.pc-ui #s-lobby.active {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  grid-template-areas:
+    "head head"
+    "side main"
+    "side note"
+    "side act";
+  grid-template-rows: auto auto auto auto;
+  align-content: start;
+  column-gap: 28px;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  padding: 0 28px 32px;
+  animation: fadeIn 0.2s ease;
+}
+.pc-ui .lb-head { grid-area: head; }
+.pc-ui .lb-side { grid-area: side; }
+.pc-ui .lb-body { grid-area: main; }
+.pc-ui #s-lobby .msg.action-note { grid-area: note; }
+.pc-ui #s-lobby .action-bar { grid-area: act; }
+
+.pc-ui .lb-head {
+  gap: 10px;
+  padding: 20px 0 14px;
+  border-bottom: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+  margin-bottom: 20px;
+}
+/* 左カラム: ルームIDを主役にした縦積み */
+.pc-ui .lb-side {
+  background: var(--color-background-secondary, #f6f7f8);
+  border: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
+  border-radius: var(--border-radius-lg, 12px);
+  padding: 18px 18px 16px;
+}
+.pc-ui .lb-room { display: block; padding: 0; }
+.pc-ui .lb-room-id { display: block; }
+.pc-ui .lb-room .room-id { display: block; font-size: 40px; letter-spacing: 9px; margin-top: 2px; }
+.pc-ui .lb-mode-badge { display: inline-block; margin: 12px 0 0; }
+.pc-ui .lb-hint { padding: 8px 0 0; text-align: left; }
+/* 右カラム: 一覧は白地のまま、囲みも影も要らない */
+.pc-ui .lb-body {
+  overflow: visible;
+  background: transparent;
+  border-top: 0;
+  padding: 0;
+}
+.pc-ui .lb-body .pi { background: var(--color-background-primary, #fff); }
+.pc-ui #s-lobby .msg.action-note { margin: 14px 0 10px; font-size: 12.5px; }
+.pc-ui #s-lobby .action-bar { justify-content: flex-start; }
+
 /* ---- ロビー: ルームID ---- */
 .room-id {
   font-size: 34px; font-weight: 700; letter-spacing: 8px;

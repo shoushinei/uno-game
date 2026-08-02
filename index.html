@@ -125,19 +125,28 @@
 <div id="s-lobby" class="screen">
 
   <div class="lb-head">
-    <button class="icon-btn" onclick="openRuleModal()" title="ゲームのルール" aria-label="ゲームのルールを見る">📖</button>
-    <button class="icon-btn" id="lbtn" onclick="leaveGame()" title="ロビーから退室" aria-label="ロビーから退室する">🚪</button>
+    <!-- ★アイコンの文字ラベルは .pc-ui のときだけ出る★
+         モバイルは横幅が無いのでアイコンだけ、PCはホバーも幅もあるので言葉で出す -->
+    <button class="icon-btn" onclick="openRuleModal()" title="ゲームのルール" aria-label="ゲームのルールを見る">
+      <span aria-hidden="true">📖</span><span class="btn-label">ルール</span>
+    </button>
+    <button class="icon-btn" id="lbtn" onclick="leaveGame()" title="ロビーから退室" aria-label="ロビーから退室する">
+      <span aria-hidden="true">🚪</span><span class="btn-label">退室する</span>
+    </button>
     <!-- 右側はアカウント状態欄（position:fixed）が浮くので空けておく -->
   </div>
 
-  <div class="lb-room">
-    <div class="lb-room-id">
-      <span class="lb-room-label">ルームID</span>
-      <span class="room-id" id="lrid">----</span>
+  <!-- PCでは左カラム（ルームの情報）になる。モバイルでは固定の2行のまま -->
+  <div class="lb-side">
+    <div class="lb-room">
+      <div class="lb-room-id">
+        <span class="lb-room-label">ルームID</span>
+        <span class="room-id" id="lrid">----</span>
+      </div>
+      <div class="lb-mode-badge" id="lb-mode-badge"></div>
     </div>
-    <div class="lb-mode-badge" id="lb-mode-badge"></div>
+    <p class="room-hint lb-hint">友達に同じIDを入力してもらえば参加できます</p>
   </div>
-  <p class="room-hint lb-hint">友達に同じIDを入力してもらえば参加できます</p>
 
   <div class="lb-body">
     <!-- ★ヨットモード Step 1★ ゲームモード（ホストのみ切替可）。
@@ -150,7 +159,9 @@
 
   <p class="msg action-note" id="lm"></p>
   <div class="action-bar">
-    <button class="btn narrow" id="addbot-btn" onclick="addBot()" style="display:none" title="ボットを追加" aria-label="ボットを追加">🤖</button>
+    <button class="btn narrow" id="addbot-btn" onclick="addBot()" style="display:none" title="ボットを追加" aria-label="ボットを追加">
+      <span aria-hidden="true">🤖</span><span class="btn-label">ボットを追加</span>
+    </button>
     <button class="btn red" id="sbtn" onclick="startGame()" style="display:none">ゲーム開始</button>
     <button class="btn" id="rbtn" onclick="toggleReady()" style="display:none">準備完了！</button>
   </div>
@@ -426,8 +437,12 @@
 <div id="s-result" class="screen">
 
   <div class="lb-head">
-    <button class="icon-btn" onclick="openBugReport()" title="バグを報告" aria-label="バグを報告">🐛</button>
-    <button class="icon-btn" onclick="leaveGame()" title="ホームに戻る" aria-label="ホームに戻る">🚪</button>
+    <button class="icon-btn" onclick="openBugReport()" title="バグを報告" aria-label="バグを報告">
+      <span aria-hidden="true">🐛</span><span class="btn-label">バグを報告</span>
+    </button>
+    <button class="icon-btn" onclick="leaveGame()" title="ホームに戻る" aria-label="ホームに戻る">
+      <span aria-hidden="true">🚪</span><span class="btn-label">ホームに戻る</span>
+    </button>
     <!-- 右側はアカウント状態欄（position:fixed）が浮くので空けておく -->
   </div>
 
@@ -444,7 +459,9 @@
   <!-- リプレイ保存の成否メッセージ（app.ts の saveReplay が書き込む） -->
   <p class="msg action-note" id="replay-save-msg"></p>
   <div class="action-bar">
-    <button class="btn narrow" onclick="saveReplay()" title="リプレイを保存" aria-label="リプレイを保存">📼</button>
+    <button class="btn narrow" onclick="saveReplay()" title="リプレイを保存" aria-label="リプレイを保存">
+      <span aria-hidden="true">📼</span><span class="btn-label">リプレイを保存</span>
+    </button>
     <button class="btn red" id="res-back-btn" onclick="backToLobby()">ロビーに戻る</button>
   </div>
 </div>

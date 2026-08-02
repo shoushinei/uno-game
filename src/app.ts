@@ -35,7 +35,7 @@ import { show, renderLobby, renderGame, renderResult, flashReactionBtn, dbg, set
 import { syncMobileActionBar } from './ui/mobile-action-bar.js'; // ★モバイルUI M1★ 下部操作バー
 import { installMobileMenu } from './ui/mobile-menu.js'; // ★モバイルUI M2★ ☰メニューシート
 import { installMobilePlayerSheet } from './ui/mobile-player-sheet.js'; // ★モバイルUI M3★ プレイヤーのシート
-import { isPcUi } from './ui/pc/ui-mode.js';
+import { isPcUi, applyUiModeClass } from './ui/pc/ui-mode.js';
 import {
   actionStartGame,
   actionTrumpPlay,
@@ -230,6 +230,11 @@ startAbsentRunner();
 
 // ★バグ報告★ エラー履歴の収集を開始（報告に直近のエラーを自動添付するため）
 installErrorCapture();
+
+// ★UI種別を CSS へ配る★ ロビー・リザルトは PC とモバイルで別のレイアウトを
+// 使う（指の一等地は画面下端、マウスの一等地は操作対象のすぐ隣、と前提が違う）。
+// 判定は isPcUi の1箇所だけが持ち、CSS はその結果（html.pc-ui）を見る。
+applyUiModeClass();
 
 // ★Phase D（効果音）★ ブラウザは操作前の自動再生を禁止するため、最初の
 // クリック／キー入力で AudioContext を解錠する。それまでは静かに無音。
