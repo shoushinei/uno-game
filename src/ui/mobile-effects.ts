@@ -285,6 +285,23 @@ export function flashRing(): void {
     { duration: 460, easing: 'ease-in-out' });
 }
 
+/**
+ * ★他人に手番が移ったことを、その人の席チップのパルスで知らせる★
+ *
+ * 以前はステータスバーの「◯◯のターン【①トランプ】」という文章が担っていたが、
+ * 幅が足りず必ず途中で切れていたので廃止した。持続的な「いま誰の番か」は
+ * `.op.cur` の赤枠が示し、ここでは「今この瞬間に移った」ことだけを伝える。
+ * （PC UIの flashTurnArrival と同じ役割。座標を使わないのでこちらは単純）
+ */
+export function flashTurnArrival(playerId: string): void {
+  const chip = document.querySelector<HTMLElement>(`.op[data-player-id="${playerId}"]`);
+  if (!chip || reducedMotion()) return;
+  chip.classList.remove('turn-arrive');
+  void chip.offsetWidth; // リフローでアニメを頭から再生
+  chip.classList.add('turn-arrive');
+  setTimeout(() => chip.classList.remove('turn-arrive'), 900);
+}
+
 /** 自分の手番になったことを手札エリアの光で知らせる */
 export function flashMyTurn(): void {
   const hands = document.querySelector('.mg-hands');

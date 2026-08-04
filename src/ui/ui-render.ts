@@ -28,7 +28,7 @@ import {
   type GameSnap, type EffectDescriptor,
 } from './pc/effects/effect-derive.js';
 import { enqueueEffects, clearEffectQueue } from './pc/effects/effect-queue.js';
-import { playMobileEffect, flashColorChange, flashRing, flashMyTurn, flyReaction } from './mobile-effects.js';
+import { playMobileEffect, flashColorChange, flashRing, flashMyTurn, flashTurnArrival, flyReaction } from './mobile-effects.js';
 import { renderGamePC } from './pc/table-render.js';
 // ★モバイルUI★ 席は場の左右。手番順の計算はPC UIと共有し、左右への割り振りだけ持つ
 import { othersInTurnOrder } from './pc/seat-layout.js';
@@ -251,7 +251,6 @@ export function renderGame(room: any): void {
   const myTrumpDone = myTrump.length === 0;
   const myUnoDone = myUno.length === 0;
 
-  _renderTurnBanner(g, players, isMyTurn, phase, iFinished);
   _renderPhaseIndicator(phase);
   _renderTurnOrder(g, players, curId);
   _renderOtherPlayers(g, players, reactions, curId, autoPlayers, leftPlayers);
@@ -417,37 +416,32 @@ function _runMobileEffects(room: any, g: any, players: Player[], curId: string |
   }
   _mgPrevDir = typeof g.dir === 'number' ? g.dir : _mgPrevDir;
 
-  // 自分の手番が来たら手札エリアを光らせる（見落とし防止）
-  if (!first && _mgPrevTurnId !== null && curId != null && curId !== _mgPrevTurnId
-      && curId === state.myId
-      && !(g.rankings || []).some((r: { id: string }) => r.id === state.myId)) {
-    flashMyTurn();
-    // 画面から目を離していても気づけるよう、ここだけは音も出す
-    // （他人の手番は毎ターン鳴ってうるさいので無音のまま）
-    playSound('my-turn');
-    vibrate('my-turn'); // ★触覚★ 「自分の番に気づかない」対策。音が出せない場面でも届く
+  // 手番が移ったときの合図。
+  // 自分なら手札エリアを光らせ、他人ならその席チップをパルスさせる。
+  // （ステータスバーの「◯◯のターン」という文章を廃止したぶん、
+  //   「今この瞬間に移った」ことはここで伝える）
+  if (!first && _mgPrevTurnId !== null && curId != null && curId !== _mgPrevTurnId) {
+    const iFinishedNow = (g.rankings || []).some((r: { id: string }) => r.id === state.myId);
+    if (curId === state.myId && !iFinishedNow) {
+      flashMyTurn();
+      // 画面から目を離していても気づけるよう、ここだけは音も出す
+      // （他人の手番は毎ターン鳴ってうるさいので無音のまま）
+      playSound('my-turn');
+      vibrate('my-turn'); // ★触覚★ 「自分の番に気づかない」対策。音が出せない場面でも届く
+    } else {
+      flashTurnArrival(curId);
+    }
   }
   _mgPrevTurnId = curId ?? null;
 }
 
-function _renderTurnBanner(g: GameState, players: Player[], isMyTurn: boolean, phase: string, iFinished: boolean): void {
-  const tb = document.getElementById('tbnr')!;
-  if (iFinished) {
-    const myRankIdx = (g.rankings || []).findIndex(r => r.id === state.myId);
-    tb.textContent = `🏁 上がり確定（${myRankIdx + 1}位・観戦中）`;
-    tb.className = 'tb finished';
-  } else if (isMyTurn) {
-    tb.textContent = phase === 'trump'
-      ? 'あなたのターン【①トランプフェイズ】'
-      : 'あなたのターン【②UNOフェイズ】';
-    tb.className = 'tb myturn';
-  } else {
-    const curId = g.order[g.ci];
-    const cp = players.find(p => p.id === curId);
-    tb.textContent = `${cp ? cp.name : '?'}のターン【${phase === 'trump' ? '①トランプ' : '②UNO'}】`;
-    tb.className = 'tb wait';
-  }
-}
+// ★「誰のターンか」の文章は廃止した★
+// ステータスバーの幅では必ず途中で切れていた（375pxで使えるのは約198px、
+// 320pxでは約137px。文言は139〜210px必要）。しかも⏳チップが既に
+// 「残り54秒 · あなた🎴」と誰の番かもフェイズも言っており、完全に重複していた。
+// 誰の番か = 席チップの赤枠＋手番到来のパルス（flashTurnArrival）
+// どのフェイズか = 手札の赤帯と案内一行
+// 上がり済み・観戦中 = 案内一行（「🏁 3位で上がり — 観戦中」）
 
 function _renderPhaseIndicator(phase: string): void {
   const pi = document.getElementById('phase-indicator');

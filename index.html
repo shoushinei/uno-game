@@ -186,10 +186,15 @@
      ===================================================== -->
 <div id="s-game" class="screen">
 
-  <!-- ① ステータスバー -->
+  <!-- ① ステータスバー
+       ★「誰のターンか」の文章は置かない★
+       幅が足りず「あなたのターン【②UNO…」のように必ず途中で切れていた
+       （375pxで使えるのは約198px、320pxでは約137px。文言は139〜210px必要）。
+       誰の番かは席チップの赤枠と手番到来のパルスで、どのフェイズかは
+       手札の赤帯と案内一行で伝わるので、文章そのものを廃止した。 -->
   <div class="mg-status">
-    <div id="tbnr" class="tb wait">読み込み中...</div>
     <div id="turn-timer-classic" class="turn-timer" style="display:none"></div>
+    <div class="mg-status-spacer"></div>
     <button class="icon-btn" id="mg-react-btn" onclick="openMobileMenu('react')" title="リアクション" aria-label="リアクション">😀</button>
     <button class="icon-btn" onclick="openMobileMenu()" title="メニュー" aria-label="メニュー">☰</button>
   </div>

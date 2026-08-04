@@ -464,13 +464,17 @@
   background: var(--color-background-primary, #fff);
   border-bottom: 1px solid var(--color-border-tertiary, rgba(0,0,0,.12));
 }
-.mg-status .tb {
-  flex: 1 1 auto; min-width: 0; margin: 0;
-  font-size: 11px; padding: 6px 8px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+/* ★「◯◯のターン」の文章は置かない★ 幅が足りず必ず途中で切れていたうえ、
+   ⏳チップが「残り54秒 · あなた🎴」と同じことを言っていた。
+   空いた場所は詰めずに、タイマーを左・操作アイコンを右に離して置く。 */
+.mg-status-spacer { flex: 1 1 auto; min-width: 0; }
+/* ★アイコンより先にタイマーが縮む★ 長い名前（最大12文字）のとき
+   flex:none のままだと 320px 端末で ☰ が画面外へ押し出されていた。
+   残り秒数は文字列の先頭にあるので、溢れても秒数は必ず残る。 */
 .mg-status .turn-timer {
-  flex: none; margin: 0; padding: 4px 9px; font-size: 12px; border-width: 1.5px;
+  flex: 0 1 auto; min-width: 0; margin: 0;
+  padding: 5px 10px; font-size: 12.5px; border-width: 1.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* ①のアイコンボタン（😀 / ☰）は base.css の .icon-btn を使う
    （ロビーの 📖 / 🚪 と同じ部品・44px） */
@@ -519,6 +523,19 @@
   transform: none;
   border: 2px solid var(--uno-red, #e74c3c); padding: 3px 2px 2px;   /* 枠が太るぶん内側で吸収して幅を保つ */
   box-shadow: 0 0 10px rgba(231,76,60,.5);
+}
+/* ★手番が移ってきた瞬間だけ1回パルスさせる★
+   持続的な「いま誰の番か」は上の赤枠が示す。こちらは「今この瞬間に移った」
+   ことを伝える合図で、廃止したステータスバーの文章の代わりになる。
+   幅・高さを変えない box-shadow と filter だけで表現し、席の位置を動かさない。 */
+.mg-seats .op.turn-arrive { animation: mgTurnArrive .85s ease-out; }
+@keyframes mgTurnArrive {
+  0%   { box-shadow: 0 0 0 0 rgba(231,76,60,.85), 0 0 10px rgba(231,76,60,.5); filter: brightness(1.25); }
+  55%  { box-shadow: 0 0 0 10px rgba(231,76,60,0), 0 0 18px rgba(231,76,60,.6); filter: brightness(1); }
+  100% { box-shadow: 0 0 0 0 rgba(231,76,60,0), 0 0 10px rgba(231,76,60,.5); filter: brightness(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mg-seats .op.turn-arrive { animation: none; }
 }
 .mg-seats .on { font-size: 10px; max-width: none; margin-bottom: 1px; }
 .mg-seats .oc { flex-direction: row; gap: 5px; }
