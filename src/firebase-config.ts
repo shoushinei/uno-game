@@ -36,6 +36,11 @@ export const auth = getAuth(app);
 // 送信させる（既定は英語で、日本のユーザーには不親切＋迷惑メール判定されやすい）
 auth.languageCode = 'ja';
 export const googleProvider = new GoogleAuthProvider();
+// ★毎回アカウント選択画面を出す★
+// これが無いと、Googleアカウントを複数持っている人でもブラウザが覚えている
+// アカウントに黙って入ってしまい、「アカウントを切り替える」が成立しない
+// （ログアウトしてから押し直しても、また同じアカウントで入ってしまう）。
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // アカウント機能（users/ 等）用の Cloud Firestore。
 // ゲームのリアルタイム同期は従来どおり Realtime Database（rooms/）を使い、

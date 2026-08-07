@@ -34,10 +34,17 @@
      src/ui/account-bar.ts が表示/非表示と中身を制御する
      ===================================================== -->
 <div id="account-bar" style="display:none">
-  <span id="account-bar-avatar-slot" class="account-bar-avatar">👤</span>
-  <span id="account-bar-name" class="account-bar-name"></span>
-  <span id="account-bar-title" class="account-bar-title" style="display:none"></span>
-  <span id="account-bar-guest" class="account-bar-guest">ゲスト</span>
+  <!-- ★名前の部分そのものがアカウントメニューの入口★
+       ここに🚪を直接足すと 🤝📊🚪 と3つ並んで320px端末で名前が潰れ、
+       しかも1タップでログアウトが発火して危ない。1枚かぶせて選ばせる -->
+  <button id="account-bar-me" class="account-bar-me" onclick="openAccountMenu()"
+          title="アカウント（切り替え・ログアウト）" aria-label="アカウントメニューを開く">
+    <span id="account-bar-avatar-slot" class="account-bar-avatar">👤</span>
+    <span id="account-bar-name" class="account-bar-name"></span>
+    <span id="account-bar-title" class="account-bar-title" style="display:none"></span>
+    <span id="account-bar-guest" class="account-bar-guest">ゲスト</span>
+    <span class="account-bar-caret" aria-hidden="true">▾</span>
+  </button>
   <button id="account-bar-friends" class="account-bar-btn" onclick="openFriends()" title="フレンド" style="position:relative">
     🤝<span id="friends-badge" class="friends-badge" style="display:none">0</span>
   </button>
@@ -552,6 +559,19 @@
 </div>
 
 <!-- ★Phase 4★ フレンドモーダル。中身は src/ui/friends-ui.ts が描画する -->
+<!-- ★アカウントメニュー★ 右上チップの名前をタップで開く。
+     src/ui/account-menu.ts が中身を描き、ログアウト本体は auth.ts が持つ。
+     📱=ボトムシート／🖥=中央モーダル（共通の .modal-overlay に乗る） -->
+<div id="account-menu-modal" class="modal-overlay" onclick="closeAccountMenu()" style="display:none;">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3>👤 アカウント</h3>
+      <button class="modal-close-x" onclick="closeAccountMenu()">&times;</button>
+    </div>
+    <div class="modal-body" id="account-menu-body"></div>
+  </div>
+</div>
+
 <div id="friends-modal" class="modal-overlay" onclick="closeFriends()" style="display:none;">
   <div class="modal-content" onclick="event.stopPropagation()">
     <div class="modal-header">

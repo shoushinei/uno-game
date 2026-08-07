@@ -14,7 +14,12 @@ import {
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
+  signOut,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {
+  accountKind, planLogout, LOGOUT_CLEAR_KEYS,
+  type LogoutIntent, type RoomState,
+} from './logout-logic.js';
 import { ensureUserDoc, saveDisplayName } from './account.js';
 import { startAchievementWatch, stopAchievementWatch } from './ui/achievement-toast.js';
 import { setAccountBarName, syncAccountBar } from './ui/account-bar.js';
@@ -61,9 +66,19 @@ async function loginWithGoogle(): Promise<void> {
     setStatus('Google ログイン画面を起動中...');
     await signInWithPopup(auth, googleProvider);
   } catch (e: any) {
-    setHomeMsg('ログイン失敗: ' + e.message);
+    // ★アカウント切替からも呼ばれる★ ログアウト直後にポップアップを開くと
+    // ブラウザにブロックされることがあるので、原因が分かる文言にする
+    // （「ログイン失敗」だけだと、もう一度押せば通ることが伝わらない）。
+    const code: string = e?.code ?? '';
+    setHomeMsg(
+      code === 'auth/popup-blocked'
+        ? 'ポップアップがブロックされました。下の「Googleアカウントでログイン」をもう一度押してください'
+      : (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request')
+        ? 'ログインをキャンセルしました'
+      : 'ログイン失敗: ' + e.message
+    );
     setStatus('ログインエラー', 'err');
-    dbg('Googleログイン失敗: ' + e.message, true);
+    dbg('Googleログイン失敗: ' + (code || e.message), true);
   }
 }
 
@@ -618,7 +633,19 @@ export function clearSessionAndGoHome(): void {
 //   代行実行する（absent-runner, C4）。localStorage のセッション情報は保持し、
 //   同じ端末で再アクセスすれば元の席に復帰できる。
 // ----------------------------------------
-window.leaveGame = async function () {
+window.leaveGame = async function () { await leaveRoom(true); };
+
+/**
+ * 退室の本体。
+ *
+ * ★ログアウトからも呼ぶため確認の有無を引数にした★
+ * ログアウトは「退室してログアウトしますか？」と1回で聞くので、
+ * ここでもう一度確認されると OK を2回押すことになる。
+ * 退室のルール（ホスト移譲・無人ルーム削除・代行残留）は1箇所に保つ。
+ *
+ * @returns 実行したら true / 確認をキャンセルしたら false
+ */
+export async function leaveRoom(askConfirm: boolean): Promise<boolean> {
   const rid  = state.roomId;
   const myId = state.myId;
 
@@ -629,12 +656,12 @@ window.leaveGame = async function () {
   const isPlaying = room?.state === 'playing';
 
   // ゲーム進行中の退室は、代行に引き継ぐ旨を確認してから実行する
-  if (isPlaying) {
+  if (isPlaying && askConfirm) {
     const ok = window.confirm(
       'ゲームの途中です。退室すると、あなたの手番はボットが自動でプレイします。\n' +
       '同じ端末で再度アクセスすれば、元の席に戻って続きをプレイできます。\n\n退室しますか？'
     );
-    if (!ok) return; // キャンセル：何もしない
+    if (!ok) return false; // キャンセル：何もしない
   }
 
   window._stopListening?.();
@@ -679,7 +706,7 @@ window.leaveGame = async function () {
         state.isHost = false;
         setPresenceRoom(null); // ゲーム中の退室でも在席は「オンライン」へ
         show('home');
-        return;
+        return true;
       }
 
       // ---- 従来どおりの退出（ロビー中・ゲーム終了後）----
@@ -704,7 +731,121 @@ window.leaveGame = async function () {
   }
 
   clearSessionAndGoHome();
-};
+  return true;
+}
+
+// ----------------------------------------
+// ログアウト／アカウント切替
+//
+// 入口は右上のアカウントチップ → アカウントメニュー（ui/account-menu.ts）。
+// チップが出るのは home / lobby / result だけなので、盤面からは押せない。
+//
+// ★signOut を呼ぶだけでは足りない★
+//   1. ロビー/リザルトに居るまま消えると幽霊の席が残り、他の人は準備完了
+//      しない人を待たされる。ホストのままだと開始すらできない
+//      → 先に leaveRoom() で席を片付ける（退室ロジックは1箇所に保つ）
+//   2. presence は権限があるうちに消す（signOut 後だとルールで弾かれ、
+//      フレンド一覧に「オンライン」のまま残りうる）
+//   3. 端末に残る「前の人」の痕跡（復帰の鍵・メールアドレス・名前欄）を消す。
+//      ただし効果音や触覚のような端末の設定は残す（→ logout-logic.ts の一覧）
+// ----------------------------------------
+
+/** 開いているモーダル・シートを全部閉じる（前の人の中身を残さない） */
+function closeAllOverlays(): void {
+  const ids = [
+    'account-menu-modal', 'profile-modal', 'friends-modal',
+    'bug-report-modal', 'rule-modal', 'player-stats-modal',
+  ];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+  window.closeMobileSheets?.();
+}
+
+/** 入力欄・メッセージを初期化する（前の人の名前でルームを作らないように） */
+function clearHomeInputs(): void {
+  const ni = document.getElementById('ni') as HTMLInputElement | null;
+  if (ni) ni.value = '';
+  const ri = document.getElementById('ri') as HTMLInputElement | null;
+  if (ri) ri.value = '';
+  const emailInput = document.getElementById('email-input') as HTMLInputElement | null;
+  if (emailInput) emailInput.value = '';
+  setHomeMsg('');
+  setEmailMsg('');
+}
+
+export async function performLogout(intent: LogoutIntent): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const kind = accountKind({
+    isAnonymous: !!user.isAnonymous,
+    providerIds: (user.providerData ?? []).map((p: any) => p?.providerId).filter(Boolean),
+  });
+
+  // いまルームに居るか（居るなら退室してからログアウトする）
+  let roomState: RoomState = null;
+  if (state.roomId) {
+    try {
+      const room = await fbGet('rooms/' + state.roomId);
+      roomState = (room?.state as RoomState) ?? null;
+    } catch {
+      // 読めなくても席は残っている前提で退室処理に進む
+      roomState = 'lobby';
+    }
+  }
+
+  const plan = planLogout({ kind, roomState, intent });
+  if (!window.confirm(plan.confirmText)) return;
+
+  closeAllOverlays();
+
+  // 1. 席を片付ける（確認は上で済ませたので askConfirm=false）
+  if (plan.needsLeave) {
+    try { await leaveRoom(false); }
+    catch (e: any) { dbg('ログアウト時の退室でエラー: ' + e.message, true); }
+  }
+
+  // 2. 監視を止める（★signOut より先★ = 権限があるうちに presence を消す）
+  stopAchievementWatch();
+  stopFriendsWatch();
+  stopPresence();
+  window._stopListening?.();
+
+  // 3. 端末に残る痕跡を消す（端末の設定は消さない）
+  for (const key of LOGOUT_CLEAR_KEYS) {
+    try { localStorage.removeItem(key); } catch { /* 無視 */ }
+  }
+
+  // 4. メモリ上の状態を初期化する
+  //    ★guestName をここで捨てるのが要点★ 消さないと
+  //    「ログアウト → ゲストで開始」で前のゲスト名が復活する
+  savedProfileName = null;
+  guestName = null;
+  state.roomId = '';
+  state.myId = '';
+  state.myName = '';
+  state.isHost = false;
+  state.myIcon = null;
+  state.myTitle = null;
+  clearHomeInputs();
+  show('home');
+
+  // 5. サインアウト（onAuthStateChanged の未ログイン分岐が画面を戻す）
+  try {
+    await signOut(auth);
+    dbg('ログアウトしました');
+  } catch (e: any) {
+    setHomeMsg('ログアウトに失敗しました: ' + e.message);
+    dbg('signOut 失敗: ' + e.message, true);
+    return;
+  }
+
+  // 6. 切替のときは、そのままGoogleのアカウント選択へ進む
+  //    （ブロックされた場合は loginWithGoogle が押し直しを案内する）
+  if (intent === 'switch') await loginWithGoogle();
+}
 
 // ----------------------------------------
 // inputオートフォーマット

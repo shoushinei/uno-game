@@ -338,6 +338,7 @@ html:not(.pc-ui) .modal-content::before {
 .pc-ui #friends-modal .modal-content     { max-width: 420px; }
 .pc-ui #bug-report-modal .modal-content  { max-width: 460px; }
 .pc-ui #player-stats-modal .modal-content { max-width: 360px; }
+.pc-ui #account-menu-modal .modal-content { max-width: 340px; }
 
 /* フレンド一覧から開く戦績カードは、そのモーダルより1段上に出す。
    （以前は同じ段だったため「先にフレンドを閉じてから開く」という

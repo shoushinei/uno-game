@@ -25,6 +25,7 @@ import { botPlayerMap } from './bot/lobby-bots.js';
 import './replay/app.js'; // ★リプレイ機能で追加：リプレイ画面のwindow.*関数を登録する
 import './ui/profile.js'; // ★Phase 2★ プロフィール画面（openProfile/closeProfile）を登録する
 import './ui/friends-ui.js'; // ★Phase 4★ フレンド画面（openFriends 等）を登録する
+import './ui/account-menu.js'; // ★ログアウト★ アカウントメニュー（openAccountMenu 等）を登録する
 import './ui/player-stats-card.js'; // ★戦績刷新★ 他人の戦績カード（席の長押し）を登録する
 import { renderDuel } from './ui/duel-ui.js'; // ★ヨットモード Step 2★ 対決オーバーレイ
 import { renderTurnTimers } from './ui/turn-timer-ui.js'; // ★持ち時間★ 手番カウントダウン表示

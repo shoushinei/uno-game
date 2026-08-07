@@ -368,6 +368,45 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   max-width: 62vw;
 }
+/* ★名前の部分がアカウントメニューの入口★（切り替え・ログアウト）
+   見た目はチップの一部のままにして、押せることは ▾ とホバーで伝える */
+.account-bar-me {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;              /* 長い名前で 🤝📊 を押し出さない */
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  margin: -2px -2px -2px -4px; /* 広げたぶんチップの大きさを変えない */
+  border-radius: 999px;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+.account-bar-me:hover { background: rgba(0, 0, 0, 0.06); }
+.account-bar-me:focus-visible {
+  outline: 2px solid var(--color-accent-primary, #16a085);
+  outline-offset: 1px;
+}
+/* ★タップ領域だけ44pxに広げる★（ロビーのキック✕と同じ手口）
+   チップ自体を44pxにすると右上が重たくなるので、見た目は変えない */
+.account-bar-me::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: var(--tap-min, 44px);
+  transform: translateY(-50%);
+}
+.account-bar-caret {
+  font-size: 9px;
+  line-height: 1;
+  color: var(--color-text-tertiary, #868d95);
+  flex: none;
+}
+
 .account-bar-avatar { font-size: 15px; line-height: 1; }
 .account-bar-name {
   font-size: 12.5px;
@@ -401,6 +440,48 @@ input:focus { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25); }
   justify-content: center;
 }
 .account-bar-btn:hover { background: #13876f; }
+
+/* ---- アカウントメニューの中身（account-menu.ts が差し込む） ---- */
+.acct-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border-tertiary, #eee);
+}
+.acct-avatar {
+  font-size: 30px;
+  line-height: 1;
+  flex: none;
+  width: 46px; height: 46px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--color-background-secondary, #f2f3f5);
+  border-radius: 999px;
+}
+.acct-who-text { min-width: 0; }
+.acct-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary, #2c3e50);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.acct-kind { font-size: 11px; color: var(--color-text-tertiary, #868d95); }
+.acct-title { font-size: 11px; color: var(--color-text-secondary, #6b727c); margin-top: 2px; }
+
+/* ボタンは縦に積む。切替（副次）とログアウト（離脱）で役を分ける */
+.acct-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+.acct-actions .btn { width: 100%; margin: 0; }
+.acct-note {
+  margin: 12px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-text-tertiary, #868d95);
+}
 
 /* ---- ヨット対決オーバーレイ ★Step 2★（PC/従来UI共通・body直下） ---- */
 #duel-overlay {

@@ -27,6 +27,11 @@ export function setAccountBarName(name: string): void {
   syncAccountBar();
 }
 
+/** いま表示している名前（アカウントメニューが見出しに使う） */
+export function getAccountBarName(): string {
+  return displayName;
+}
+
 /**
  * アカウントチップの表示/非表示と中身を、指定画面（省略時は現在の画面）に
  * 合わせて更新する。ログインしていなければ常に非表示。
