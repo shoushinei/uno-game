@@ -1,23 +1,49 @@
-name: Deploy to GitHub Pages
+# テスト → ビルド → デプロイ の3段構成。
+# 前の段が失敗したら後ろの段は動かないので、テストや型チェックに
+# 落ちたコードは GitHub Pages に公開されない。
+name: CI and Deploy
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master ]   # master への push：テスト → ビルド → デプロイ
+  pull_request:            # PR：テスト → ビルドまで（デプロイはしない）
+  workflow_dispatch:       # Actions タブから手動でも実行できる
 
+# 既定の権限は「リポジトリを読むだけ」。書き込みが要る deploy だけ個別に足す（最小権限）
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# 同じブランチ／PR で新しい push が来たら、古い実行は打ち切る
 concurrency:
-  group: "pages"
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  # ① 型チェックと単体テスト（vitest）
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npx vitest run
+
+  # ② ビルド（test が成功したときだけ）。成果物 dist/ を次の段へ渡す
+  build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,13 +61,25 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'
+
+  # ③ 公開（build が成功し、かつ master への push のときだけ。PR では動かない）
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write      # Pages へ公開する
+      id-token: write   # OIDC で Pages に認証する（Secrets 不要）
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
 
       - name: Deploy to GitHub Pages
         id: deployment
